@@ -1,0 +1,819 @@
+{
+  "sources": [
+    {
+      "id": "edinet_api_v2_japan_fsa",
+      "name": "EDINET API v2 (Japan FSA)",
+      "provider": "Financial Services Agency of Japan (Kinyu-cho)",
+      "kinds": [
+        "fundamentals",
+        "filings"
+      ],
+      "coverage": "All ~4,000+ listed Japanese companies plus REITs/funds; Securities Reports (yukashoken hokokusho) and quarterly reports in XBRL, consolidated income statement / balance sheet / cash flow under J-GAAP, IFRS and US-GAAP. History roughly 2008-present (XBRL era).",
+      "access_method": "rest_api",
+      "endpoint": "https://api.edinet-fsa.go.jp/api/v2/documents.json (list) and /api/v2/documents/{docID}?type=1 (ZIP of XBRL)",
+      "auth": "free_key",
+      "free_tier": "Free. Requires a free Subscription-Key obtained from the EDINET site. No published hard call cap; intended for bulk/programmatic pulls. Each docID download returns full XBRL ZIP.",
+      "license": "public_domain",
+      "update_freq": "Continuous on filing; document-list endpoint is queried per calendar date (date=YYYY-MM-DD).",
+      "notes": "Authoritative regulator-filed XBRL \u2014 highest quality for Japan. Catch: raw XBRL with Japanese-language taxonomy element labels; you must map EDINET taxonomy tags to line items yourself (open-source libs like edinet-tools/xbrr help). EDINET data is distributed under Japan's Public Data License 1.0 (CC-BY-compatible), so commercial redistribution is permitted with attribution. Not pre-computed ratios \u2014 financials only.",
+      "sample_hint": "GET https://api.edinet-fsa.go.jp/api/v2/documents.json?date=2026-05-15&type=2&Subscription-Key=KEY to list filings for a day, grab a docID, then GET https://api.edinet-fsa.go.jp/api/v2/documents/{docID}?type=1&Subscription-Key=KEY for the XBRL ZIP.",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "filings_xbrl_org_esef_uksef_filing_index",
+      "name": "filings.xbrl.org (ESEF / UKSEF filing index)",
+      "provider": "XBRL International",
+      "kinds": [
+        "fundamentals",
+        "filings"
+      ],
+      "coverage": "~25,000 annual financial report filings from issuers on EU regulated markets plus UK (ESEF/UKSEF). Countries include AT, BE, CY, CZ, DK, EE, ES, FI, FR, GB, GR, HR, HU, IS, IT, LT, LU, LV, MT, NL, NO, PL, PT, RO, SE, SI, SK, UA. IFRS consolidated statements tagged in iXBRL. Annual only (no quarterly), from FY2020 onward (ESEF mandate).",
+      "access_method": "rest_api",
+      "endpoint": "https://filings.xbrl.org/api/filings",
+      "auth": "none",
+      "free_tier": "Free, no key. Provider reserves right to rate-limit or withdraw; recommends joining mailing list for heavy use. JSON:API with pagination, filtering, sorting.",
+      "license": "redistribution_ok",
+      "update_freq": "Rolling as issuers file annual reports (mostly Q1-Q2 each year for prior FY).",
+      "notes": "Only free, structured, machine-readable access to pan-European listed-company financials. Catch: it indexes the official iXBRL report packages \u2014 you still parse the iXBRL to extract line items, and tagging granularity is the IFRS primary statements (full footnote tagging is limited). Coverage is annual consolidated only; no ratios. Underlying ESEF reports are public-domain regulator filings; the index itself is offered free for reuse.",
+      "sample_hint": "GET https://filings.xbrl.org/api/filings?filter[country]=GB&include=entity&sort=-processed&page[size]=10 \u2014 returns filing metadata + links to the iXBRL report packages to download and parse.",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "uk_companies_house_free_accounts_data_pr",
+      "name": "UK Companies House \u2014 Free Accounts Data Product (bulk) + API",
+      "provider": "Companies House (UK Government)",
+      "kinds": [
+        "fundamentals",
+        "filings"
+      ],
+      "coverage": "UK private + public companies (~2.2M annual filings; ~5,000 sets/day, ~97% electronic). iXBRL/XBRL accounts. Covers vast private-company universe most APIs miss, but only ~40-75% of filings are structured machine-readable; many small-co filings are abridged.",
+      "access_method": "bulk_file",
+      "endpoint": "Bulk: https://download.companieshouse.gov.uk/en_accountsdata.html (daily ZIPs Accounts_Bulk_Data-YYYY-MM-DD.zip); REST API: https://api.company-information.service.gov.uk/",
+      "auth": "free_key",
+      "free_tier": "Bulk ZIPs are free, no key. REST API free with a registered key; rate limit 600 requests / 5 minutes. Daily files retained 60 days then moved to monthly archives.",
+      "license": "public_domain",
+      "update_freq": "Daily (Tue-Sat morning files).",
+      "notes": "Released under the UK Open Government Licence (effectively public domain, attribution). Best free source for UK private-company fundamentals. Catch: data is the filed accounts only \u2014 line-item depth varies hugely (micro-entity/abridged accounts may have only a balance sheet, no P&L); no ratios; iXBRL parsing required. The REST API serves metadata/filing history, not the parsed financials \u2014 use the bulk product for the actual numbers.",
+      "sample_hint": "Download a daily ZIP from https://download.companieshouse.gov.uk/en_accountsdata.html, unzip, parse the per-company .html iXBRL files; or GET https://api.company-information.service.gov.uk/company/{number}/filing-history with HTTP Basic auth (key as username).",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "eodhd_fundamentals_data_feed",
+      "name": "EODHD Fundamentals Data Feed",
+      "provider": "EOD Historical Data (EODHD)",
+      "kinds": [
+        "fundamentals",
+        "price",
+        "corp_actions"
+      ],
+      "coverage": "70+ exchanges / 150,000+ tickers worldwide incl. Europe, Asia, EM, ASX, India, Canada. Income statement / balance sheet / cash flow / ratios / highlights. Non-US fundamentals history from ~2000 (US from 1985).",
+      "access_method": "rest_api",
+      "endpoint": "https://eodhd.com/api/fundamentals/{SYMBOL}.{EXCHANGE}?api_token=KEY&fmt=json",
+      "auth": "paid",
+      "free_tier": "Free trial tier is essentially unusable for this purpose: 20 API calls/day, personal use only, 1-year data range. Real access requires Fundamentals Data Feed ~$59.99/mo (or All-In-One $99.99/mo); paid = 100,000 calls/day.",
+      "license": "personal_only",
+      "update_freq": "Daily; fundamentals refreshed as new filings post.",
+      "notes": "One of the best-value broad international fundamentals feeds and a realistic answer to the non-US gap. BUT licensing is the catch: standard plans grant internal/personal use; redistribution or public display of the data requires a separate commercial/redistribution agreement (contact sales). So treat the standard subscription as research/internal only until you sign a commercial license. Quality is good for large/mid caps, thinner and occasionally stale for frontier small caps.",
+      "sample_hint": "GET https://eodhd.com/api/fundamentals/SAP.XETRA?api_token=KEY&fmt=json (Germany) or RELIANCE.NSE (India), TD.TO (Canada), 7203.TSE (Japan).",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "simfin_api_bulk_datasets",
+      "name": "SimFin API + bulk datasets",
+      "provider": "SimFin GmbH",
+      "kinds": [
+        "fundamentals",
+        "price"
+      ],
+      "coverage": "Standardized income statement / balance sheet / cash flow / derived ratios. Free tier = ~5,000 US stocks only, 5yr history. Paid tiers add longer history and expanding non-US (Europe/global) coverage, but international breadth is still modest vs EODHD.",
+      "access_method": "bulk_file",
+      "endpoint": "https://backend.simfin.com/api/v3/... (REST) and bulk CSV download; Python package `simfin`",
+      "auth": "free_key",
+      "free_tier": "Free key: ~500 high-speed credits/month, 2 req/sec, 5yr history, US-only datasets. Paid START $15/mo, BASIC $35/mo, PRO $71/mo unlock more history/credits and broader coverage.",
+      "license": "redistribution_ok",
+      "update_freq": "Fundamentals updated as filings post; bulk datasets refreshed regularly.",
+      "notes": "Cleanest licensing story of the commercial vendors \u2014 SimFin explicitly allows reuse/redistribution of its standardized data (it positions itself as open financial data), making it commercial-product-safe. Data is well-standardized across companies (good for ratio computation). Catch: the headline strength is US; non-US coverage is real but still the weakest of the paid options here for EM/frontier. Confirm exact non-US ticker list before relying on it.",
+      "sample_hint": "Python: import simfin as sf; sf.set_api_key('KEY'); sf.load_income(variant='annual', market='us'); or REST GET https://backend.simfin.com/api/v3/companies/statements/compact?ticker=AAPL&statements=PL&fyear=2024 with Authorization header.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "financial_modeling_prep_fmp",
+      "name": "Financial Modeling Prep (FMP)",
+      "provider": "Financial Modeling Prep",
+      "kinds": [
+        "fundamentals",
+        "price",
+        "corp_actions"
+      ],
+      "coverage": "25,000+ stocks across international exchanges incl. TSX/SEDAR (Canada), Euronext, XETRA (Germany), NSE (India), LSE (UK), and others. Income statement / balance sheet / cash flow / ratios / growth metrics.",
+      "access_method": "rest_api",
+      "endpoint": "https://financialmodelingprep.com/api/v3/income-statement/{SYMBOL}?apikey=KEY",
+      "auth": "paid",
+      "free_tier": "Free: 250 requests/day, 5yr annual statements, but US-symbols-only on free and explicitly NO display/redistribution. Non-US fundamentals require a paid plan; public display requires a separate Data Display & Licensing Agreement.",
+      "license": "personal_only",
+      "update_freq": "Daily / intraday for prices; fundamentals on filing.",
+      "notes": "Broad international symbol list and easy JSON make it attractive, but two catches hit this product directly: (1) free tier is US-only, so the non-US gap forces a paid plan; (2) individual/standard plans prohibit displaying or redistributing data to end users \u2014 a public product needs FMP's separate Data Display & Licensing Agreement. Treat as research-only until that agreement is signed. Some non-US small-cap coverage is shallow.",
+      "sample_hint": "GET https://financialmodelingprep.com/api/v3/income-statement/SAP.DE?period=annual&limit=5&apikey=KEY (Germany) or BMW.DE, RELIANCE.NS (India), SHOP.TO (Canada).",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "finnhub",
+      "name": "Finnhub",
+      "provider": "Finnhub.io",
+      "kinds": [
+        "fundamentals",
+        "price",
+        "news",
+        "filings"
+      ],
+      "coverage": "Global company fundamentals (financials-reported, basic financials/metrics) across many international exchanges on premium tiers. Free tier is largely US/basic.",
+      "access_method": "rest_api",
+      "endpoint": "https://finnhub.io/api/v1/stock/financials-reported?symbol=...&token=KEY",
+      "auth": "paid",
+      "free_tier": "Free: 60 calls/min, but free explicitly restricts commercial use and full international financial statements are gated to paid. Premium fundamentals/international plans ~$50-100/mo, with some international real-time feeds priced per-market.",
+      "license": "personal_only",
+      "update_freq": "Daily; financials on filing.",
+      "notes": "Decent global fundamentals on premium, clean REST API. Catches for this product: free tier prohibits commercial use, and the genuinely useful non-US fundamentals sit behind premium + sometimes per-market add-ons, so cost can climb. Non-US financial-statement depth is good for large caps, patchier for EM small caps. Confirm exact per-exchange fundamentals coverage with sales before committing.",
+      "sample_hint": "GET https://finnhub.io/api/v1/stock/financials-reported?symbol=RELIANCE.NS&token=KEY or /stock/metric?symbol=SAP.DE&metric=all&token=KEY.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "financialreports_eu_api",
+      "name": "FinancialReports.eu API",
+      "provider": "FinancialReports.eu",
+      "kinds": [
+        "filings",
+        "fundamentals",
+        "news"
+      ],
+      "coverage": "44 European markets, ~31,550 companies, 13M+ historical filings. Quarterly/annual results, annual reports, material events. Also offers India coverage via a separate endpoint. Filing content as JSON metadata, Markdown, and original source files; standardized financial line-items on higher tiers.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.financialreports.eu/ (docs at https://docs.financialreports.eu/)",
+      "auth": "free_key",
+      "free_tier": "Free Standard Access (Level 1), no card: raw filings metadata, company profiles, reference data. AI-ready Markdown and standardized financial line-items are paid tiers (enterprise/usage-based).",
+      "license": "unknown",
+      "update_freq": "Real-time as European filings are published.",
+      "notes": "Useful complement that turns ESEF/national EU filings into developer-friendly JSON/Markdown, broader and easier than parsing raw iXBRL yourself. Catches: the genuinely useful structured financial line-items are a paid tier (free tier is metadata only), and redistribution/commercial-display terms are not clearly published \u2014 verify license with them before public use. Good for breadth of European issuers including smaller caps.",
+      "sample_hint": "Register for a free key, then GET https://api.financialreports.eu/filings/?country=DE (metadata) per docs.financialreports.eu; financial line-items require a paid plan.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "tiingo_fundamentals_add_on",
+      "name": "Tiingo Fundamentals (add-on)",
+      "provider": "Tiingo",
+      "kinds": [
+        "fundamentals",
+        "price"
+      ],
+      "coverage": "Primarily US stocks, ADRs, and a growing set of Chinese equities. Income statement / balance sheet / cash flow / daily metrics. Native non-US (ex-China/ADR) fundamentals are limited.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.tiingo.com/tiingo/fundamentals/{ticker}/statements?token=KEY",
+      "auth": "free_key",
+      "free_tier": "Free tier exists (low rate limits, 5yr fundamentals); fundamentals are a paid add-on coordinated with a third-party provider \u2014 contact sales for commercial tiers. Power plan ~$30-50/mo range.",
+      "license": "redistribution_ok",
+      "update_freq": "Daily.",
+      "notes": "Cheap and clean for US + ADRs + China, and Tiingo's commercial terms are reasonable for product use. But for the actual non-US gap (Europe/EM/frontier ex-China) it does NOT solve the problem \u2014 coverage is US-centric. Include it only as a low-cost way to cover non-US companies that trade as US ADRs, plus China. Verify exact China ticker list before relying on it.",
+      "sample_hint": "GET https://api.tiingo.com/tiingo/fundamentals/BABA/statements?token=KEY (ADR) \u2014 works for US-listed and ADR tickers; most ex-China local-listed tickers are not covered.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "yfinance_yahoo_finance_unofficial",
+      "name": "yfinance / Yahoo Finance (unofficial)",
+      "provider": "Yahoo Finance (via community yfinance library)",
+      "kinds": [
+        "fundamentals",
+        "price"
+      ],
+      "coverage": "Very broad international ticker universe via exchange-suffixed symbols (e.g. SAP.DE, 7203.T, RELIANCE.NS, SHOP.TO). Income statement / balance sheet / cash flow, typically ~4 years annual + quarterly.",
+      "access_method": "scrape",
+      "endpoint": "Python: yfinance.Ticker('SAP.DE').financials / .balance_sheet / .cashflow (scrapes query2.finance.yahoo.com)",
+      "auth": "none",
+      "free_tier": "Free, no key, but unofficial: subject to undocumented rate limiting/throttling and breakage when Yahoo changes endpoints.",
+      "license": "prohibited",
+      "update_freq": "Daily-ish, follows Yahoo.",
+      "notes": "Broadest free non-US ticker reach and great for prototyping/research, which is why it's tempting for exactly this gap. But two hard catches: (1) Yahoo's Terms of Service prohibit redistribution/commercial use of the data and yfinance is not an official API \u2014 NOT safe for a public commercial product; (2) Yahoo has been trimming the depth of statement fields, so completeness has degraded and can break without notice. Use only for research/validation, never as the production source.",
+      "sample_hint": "Python: import yfinance as yf; yf.Ticker('RELIANCE.NS').income_stmt \u2014 returns annual income statement DataFrame for the NSE listing.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "india_nse_bse_corporate_filings_xbrl",
+      "name": "India: NSE / BSE corporate filings (XBRL)",
+      "provider": "National Stock Exchange of India / BSE Ltd",
+      "kinds": [
+        "fundamentals",
+        "filings",
+        "corp_actions"
+      ],
+      "coverage": "All NSE/BSE-listed Indian companies. Quarterly + annual financial results and shareholding patterns in XBRL (BSE was first Indian exchange to mandate XBRL).",
+      "access_method": "scrape",
+      "endpoint": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results ; BSE XBRL via Listing Centre",
+      "auth": "none",
+      "free_tier": "Free to access the public filing pages/XBRL, but there is no clean official developer REST API; NSE in particular requires browser-like headers/session cookies and aggressively blocks naive scraping.",
+      "license": "unknown",
+      "update_freq": "On filing (quarterly results season heavy in Jan/Apr/Jul/Oct).",
+      "notes": "Authoritative, free source for Indian fundamentals, but operationally painful: no documented API, anti-scraping measures on NSE, and XBRL parsing required. Redistribution terms for the exchange data are not clearly open \u2014 verify before public use. For a product, the cheapest practical path to clean Indian fundamentals is usually a paid feed (EODHD/FMP cover NSE) rather than scraping the exchanges directly; commercial third-party India APIs (FinEdge, FinancialReports) exist but were not license-v",
+      "sample_hint": "Browser/session-based fetch of https://www.nseindia.com/api/corporates-financial-results?index=equities (requires prior GET to set cookies + realistic headers); then download the referenced XBRL.",
+      "verified_live": true,
+      "confidence": "low"
+    },
+    {
+      "id": "stooq_free_historical_bulk_market_data",
+      "name": "Stooq \u2014 Free Historical & Bulk Market Data",
+      "provider": "Stooq.com (Poland)",
+      "kinds": [
+        "price",
+        "index_valuation"
+      ],
+      "coverage": "Global: ~56 indices (^SPX, ^DAX, ^NKX/Nikkei, ^FTM/FTSE, etc.), world stocks, ETFs, FX (66 pairs), bonds, crypto. Daily history is deep (decades); hourly and 5-min intraday limited to ~last 2000 points (~1 month).",
+      "access_method": "bulk_file",
+      "endpoint": "https://stooq.com/db/h/ (bulk daily/hourly/5min zips) and per-symbol CSV at https://stooq.com/q/d/l/?s={symbol}&i=d",
+      "auth": "none",
+      "free_tier": "No API key. Per-symbol CSV endpoint has an undocumented low daily request quota and now enforces a JavaScript proof-of-work bot wall (plain curl/WebFetch are blocked \u2014 see notes). Bulk download zips at /db/ remain the intended bulk path.",
+      "license": "unknown",
+      "update_freq": "EOD daily after market close; intraday 5-min/hourly snapshots intraday.",
+      "notes": "Historically the go-to free global-index source. CRITICAL CHANGE verified 2026-06: the per-symbol CSV/quote endpoints (stooq.com/q/...) now return a SHA-256 proof-of-work JS challenge to non-browser clients, so direct curl/server fetches fail; a headless browser or the bulk /db/ zips are needed. Terms page (stooq.com/terms.html) exists but could not be machine-read (same JS wall); license for commercial redistribution is not clearly granted \u2014 treat as unknown/personal until you read terms in a b",
+      "sample_hint": "Browser/headless: GET https://stooq.com/q/d/l/?s=^dax&i=d returns CSV (Date,Open,High,Low,Close,Volume). Bulk: download daily world zip from https://stooq.com/db/h/ .",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "yahoo_finance_chart_api_v8_global_index_",
+      "name": "Yahoo Finance chart API (v8) \u2014 global index & equity prices",
+      "provider": "Yahoo (Apex/Verizon Media), unofficial endpoint",
+      "kinds": [
+        "price",
+        "fx"
+      ],
+      "coverage": "Excellent global index coverage: ^N225 (Nikkei/Osaka), ^GDAXI (DAX), ^FTSE, ^FCHI, ^HSI, ^STOXX50E, ^BSESN, etc., plus listed equities on non-US exchanges via suffixes (e.g. IWDA.AS, 7203.T). EOD history multi-decade; intraday 1m up to ~7d, 5m up to ~60d.",
+      "access_method": "rest_api",
+      "endpoint": "https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval={1m|5m|1d}&range={1d|7d|60d|max}",
+      "auth": "none",
+      "free_tier": "No key. Undocumented soft rate limits (HTTP 429 under heavy load); occasional need for a crumb/cookie for some endpoints, but the v8/chart endpoint works key-free.",
+      "license": "personal_only",
+      "update_freq": "Real-time/near-real-time intraday (15-min delay on many indices); EOD updated end of session.",
+      "notes": "Verified live 2026-06: ^N225 and ^GDAXI returned full JSON (OHLC, currency, exchange, 52wk hi/lo); 1m/5m intraday for ^FTSE/^GDAXI returned 200 JSON. PROHIBITED for commercial productization: Yahoo Developer API Terms state the API is for personal use only and forbid redistribution / deriving income; yfinance is unaffiliated and 'research/educational' only. Great for prototyping; do NOT ship in a public commercial product without a license.",
+      "sample_hint": "curl -A Mozilla 'https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?interval=1d&range=5d'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ishares_blackrock_etf_holdings_csv_index",
+      "name": "iShares (BlackRock) ETF Holdings CSV \u2014 index-level valuation proxy",
+      "provider": "BlackRock / iShares",
+      "kinds": [
+        "index_valuation",
+        "fundamentals",
+        "corp_actions"
+      ],
+      "coverage": "Per-ETF holdings files for funds tracking global indices: EFA (MSCI EAFE), IEFA, URTH/IWDA (MSCI World), EEM (MSCI EM), EWJ (Japan), EWU (UK/FTSE), etc. Holdings list (constituents + weights) plus fund-level characteristics (P/E, P/B, yield on product page / factsheet) approximate the underlying index valuation.",
+      "access_method": "bulk_file",
+      "endpoint": "https://www.ishares.com/us/products/{productId}/{slug}/{ajaxId}.ajax?fileType=csv&fileName={TICKER}_holdings&dataType=fund",
+      "auth": "none",
+      "free_tier": "No key, no rate limit published; large CSVs returned directly.",
+      "license": "personal_only",
+      "update_freq": "Holdings updated daily (T+1); fund characteristics/valuation refreshed daily\u2013monthly.",
+      "notes": "Verified live 2026-06: IWB holdings .ajax CSV returned HTTP 200 text/csv. NOTE the exact ajaxId path segment matters \u2014 a stale id redirects to an HTML product page. BlackRock terms restrict the site to personal & internal, non-commercial use and explicitly prohibit copying/distributing/creating derivative works; third-party (index provider, e.g. MSCI/FTSE) content has further restrictions. So usable for personal research only, NOT for a public commercial product. Best free path to index-constitu",
+      "sample_hint": "Get the .ajax CSV link from the 'Holdings > Download' button on the fund page, e.g. https://www.ishares.com/us/products/239623/ishares-msci-eafe-etf/.../EFA_holdings.csv",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "twelve_data_api_global_indices_equities",
+      "name": "Twelve Data API \u2014 Global Indices & Equities",
+      "provider": "Twelve Data (Italy/US)",
+      "kinds": [
+        "price",
+        "fx",
+        "fundamentals"
+      ],
+      "coverage": "Real-time + historical for indices across Americas, Europe, Asia, Africa, Australia, and global equities. Free tier is largely US equities/FX/crypto; international indices/equities mostly gated to paid plans (trial symbols only on free).",
+      "access_method": "rest_api",
+      "endpoint": "https://api.twelvedata.com/time_series?symbol=DAX&interval=1day&apikey=KEY (also /quote, /price)",
+      "auth": "free_key",
+      "free_tier": "Basic free plan: 8 API credits/min and 800 credits/day. International markets and many index symbols require a paid plan (from ~$29/mo).",
+      "license": "personal_only",
+      "update_freq": "Real-time (paid) to delayed; EOD daily; intraday 1min+.",
+      "notes": "Terms verified live 2026-06 (twelvedata.com/terms \u00a72.3): free-tier data is internal/non-commercial evaluation only \u2014 commercial use, redistribution, resale, and third-party display are explicitly prohibited without a paid plan or Redistribution Rights Add-On. Clean, well-documented API but free tier is research-only and international index coverage needs paid plan.",
+      "sample_hint": "curl 'https://api.twelvedata.com/time_series?symbol=DAX&interval=1day&outputsize=30&apikey=YOUR_KEY'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "marketstack_api_apilayer_72_global_excha",
+      "name": "Marketstack API (APILayer) \u2014 72+ global exchanges EOD",
+      "provider": "APILayer / marketstack",
+      "kinds": [
+        "price"
+      ],
+      "coverage": "EOD, intraday (paid), and historical for 125k+ tickers across 72+ exchanges incl. LSE, Euronext, XETRA, TSE, HKEX; index data and tickers. US data is sourced from Tiingo.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.marketstack.com/v1/eod?access_key=KEY&symbols=AAPL.XNAS",
+      "auth": "free_key",
+      "free_tier": "Free plan: 100 requests/month (recently reduced from older 250/1000), EOD only, up to 12 months history, HTTP-only on some tiers. Intraday, commercial use, and 10y+ history require paid plans.",
+      "license": "personal_only",
+      "update_freq": "EOD daily; intraday (paid).",
+      "notes": "Terms (marketstack.com/terms & /agreement) verified via search: end-users may only use data for personal use; storage/distribution/exploitation by end users is prohibited; commercial use is a paid-plan feature. Free plan's 100 req/mo is very limiting for index coverage. Good breadth of non-US exchanges but free tier is effectively research-only.",
+      "sample_hint": "curl 'https://api.marketstack.com/v1/eod?access_key=KEY&symbols=VOD.XLON&date_from=2026-01-01&date_to=2026-06-01'",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "alpha_vantage_api_global_equities_fx_lim",
+      "name": "Alpha Vantage API \u2014 global equities & FX (limited index support)",
+      "provider": "Alpha Vantage",
+      "kinds": [
+        "price",
+        "fundamentals",
+        "fx"
+      ],
+      "coverage": "Global equities on 20+ exchanges (LSE, XETRA, TSE etc.) via symbol suffixes, FX, crypto, fundamentals. NOTE: direct equity-index level data is weak (Alpha Vantage focuses on tickers/ETFs, not index quotes); use index ETFs as proxies.",
+      "access_method": "rest_api",
+      "endpoint": "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=TSCO.LON&apikey=KEY",
+      "auth": "free_key",
+      "free_tier": "Free: 25 requests/day, 5 requests/min. No daily cap on premium.",
+      "license": "personal_only",
+      "update_freq": "EOD daily; intraday 1/5/15/30/60min.",
+      "notes": "Free key trivially obtained. 25 req/day is very restrictive for broad index/equity pulls. NASDAQ-licensed; exchange-licensed redistribution and business use require separate onboarding/licensing (i.e. free tier ToS does not grant commercial redistribution). They request wrappers preserve JSON/CSV content. Best for low-volume global single-ticker pulls, not bulk index data.",
+      "sample_hint": "curl 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=SAP.DEX&apikey=demo'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "eodhd_eod_historical_data_api_60_exchang",
+      "name": "EODHD (EOD Historical Data) API \u2014 60+ exchanges, indices, intraday",
+      "provider": "EODHD APIs (Unicorn Data Services)",
+      "kinds": [
+        "price",
+        "fundamentals",
+        "index_valuation",
+        "corp_actions"
+      ],
+      "coverage": "60-70+ global exchanges, 150k+ tickers, dedicated index endpoints (e.g. GSPC.INDX, GDAXI.INDX, N225.INDX), 30+ years history, intraday 1m/5m, fundamentals incl. index/ETF valuation.",
+      "access_method": "rest_api",
+      "endpoint": "https://eodhd.com/api/eod/{SYMBOL}.{EXCHANGE}?api_token=KEY&fmt=json",
+      "auth": "free_key",
+      "free_tier": "Free demo plan: 20 API calls/day, US exchanges + limited symbols only, ~1 year EOD history. Full global/index coverage requires paid plans (from ~$20/mo).",
+      "license": "personal_only",
+      "update_freq": "EOD daily; intraday 1m/5m; real-time (paid).",
+      "notes": "Verified via docs/search: free plan is personal/non-commercial and US-restricted; commercial use, display to end-users, and redistribution require paid commercial/B2B plans (which DO bundle exchange redistribution rights \u2014 notable, since most peers don't). Strong dedicated index endpoints (.INDX suffix) make it one of the better paid choices for global index data; free tier is research-only.",
+      "sample_hint": "curl 'https://eodhd.com/api/eod/GDAXI.INDX?api_token=demo&fmt=json' (demo token limited to AAPL.US etc.)",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "dbnomics_open_economic_financial_time_se",
+      "name": "DBnomics \u2014 open economic & financial time-series aggregator",
+      "provider": "DBnomics (CEPREMAP, France)",
+      "kinds": [
+        "macro",
+        "fx",
+        "index_valuation"
+      ],
+      "coverage": "Aggregates 90+ providers (ECB, Eurostat, BIS, IMF, OECD, national stats, WSE/BdF). Includes FX, interest rates, some equity-index and valuation series from official sources; NOT a tick/price feed for live index levels.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.db.nomics.world/v22/series/{provider}/{dataset}/{series}?observations=1",
+      "auth": "none",
+      "free_tier": "Fully free, no key, generous public API (please be reasonable with volume). JSON.",
+      "license": "redistribution_ok",
+      "update_freq": "Varies by source (daily FX, monthly/quarterly macro).",
+      "notes": "Verified live 2026-06: Eurostat series and /providers returned HTTP 200 JSON. Aggregated dataset distributed under ODbL (redistribution allowed with attribution/share-alike); fetcher code AGPLv3+. IMPORTANT: each underlying series inherits its ORIGINAL provider's license, so verify per-series before commercial redistribution. The cleanest license posture here, but it is macro/official-data oriented, not a real-time global-index price feed \u2014 best for FX, rates, and official index/valuation refere",
+      "sample_hint": "curl 'https://api.db.nomics.world/v22/series/ECB/FM/D.U2.EUR.4F.KR.MRR_FR.LEV?observations=1'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "tiingo_api_eod_prices_us_china_weak_non_",
+      "name": "Tiingo API \u2014 EOD prices (US + China; weak non-US)",
+      "provider": "Tiingo, Inc. (US)",
+      "kinds": [
+        "price",
+        "fundamentals",
+        "news"
+      ],
+      "coverage": "32,000+ US & Chinese equities/ETFs/mutual funds EOD; IEX real-time; limited true non-US coverage (no broad European/Japanese index or equity feed). Index exposure mainly via US-listed ETFs.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.tiingo.com/tiingo/daily/{ticker}/prices?token=KEY",
+      "auth": "free_key",
+      "free_tier": "Free: 50 requests/hour, 1,000/day, 1GB/month, up to 500 unique symbols/month.",
+      "license": "personal_only",
+      "update_freq": "EOD daily; IEX real-time intraday.",
+      "notes": "Included for completeness \u2014 verified pricing/limits via search. Free tier ToS = personal internal use only (no display/sharing); commercial internal use is a separate paid tier ($50/mo); redistribution needs explicit licensing. Geographically it is the WEAKEST fit for the GLOBAL/non-US mandate (US + China only). Marketstack actually sources its US data from Tiingo. Use only if you need US+China EOD; not recommended for European/Asian index coverage.",
+      "sample_hint": "curl 'https://api.tiingo.com/tiingo/daily/aapl/prices?token=YOUR_TOKEN'",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "gdelt_2_0_doc_api",
+      "name": "GDELT 2.0 DOC API",
+      "provider": "The GDELT Project (Kalev Leetaru / Google Jigsaw-backed)",
+      "kinds": [
+        "news"
+      ],
+      "coverage": "Global. Monitors worldwide online news in 65+ machine-translated languages; rolling ~3-month full-text window (DOC API), back to 2017 in the broader dataset. Best for global event detection and topic/theme search.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.gdeltproject.org/api/v2/doc/doc",
+      "auth": "none",
+      "free_tier": "No API key. Free public endpoint enforces ~1 request / 5 seconds (server returns a 'limit requests to one every 5 seconds' notice; contact maintainer for higher volume). No documented daily cap.",
+      "license": "redistribution_ok",
+      "update_freq": "Updates every 15 minutes (near-real-time); article seendate granularity to 15-min slots.",
+      "notes": "Latency ~15 min. NOT ticker-tagged: returns article URL, title, domain, seendate, language, sourcecountry, socialimage. To map to a ticker you must run your own entity/company resolution (company name -> ticker) or pair with GKG themes. Excellent for breadth and non-English coverage; weak for precise security-level mapping. License requires citation + link to GDELT.",
+      "sample_hint": "curl -A 'app contact@example.com' 'https://api.gdeltproject.org/api/v2/doc/doc?query=Apple&mode=ArtList&format=json&maxrecords=10&timespan=1d'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "gdelt_gkg_events_bulk_files_bigquery",
+      "name": "GDELT GKG / Events bulk files + BigQuery",
+      "provider": "The GDELT Project",
+      "kinds": [
+        "news",
+        "macro"
+      ],
+      "coverage": "Global. Global Knowledge Graph (themes, persons, organizations, locations, tone, sentiment) and Event database (CAMEO-coded geopolitical events). Updated continuously since 2015 (GKG) / 1979 (events historical).",
+      "access_method": "bulk_file",
+      "endpoint": "http://data.gdeltproject.org/gdeltv2/lastupdate.txt (then download the listed CSV.zip files); also AWS Open Data + Google BigQuery 'gdelt-bq'",
+      "auth": "none",
+      "free_tier": "Fully free. 15-minute CSV drops, each ~ a few MB zipped. No key. BigQuery usage incurs Google's own query costs but the dataset hosting is free.",
+      "license": "redistribution_ok",
+      "update_freq": "New file every 15 minutes.",
+      "notes": "Richer than the DOC API for event/entity extraction: GKG gives organization names + V2Themes you can map toward companies, plus document-level tone for sentiment. Still needs your own org-name->ticker crosswalk. Best for building your own event stream rather than per-ticker lookups. Attribution to GDELT required.",
+      "sample_hint": "curl http://data.gdeltproject.org/gdeltv2/lastupdate.txt  # returns latest export/mentions/gkg zip URLs, then fetch each",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "sec_edgar_data_sec_gov_apis_submissions_",
+      "name": "SEC EDGAR data.sec.gov APIs (submissions + XBRL)",
+      "provider": "U.S. Securities and Exchange Commission",
+      "kinds": [
+        "filings",
+        "corp_actions",
+        "fundamentals"
+      ],
+      "coverage": "All U.S.-listed and SEC-reporting issuers. Per-filer filing history (10-K, 10-Q, 8-K, S-1, 13D/G, Form 4, etc.) and structured XBRL financial facts.",
+      "access_method": "rest_api",
+      "endpoint": "https://data.sec.gov/submissions/CIK0000320193.json (recent filings); https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+      "auth": "none",
+      "free_tier": "No key. Hard limit 10 requests/second/IP across all EDGAR endpoints; must send a descriptive User-Agent with contact email or you get blocked. Exceeding -> ~10 min IP block.",
+      "license": "public_domain",
+      "update_freq": "submissions API processing delay typically <1 second; XBRL APIs <1 minute. Effectively real-time on filing acceptance.",
+      "notes": "submissions JSON includes tickers[] and exchanges[] arrays, so mapping CIK->ticker is built in (verified: AAPL/Nasdaq). U.S. government work = public domain, free for commercial use and redistribution. For a push 'stream' of new 8-Ks pair with the EDGAR Atom/RSS full-text feeds (efts.sec.gov/LATEST/search-index and /cgi-bin/browse-edgar?output=atom).",
+      "sample_hint": "curl -A 'YourApp contact@example.com' https://data.sec.gov/submissions/CIK0000320193.json",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "sec_edgar_full_text_search_efts_api",
+      "name": "SEC EDGAR Full-Text Search (EFTS) API",
+      "provider": "U.S. Securities and Exchange Commission",
+      "kinds": [
+        "filings",
+        "news"
+      ],
+      "coverage": "Full text of all EDGAR filings since 2001. Search any phrase/company across 10-K/10-Q/8-K/proxy/etc.",
+      "access_method": "rest_api",
+      "endpoint": "https://efts.sec.gov/LATEST/search-index?q=%22artificial+intelligence%22&forms=8-K",
+      "auth": "none",
+      "free_tier": "No key; same EDGAR 10 req/sec/IP fair-access limit; descriptive User-Agent required.",
+      "license": "public_domain",
+      "update_freq": "New filings searchable within minutes of acceptance.",
+      "notes": "Returns filing hits with CIK, form type, filed date, accession number \u2014 combine with submissions API to resolve ticker. Use forms=8-K + dateRange for a near-real-time material-event stream. Public domain, commercial-safe. The UI/FAQ also expose RSS for saved searches.",
+      "sample_hint": "curl -A 'YourApp contact@example.com' 'https://efts.sec.gov/LATEST/search-index?q=%22going+concern%22&forms=8-K&dateRange=custom&startdt=2026-06-01&enddt=2026-06-27'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "edinet_api_v2",
+      "name": "EDINET API v2",
+      "provider": "Financial Services Agency of Japan (FSA)",
+      "kinds": [
+        "filings",
+        "fundamentals",
+        "corp_actions"
+      ],
+      "coverage": "Japan. All EDINET electronic disclosures: securities reports (yuho), quarterly/semiannual reports, large-shareholding reports, tender offers, extraordinary reports \u2014 ~11,000+ Japanese issuers.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.edinet-fsa.go.jp/api/v2/documents.json?date=YYYY-MM-DD&type=2",
+      "auth": "free_key",
+      "free_tier": "Free. Document-list (metadata) calls work without a key (verified HTTP 200); downloading the actual document ZIP/XBRL requires a free Subscription-Key header obtained after account + phone-number registration. No published hard rate cap; fair-use expected.",
+      "license": "redistribution_ok",
+      "update_freq": "Filings appear same-day as disclosed; list endpoint reflects new docs intraday (near-real-time on acceptance).",
+      "notes": "Non-US regulatory stream the US-centric APIs miss. Maps to issuer via EDINET code and \u8a3c\u5238\u30b3\u30fc\u30c9 (securities/ticker code) fields; you crosswalk securities code -> TSE ticker. Docs are JP-language XBRL/CSV (UTF-16). Government disclosure data; reusable including commercially, but verify the FSA usage guideline page and keep attribution.",
+      "sample_hint": "curl 'https://api.edinet-fsa.go.jp/api/v2/documents.json?date=2026-06-25&type=2'  # type=2 lists metadata; add Ocp-Apim-Subscription-Key + docID for downloads",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "marketaux_news_api",
+      "name": "Marketaux News API",
+      "provider": "Marketaux",
+      "kinds": [
+        "news"
+      ],
+      "coverage": "Global. 5,000+ sources in 30+ languages; tracks 200,000+ entities across 80+ markets (stocks, ETFs, indices, FX, crypto, commodities). History ~2022 onward.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.marketaux.com/v1/news/all?symbols=AAPL,TSLA&filter_entities=true&language=en&api_token=KEY",
+      "auth": "free_key",
+      "free_tier": "Free plan: ~100 requests/day and only 3 articles returned per request. No credit card. (verified: endpoint live, returns 401 without valid token).",
+      "license": "personal_only",
+      "update_freq": "Near-real-time; articles indexed within minutes of publication.",
+      "notes": "Biggest strength: built-in ticker mapping \u2014 each article carries an entities[] array with symbol, name, exchange, country, per-entity sentiment_score, and 'highlights' (the sentences mentioning that entity). Ideal for mapping news->ticker without your own NER. BUT free tier is dev/personal: commercial use and redistribution require a paid license, so treat as research-only unless you upgrade.",
+      "sample_hint": "curl 'https://api.marketaux.com/v1/news/all?symbols=TSLA&filter_entities=true&language=en&api_token=YOUR_TOKEN'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "finnhub_news_api_company_news_market_new",
+      "name": "Finnhub News API (company-news + market-news)",
+      "provider": "Finnhub",
+      "kinds": [
+        "news",
+        "fundamentals",
+        "price"
+      ],
+      "coverage": "Global. Company-specific news by symbol across 60+ exchanges, plus general/market category news; also earnings/SEC-filing/sentiment endpoints.",
+      "access_method": "rest_api",
+      "endpoint": "https://finnhub.io/api/v1/company-news?symbol=AAPL&from=2026-06-01&to=2026-06-27&token=KEY ; https://finnhub.io/api/v1/news?category=general&token=KEY",
+      "auth": "free_key",
+      "free_tier": "Free: 60 API calls/minute. Free WebSocket streaming for up to ~50 symbols (trades/news push). No credit card.",
+      "license": "personal_only",
+      "update_freq": "Company/market news near-real-time; WebSocket pushes intraday.",
+      "notes": "Major advantage: news is already keyed by symbol (you pass the ticker), so mapping is trivial; each item has headline, source, url, datetime, summary, related symbol. Downside: free tier is explicitly personal/non-commercial, and ToS requires deleting proprietary data at subscription end \u2014 so research/prototype only unless you buy a commercial license (sales@finnhub.io).",
+      "sample_hint": "curl 'https://finnhub.io/api/v1/company-news?symbol=AAPL&from=2026-06-20&to=2026-06-27&token=YOUR_TOKEN'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "gnews_api",
+      "name": "GNews API",
+      "provider": "GNews.io",
+      "kinds": [
+        "news"
+      ],
+      "coverage": "Global. Headline + full-search news across many languages/countries; /search (keyword, lang, country, date range) and /top-headlines (by category).",
+      "access_method": "rest_api",
+      "endpoint": "https://gnews.io/api/v4/search?q=Tesla&lang=en&max=10&apikey=KEY",
+      "auth": "free_key",
+      "free_tier": "Free: 100 requests/day, max 1 request/second, limited articles per call.",
+      "license": "personal_only",
+      "update_freq": "Near-real-time top-headlines; article freshness within minutes-to-hours depending on source.",
+      "notes": "No native ticker tagging \u2014 you query by company keyword and do your own entity resolution. Free tier is documented as non-commercial/dev-and-testing only; the commercial-use clause is ambiguously worded, so for a public product get the paid plan (Essential $50/mo, commercial use) or written confirmation. Treat free tier as research-only.",
+      "sample_hint": "curl 'https://gnews.io/api/v4/search?q=%22Tesla%22&lang=en&max=10&apikey=YOUR_KEY'",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "currents_api",
+      "name": "Currents API",
+      "provider": "Currents (currentsapi.services)",
+      "kinds": [
+        "news"
+      ],
+      "coverage": "Global. Real-time and historical news across 18+ languages and many countries; /latest-news and /search endpoints with category/keyword/country/language filters.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.currentsapi.services/v1/latest-news?language=en&apiKey=KEY ; https://api.currentsapi.services/v1/search?keywords=Apple",
+      "auth": "free_key",
+      "free_tier": "Free: ~600-1,000 requests/day (largest production-safe free tier among consumer news APIs). Rate-limit headers (X-RateLimit-Remaining/Limit) returned. No credit card.",
+      "license": "redistribution_ok",
+      "update_freq": "Latest-news endpoint near-real-time (minutes).",
+      "notes": "Notable because commercial use is explicitly permitted on the free tier \u2014 rare among free news APIs \u2014 making it the most license-clean general news option here. No native ticker tagging; resolve company->ticker yourself via keyword search. Confirm current ToS text before shipping, but multiple 2026 comparisons flag it as commercial-OK and production-safe.",
+      "sample_hint": "curl 'https://api.currentsapi.services/v1/search?keywords=Apple&language=en&apiKey=YOUR_KEY'",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "lse_regulatory_news_service_rns_public_a",
+      "name": "LSE Regulatory News Service (RNS) \u2014 public archive + official Data Feed",
+      "provider": "London Stock Exchange Group (LSEG)",
+      "kinds": [
+        "filings",
+        "corp_actions",
+        "news"
+      ],
+      "coverage": "UK/LSE & AIM listed companies. Official regulatory announcements (results, M&A, director dealings, price-sensitive RNS).",
+      "access_method": "rest_api",
+      "endpoint": "Free human archive: https://www.londonstockexchange.com/news?tab=news-explorer and https://www.lse.co.uk/rns/ . Official RNS Data Feed: Announcement REST API + real-time WebSocket (docs.londonstockexchange.com RNS Data Feed spec).",
+      "auth": "paid",
+      "free_tier": "Free, searchable web archive (filter by company/date/type) for manual/periodic use \u2014 no official free API key. The programmatic RNS Data Feed (REST pull + WebSocket push) is a licensed/paid commercial product.",
+      "license": "prohibited",
+      "update_freq": "Real-time on the official feed (push as announcements release); free web archive updates as published.",
+      "notes": "Best authoritative source for UK price-sensitive events, but redistribution/commercial use of the machine feed requires a paid LSEG licence \u2014 so for a public product the official feed is license-encumbered (prohibited without licence). Free options for a product are limited to LSEG-licensed third parties (CityFALCON, Ticker.app) or scraping the public archive (check robots/ToS). Map to ticker via TIDM/RIC in each announcement.",
+      "sample_hint": "Manual: https://www.londonstockexchange.com/news?sourcecode=RNS \u2014 programmatic feed requires LSEG RNS Data Feed contract (see RNS Data Feed Technical Specification PDF on docs.londonstockexchange.com).",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "sedar_canadian_securities_administrators",
+      "name": "SEDAR+ (Canadian Securities Administrators)",
+      "provider": "Canadian Securities Administrators (CSA)",
+      "kinds": [
+        "filings",
+        "corp_actions"
+      ],
+      "coverage": "Canada. All public-company, investment-fund and third-party securities filings (prospectuses, MD&A, material change reports, AIFs) across Canadian provinces.",
+      "access_method": "scrape",
+      "endpoint": "https://www.sedarplus.ca/ (public search UI; no official public REST API or RSS)",
+      "auth": "none",
+      "free_tier": "Free public search 24/7 via the web UI. No official public API or RSS feed; the real-time machine feed is licensed to data partners (e.g. Avantis received a CSA real-time SEDAR+ feed; QuoteMedia redistributes via paid API).",
+      "license": "unknown",
+      "update_freq": "Filings appear in real-time once approved by regulators (per CSA's partner feed); public UI reflects new filings same da",
+      "notes": "The Canadian analogue to EDGAR but far less developer-friendly: no documented free API, so programmatic access means scraping the public site (verify SEDAR+ terms \u2014 redistribution rights are unclear, hence 'unknown') or licensing a commercial redistributor. Map to issuer by company name; Canada has no single ticker in the filing so you crosswalk name->TSX/TSXV symbol. For a public product, prefer a licensed partner over scraping.",
+      "sample_hint": "Manual search at https://www.sedarplus.ca/landingpage/ ; no stable JSON endpoint \u2014 for production use a licensed feed (QuoteMedia / Avantis) or build a permitted scraper after checking ToS.",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "frankfurter_currency_data_api",
+      "name": "Frankfurter Currency Data API",
+      "provider": "Frankfurter (open-source, fronts ECB + 84 central banks)",
+      "kinds": [
+        "fx"
+      ],
+      "coverage": "201 currencies (EUR/USD/GBP plus many EM crosses derivable), daily reference rates; historical to 1999 (ECB) / 1948 with scope=all. Note: EM coverage is via cross-rates of the ECB EUR fixings, not native EM-central-bank fixings.",
+      "access_method": "rest_api",
+      "endpoint": "https://api.frankfurter.dev/v2/rates ; pair: https://api.frankfurter.dev/v2/rate/USD/EUR ; historical: https://api.frankfurter.dev/v2/2024-01-02..2024-01-31?base=USD",
+      "auth": "none",
+      "free_tier": "No API key, no monthly/daily quota; soft rate-limit only to prevent abuse. Self-hostable via Docker.",
+      "license": "redistribution_ok",
+      "update_freq": "Daily ~16:00 CET on ECB working days",
+      "notes": "Cleanest free FX source. Underlying data is ECB EUR reference rates plus other central banks; cite ECB as source per ECB reuse terms. Only one fixing/day (no intraday). EM currencies that ECB does not publish are absent.",
+      "sample_hint": "curl 'https://api.frankfurter.dev/v2/latest?base=USD&symbols=NGN,KES,EGP' (symbols limited to currencies present in source set)",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "ecb_data_portal_sdmx_2_1_rest_api",
+      "name": "ECB Data Portal SDMX 2.1 REST API",
+      "provider": "European Central Bank",
+      "kinds": [
+        "fx",
+        "macro"
+      ],
+      "coverage": "Euro FX reference rates (EXR dataflow, ~40 currencies incl. some EM: BRL, INR, IDR, ZAR, TRY, MXN, etc.), euro-area interest rates, yield curves, monetary/macro aggregates; history to 1999",
+      "access_method": "rest_api",
+      "endpoint": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?format=jsondata ; structure: https://data-api.ecb.europa.eu/service/dataflow/ECB",
+      "auth": "none",
+      "free_tier": "No key, no published hard quota; SDMX 2.1 REST. Supports JSON, SDMX-ML, CSV.",
+      "license": "redistribution_ok",
+      "update_freq": "FX daily ~16:00 CET; macro series per release calendar",
+      "notes": "Authoritative free source. Reuse permitted with mandatory attribution ('ECB' cited as source); if sold inside a paid product, must inform buyers the data is free from ECB. Good for the dozen+ EM currencies ECB fixes against EUR.",
+      "sample_hint": "curl 'https://data-api.ecb.europa.eu/service/data/EXR/D.ZAR.EUR.SP00.A?lastNObservations=1&format=jsondata'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "world_bank_indicators_api_v2",
+      "name": "World Bank Indicators API (v2)",
+      "provider": "World Bank Group",
+      "kinds": [
+        "macro",
+        "fundamentals"
+      ],
+      "coverage": "200+ economies incl. all of Africa, MENA, frontier Asia/LatAm; 16,000+ indicators (GDP, inflation/CPI, official exchange rate LCU/USD, current account, debt, population, etc.); annual, some quarterly; long history",
+      "access_method": "rest_api",
+      "endpoint": "https://api.worldbank.org/v2/country/{ISO}/indicator/{CODE}?format=json \u2014 e.g. https://api.worldbank.org/v2/country/NG/indicator/NY.GDP.MKTP.CD?format=json",
+      "auth": "none",
+      "free_tier": "No key, no documented rate cap; pagination via per_page/page params",
+      "license": "redistribution_ok",
+      "update_freq": "Continuous as indicators refresh; many series annual",
+      "notes": "Best free macro backbone for markets the product can't cover. CC BY 4.0 (attribution only) for most datasets \u2014 commercial redistribution OK. Includes official EM FX rate (PA.NUS.FCRF) and CPI (FP.CPI.TOTL) useful where market data is thin. Confirmed live: Nigeria GDP returned valid JSON, lastupdated 2026-04-08.",
+      "sample_hint": "curl 'https://api.worldbank.org/v2/country/KE;EG;BD/indicator/FP.CPI.TOTL.ZG?format=json&date=2018:2025'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "world_bank_data360_api_beta",
+      "name": "World Bank Data360 API (Beta)",
+      "provider": "World Bank Group",
+      "kinds": [
+        "macro",
+        "fundamentals",
+        "index_valuation"
+      ],
+      "coverage": "200+ economies, 10,000+ indicators consolidated across WB + 80+ external providers (IMF, OECD, WTO, etc.); ~300M data points; strong EM/frontier development + financial-sector indicators",
+      "access_method": "rest_api",
+      "endpoint": "https://data360.worldbank.org/en/api (docs); data endpoints under https://data360api.worldbank.org/data360/data ; dataset catalog e.g. WB_WDI, WB_GEP",
+      "auth": "none",
+      "free_tier": "Free, no key; API marked Beta so endpoints/shape may change",
+      "license": "redistribution_ok",
+      "update_freq": "Per source release schedules",
+      "notes": "Superset of the classic v2 API with far more EM/frontier coverage and external-provider series. Beta status = treat as less stable than v2; each underlying indicator inherits its provider's license (WB-origin = CC BY 4.0). Could not deep-verify endpoint schema (homepage JS-only, /api 403 to fetcher) \u2014 confidence medium.",
+      "sample_hint": "GET https://data360api.worldbank.org/data360/data?DATABASE_ID=WB_WDI&INDICATOR=WB_WDI_NY_GDP_MKTP_CD&REF_AREA=NGA (verify exact param names against /en/api docs)",
+      "verified_live": false,
+      "confidence": "medium"
+    },
+    {
+      "id": "imf_data_api_sdmx_2_1_3_0",
+      "name": "IMF Data API (SDMX 2.1 / 3.0)",
+      "provider": "International Monetary Fund",
+      "kinds": [
+        "macro",
+        "fx",
+        "fundamentals"
+      ],
+      "coverage": "Global incl. all EM/frontier; IFS (International Financial Statistics \u2014 FX rates, reserves, rates), BOP, DOTS (trade), GFS, WEO; monthly/quarterly/annual",
+      "access_method": "rest_api",
+      "endpoint": "SDMX 3.0: https://api.imf.org/external/sdmx/3.0/ ; SDMX Central 2.1: https://sdmxcentral.imf.org/sdmx/v2/ ; docs: https://data.imf.org/en/Resource-Pages/IMF-API",
+      "auth": "none",
+      "free_tier": "Free, no key. Legacy JSON service (dataservices.imf.org) was throttled/being retired; use new SDMX endpoints. Expect per-IP throttling.",
+      "license": "redistribution_ok",
+      "update_freq": "Per dataset release calendar (IFS monthly; WEO biannual)",
+      "notes": "Authoritative for EM/frontier FX, reserves and external-sector macro the product can't otherwise get. IMF terms permit reuse with attribution for non-IMF data; SDMX format has a learning curve. New API migrated 2024-2025; older base URLs deprecated. Did not fetch a live data record (page 403'd to fetcher) so verified_live left false; base URLs corroborated by multiple docs.",
+      "sample_hint": "GET https://sdmxcentral.imf.org/sdmx/v2/data/dataflow/IMF/IFS/+/M.NG.ENDA_XDC_USD_RATE?startPeriod=2024 (resolve exact key via the dataflow's DSD first)",
+      "verified_live": false,
+      "confidence": "medium"
+    },
+    {
+      "id": "dbnomics_web_api",
+      "name": "DBnomics Web API",
+      "provider": "DBnomics / Cepremap (aggregator of 90+ providers)",
+      "kinds": [
+        "macro",
+        "fx",
+        "fundamentals"
+      ],
+      "coverage": "Hundreds of millions of series aggregating IMF, World Bank, OECD, Eurostat, ECB, and many NATIONAL statistics offices / central banks (incl. African, MENA, Asian, LatAm) under one normalized API",
+      "access_method": "rest_api",
+      "endpoint": "https://api.db.nomics.world/v22/ ; series: https://api.db.nomics.world/v22/series?series_ids=IMF/IFS/M.NG.ENDA_XDC_USD_RATE&observations=1 ; docs: https://docs.db.nomics.world/web-api/",
+      "auth": "none",
+      "free_tier": "Free, no key; normalized JSON. Self-hostable (AGPLv3 fetchers).",
+      "license": "redistribution_ok",
+      "update_freq": "Tracks each upstream provider; refreshed regularly",
+      "notes": "Single best aggregator to reach frontier national sources without integrating each one. Caveat: aggregate DB is ODbL (share-alike + attribution); each underlying series ALSO carries its original producer's license \u2014 must honor whichever is stricter for a given series. Best for macro/FX, not equity tick data. API v22 base URL confirmed via docs and multiple clients.",
+      "sample_hint": "curl 'https://api.db.nomics.world/v22/series/WB/WDI?dimensions={\"country\":[\"NG\",\"KE\"]}&q=FP.CPI.TOTL&observations=1&format=json'",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "exchangerate_api_open_access",
+      "name": "ExchangeRate-API Open Access",
+      "provider": "ExchangeRate-API",
+      "kinds": [
+        "fx"
+      ],
+      "coverage": "161 currencies incl. many EM/frontier (NGN, KES, GHS, EGP, ZAR, PKR, BDT, etc.); latest + base conversion",
+      "access_method": "rest_api",
+      "endpoint": "https://open.er-api.com/v6/latest/USD (swap USD for any base)",
+      "auth": "none",
+      "free_tier": "No key on open endpoint; updates once daily; rate-limited (HTTP 429, ~20 min cooldown) \u2014 fine for hourly/daily polling",
+      "license": "personal_only",
+      "update_freq": "Once daily",
+      "notes": "Broader EM currency list than ECB/Frankfurter, useful where ECB has no fixing. BUT data REDISTRIBUTION is prohibited on the free/open tier \u2014 caching for your own conversion (incl. commercial) is allowed, re-serving the rates as a dataset is not. Attribution link required. Treat as a conversion utility, not a redistributable feed.",
+      "sample_hint": "curl 'https://open.er-api.com/v6/latest/USD' then read .rates.NGN",
+      "verified_live": true,
+      "confidence": "high"
+    },
+    {
+      "id": "afx_kwayisi_gse_api_african_exchanges",
+      "name": "AFX / kwayisi GSE-API (African exchanges)",
+      "provider": "kwayisi.org (independent)",
+      "kinds": [
+        "price",
+        "fundamentals",
+        "corp_actions"
+      ],
+      "coverage": "Ghana Stock Exchange full API (EOD prices, change, volume, DPS dividends, EPS, shares outstanding, market cap, company profile). Live web pages also cover NGX (Nigeria), NSE (Nairobi), and other African exchanges",
+      "access_method": "rest_api",
+      "endpoint": "https://dev.kwayisi.org/apis/gse/equities ; symbol: https://dev.kwayisi.org/apis/gse/equities/{symbol} ; live: https://dev.kwayisi.org/apis/gse/live",
+      "auth": "none",
+      "free_tier": "Completely free, no registration, no key; soft cap ~60 req/sec then HTTP 429",
+      "license": "unknown",
+      "update_freq": "Daily EOD (live endpoint intraday during GSE hours)",
+      "notes": "Rare FREE programmatic source for a frontier African exchange incl. dividends/EPS (a corp-actions signal). Documented JSON API confirmed live for GSE. NGX/NSE are presented as scraped web pages without a published JSON API, so programmatic NGX/NSE access is not contractually guaranteed. No explicit reuse license published \u2014 'free and unencumbered' wording suggests permissive but is not a formal license, so license_verdict=unknown; confirm before commercial redistribution.",
+      "sample_hint": "curl 'https://dev.kwayisi.org/apis/gse/equities' (list) ; curl 'https://dev.kwayisi.org/apis/gse/equities/GCB' (single, includes dividend/EPS)",
+      "verified_live": true,
+      "confidence": "medium"
+    },
+    {
+      "id": "financial_modeling_prep_fmp_calendars_co",
+      "name": "Financial Modeling Prep (FMP) \u2014 Calendars & Corporate Actions",
+      "provider": "Financial Modeling Prep",
+      "kinds": [
+        "corp_actions",
+        "price",
+        "fundamentals"
+      ],
+      "coverage": "70,000+ securities across 60+ exchanges incl. some EM; dividend calendar, historical/upcoming stock splits, earnings, IPO calendar",
+      "access_method": "rest_api",
+      "endpoint": "https://financialmodelingprep.com/stable/dividends?symbol=AAPL&apikey=KEY ; splits: https://financialmodelingprep.com/stable/splits ; docs: https://site.financialmodelingprep.com/developer/docs",
+      "auth": "free_key",
+      "free_tier": "Free key: 250 requests/day, no card required; free tier historically US-centric (some endpoints/exchanges restricted to paid)",
+      "license": "personal_only",
+      "update_freq": "Daily / event-driven",
+      "notes": "Convenient single source for splits + dividends (corporate actions). Coverage of EM/frontier corporate actions is uneven and weakest exactly where the product needs help (micro-cap, Africa/MENA). Free tier is for personal/eval use with attribution; commercial redistribution needs a paid license \u2014 treat as research-only here. Use to fill split/dividend gaps for major EM names, not as a redistributable feed.",
+      "sample_hint": "curl 'https://financialmodelingprep.com/stable/dividends?symbol=INFY.NS&apikey=YOUR_KEY'",
+      "verified_live": true,
+      "confidence": "medium"
+    }
+  ]
+}
