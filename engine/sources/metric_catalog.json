@@ -480,17 +480,11 @@
       "unit": "percent",
       "category": "income",
       "applies_to": "semis / hardware; enterprise software / SaaS",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:CostOfGoodsAndServicesSold",
-        "us-gaap:CostOfRevenue",
-        "us-gaap:GrossProfit",
-        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "us-gaap:Revenues"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "critical",
-      "notes": "GAAP gross margin is computable from XBRL (GrossProfit / Revenue, or Revenue minus CostOfGoodsAndServicesSold). BUT the headline 'non-GAAP gross margin' (ex-SBC, ex-amortization) that the Street quotes is NOT tagged \u2014 extract from press release.",
+      "notes": "GAAP gross margin is computable from XBRL (GrossProfit / Revenue, or Revenue minus CostOfGoodsAndServicesSold). BUT the headline 'non-GAAP gross margin' (ex-SBC, ex-amortization) that the Street quotes is NOT tagged \u2014 extract from press release. [auto-demoted: suspect XBRL tag]",
       "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
     },
     {
@@ -855,16 +849,11 @@
       "unit": "ratio",
       "category": "quality",
       "applies_to": "All capital-intensive sectors",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:Revenues",
-        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
-        "us-gaap:Assets",
-        "us-gaap:PropertyPlantAndEquipmentNet"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "medium",
-      "notes": "Components in XBRL; ratio computed. Capital intensity (PP&E/revenue or capex/revenue) is the more thesis-relevant cut for these sectors.",
+      "notes": "Components in XBRL; ratio computed. Capital intensity (PP&E/revenue or capex/revenue) is the more thesis-relevant cut for these sectors. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
     },
     {
@@ -891,16 +880,11 @@
       "unit": "ratio",
       "category": "quality",
       "applies_to": "All capital-intensive sectors; especially cyclical energy/materials",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:CashAndCashEquivalentsAtCarryingValue",
-        "us-gaap:DebtInstrumentCarryingAmount",
-        "us-gaap:LongTermDebtCurrent",
-        "us-gaap:LongTermDebtNoncurrent"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "critical",
-      "notes": "Debt and cash components in XBRL; EBITDA computed (see ebitda_margin). Include operating-lease liabilities (us-gaap:OperatingLeaseLiabilityNoncurrent) for a true leverage picture in lease-heavy industrials.",
+      "notes": "Debt and cash components in XBRL; EBITDA computed (see ebitda_margin). Include operating-lease liabilities (us-gaap:OperatingLeaseLiabilityNoncurrent) for a true leverage picture in lease-heavy industrials. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
     },
     {
@@ -1113,15 +1097,11 @@
       "unit": "percent",
       "category": "quality",
       "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:SellingGeneralAndAdministrativeExpense",
-        "us-gaap:GeneralAndAdministrativeExpense",
-        "us-gaap:SellingAndMarketingExpense"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "medium",
-      "notes": "Computed. SG&A tagged as SellingGeneralAndAdministrativeExpense (or split into SellingAndMarketingExpense + GeneralAndAdministrativeExpense). Note retailer COGS/SG&A classification differences when comparing margins across peers.",
+      "notes": "Computed. SG&A tagged as SellingGeneralAndAdministrativeExpense (or split into SellingAndMarketingExpense + GeneralAndAdministrativeExpense). Note retailer COGS/SG&A classification differences when comparing margins across peers. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
     },
     {
@@ -1443,15 +1423,11 @@
       "unit": "ratio",
       "category": "quality",
       "applies_to": "REITs; Utilities; Telecom",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:InterestExpense",
-        "us-gaap:InterestAndDebtExpense",
-        "us-gaap:InterestExpenseDebt"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "high",
-      "notes": "Interest expense IS tagged; the numerator (EBITDA/FFO) is non-GAAP. Fixed-charge coverage adds PreferredStockDividendsAndOtherAdjustments. Rising rates compress coverage as debt reprices \u2014 a key risk lens for this sector group.",
+      "notes": "Interest expense IS tagged; the numerator (EBITDA/FFO) is non-GAAP. Fixed-charge coverage adds PreferredStockDividendsAndOtherAdjustments. Rising rates compress coverage as debt reprices \u2014 a key risk lens for this sector group. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
     },
     {
