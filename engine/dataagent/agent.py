@@ -35,12 +35,20 @@ def seed_needs() -> None:
             registry.upsert_need(n)
 
 
+# Stock-ticker sample for the fundamentals need (US + non-US, to test coverage).
+FUND_SAMPLE = ["AAPL", "MSFT", "NVDA", "SAP.DE", "RELIANCE.NS", "7203.T"]
+
+
 def sample_keys(n: int = 8) -> list[str]:
-    """A region-spread sample (incl. weak-coverage EM) to test coverage honestly."""
+    """A region-spread INDEX sample (incl. weak-coverage EM) to test coverage."""
     pref = ["us_sp500", "japan", "germany", "uk", "brazil", "china_broad", "india_broad",
             "south_africa", "indonesia", "saudi", "vietnam", "mexico"]
     keys = [k for k in pref if any(ix.key == k for ix in UNIVERSE)]
     return keys[:n] or [ix.key for ix in UNIVERSE[:n]]
+
+
+def _sample_for(kind: str, idx_keys: list[str]) -> list[str]:
+    return FUND_SAMPLE if kind == "fundamentals" else idx_keys
 
 
 def _pick_best(scored, public_only: bool):
@@ -62,13 +70,14 @@ def run(sample_n: int = 8, auto_apply: bool = True, with_discovery: bool = False
     n_seed = registry.seed_from_catalog()
     if n_seed:
         print(f"   catalog: {n_seed} researched sources loaded as leads")
-    keys = sample_keys(sample_n)
+    idx_keys = sample_keys(sample_n)
     report = {"asof": asof, "generated_at": datetime.now(timezone.utc).isoformat(),
-              "sample_keys": keys, "needs": [], "alerts": [], "decisions": [],
+              "sample_keys": idx_keys, "needs": [], "alerts": [], "decisions": [],
               "leads_to_adapt": []}
 
     for need in registry.list_needs():
         kind = need["kind"]
+        keys = _sample_for(kind, idx_keys)
         cands = adapters.adapters_for(kind)
         scored = []
         for a in cands:

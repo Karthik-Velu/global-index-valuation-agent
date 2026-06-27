@@ -57,11 +57,14 @@ engine/dataagent/
 ```
 
 ## Next steps (to make decisions actually take effect + close the gaps)
-1. **Honor the registry in retrieval.** `engine/datasource.py` still hard-codes
-   Yahoo; route it through `registry.active_source` + the adapter so the agent's
-   "rewire" decisions actually change what the product fetches.
-2. **Build adapters for the top public-safe leads** (EDINET, filings.xbrl.org, SEC
-   EDGAR, SimFin) — this both unlocks **stock-level fundamentals** and removes the
-   Yahoo licensing blocker for going public.
+1. **Honor the registry in retrieval.** DONE for fundamentals: `engine/fundamentals.py`
+   routes through `adapters.active_adapter("stock_fundamentals")`, so the agent's
+   choice changes what's fetched (set active to `simfin` → that call uses SimFin).
+   REMAINING: route the index pipeline (`engine/datasource.py`, still Yahoo-hardcoded)
+   the same way once a second working price/valuation source exists.
+2. **Build adapters for the top public-safe leads.** DONE: SimFin (`simfin.py`,
+   redistribution-OK) — add a free `SIMFIN_API_KEY` and the agent prefers it over
+   Yahoo for the public fundamentals need. NEXT: EDINET / filings.xbrl.org / SEC
+   EDGAR to widen non-US coverage and remove the Yahoo licensing blocker entirely.
 3. **Persist quality history in the cloud DB** (Pillar 7) so the agent tracks source
    quality *trends* and can react to gradual degradation, not just hard breakage.

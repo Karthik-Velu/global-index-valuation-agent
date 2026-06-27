@@ -26,14 +26,17 @@ class YahooAdapter(SourceAdapter):
     id = "yahoo"
     name = "Yahoo Finance (yfinance)"
     provider = "Yahoo"
-    kinds = (DataKind.PRICE, DataKind.INDEX_VALUATION)
-    markets = "Global ETFs/indices + US stocks; broad"
+    kinds = (DataKind.PRICE, DataKind.INDEX_VALUATION, DataKind.FUNDAMENTALS)
+    markets = "Global ETFs/indices + global stocks; broad"
     license = License.PERSONAL_ONLY
     access_method = "rest_api"
     endpoint = "https://query1.finance.yahoo.com"
 
     def fetch_sample(self, kind: str, keys: list[str]) -> SampleResult:
         import yfinance as yf
+        # Stock-level fundamentals: `keys` are raw tickers, not index proxies.
+        if kind == DataKind.FUNDAMENTALS.value:
+            return self._fetch_fundamentals(keys)
         t0 = time.time()
         recs: list[Record] = []
         err = None
@@ -65,3 +68,23 @@ class YahooAdapter(SourceAdapter):
                 err = str(e)[:160]
         return SampleResult(self.id, kind, recs, latency_ms=(time.time() - t0) * 1000,
                             error=err if not recs else None)
+
+    def _fetch_fundamentals(self, tickers: list[str]) -> SampleResult:
+        import yfinance as yf
+        t0 = time.time()
+        recs, err = [], None
+        for tk in tickers:
+            try:
+                info = yf.Ticker(tk).get_info()
+                fields = {
+                    "pe": info.get("trailingPE"),
+                    "pb": info.get("priceToBook"),
+                    "rev_growth": info.get("revenueGrowth"),
+                    "earnings_growth": info.get("earningsGrowth"),
+                }
+                if any(v is not None for v in fields.values()):
+                    recs.append(Record(key=tk, fields=fields))
+            except Exception as e:
+                err = str(e)[:160]
+        return SampleResult(self.id, DataKind.FUNDAMENTALS.value, recs,
+                            latency_ms=(time.time() - t0) * 1000, error=err if not recs else None)
