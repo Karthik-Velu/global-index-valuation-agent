@@ -31,3 +31,4 @@ dashboard/.env.local
 
 # OS
 .DS_Store
+.vercel
