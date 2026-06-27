@@ -24,13 +24,21 @@ DB_PATH = DATA_DIR / "agent.db"
 # Single JSON contract the dashboard reads. Engine writes, frontend consumes.
 DASHBOARD_JSON = DATA_DIR / "dashboard_data.json"
 
-# --- Differential model routing -------------------------------------------
-# Cheap model: high-volume, low-stakes (per-index one-line tags).
-# Smart model: one low-volume, high-stakes top-level synthesis per run.
+# --- Model routing (provider-agnostic) ------------------------------------
+# model_id = "scheme:model" — scheme in: ollama | openrouter | groq | deepseek |
+# zai | anthropic | openai_compat. Cheap/owned tier for frequent agent work,
+# frontier reserved for rare high-stakes synthesis. $0 default = local Ollama.
+MODEL_CHEAP = os.getenv("MODEL_CHEAP", "ollama:qwen2.5")
+MODEL_SMART = os.getenv("MODEL_SMART", "anthropic:claude-opus-4-8")
+MODEL_AGENT = os.getenv("MODEL_AGENT", MODEL_CHEAP)
+
+# Provider credentials / endpoints (only the ones you use need to be set).
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-MODEL_CHEAP = os.getenv("MODEL_CHEAP", "claude-haiku-4-5-20251001")
-MODEL_SMART = os.getenv("MODEL_SMART", "claude-opus-4-8")
-LLM_ENABLED = bool(ANTHROPIC_API_KEY)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
+ZAI_API_KEY = os.getenv("ZAI_API_KEY", "").strip()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 
 # --- Scoring weights -------------------------------------------------------
 # Value (cheapness) is a blend of yield-style metrics. Higher yield = cheaper.

@@ -25,9 +25,9 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
     for need in needs[:max_needs]:
         system = (
             "You suggest FREE or cheap, license-clean data sources for a fintech "
-            "ingestion pipeline. Return ONLY JSON: a list of <=5 sources, each "
+            'ingestion pipeline. Return ONLY a JSON object: {"sources": [ <=5 of '
             '{"id","name","provider","kinds","coverage","access_method",'
-            '"endpoint","auth","free_tier","license","update_freq","sample_hint","confidence"}. '
+            '"endpoint","auth","free_tier","license","update_freq","sample_hint","confidence"} ]}. '
             "kinds from price/index_valuation/fundamentals/news/fx/macro/corp_actions/filings. "
             "license from public_domain/redistribution_ok/personal_only/prohibited/unknown. "
             "Prefer sources usable by a PUBLIC product. Do not invent endpoints you are unsure of."
@@ -35,8 +35,9 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
         user = json.dumps({"need": need["id"], "kind": need["kind"],
                            "market_scope": need["market_scope"], "must_be_public": bool(need["public_only"])})
         try:
-            txt = llm._call(llm.MODEL_CHEAP, system, user, max_tokens=900)
-            data = json.loads(txt[txt.find("["): txt.rfind("]") + 1])
+            txt = llm._call(llm.MODEL_AGENT, system, user, max_tokens=900, json_mode=True)
+            obj = json.loads(txt)
+            data = obj.get("sources", obj if isinstance(obj, list) else [])
         except Exception as e:
             out.append({"need": need["id"], "error": str(e)[:160]})
             continue

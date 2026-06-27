@@ -14,7 +14,9 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
 
-# LLM layer (differential model routing). Optional at runtime:
-# the engine runs fully without an API key — insights are just skipped.
+# LLM layer (provider-agnostic). Optional at runtime: the engine runs fully without
+# any model. anthropic = frontier tier; openai SDK = OpenAI-compatible providers
+# (Ollama / DeepSeek / GLM / OpenRouter / Groq) for the cheap/owned tiers.
 anthropic>=0.40
+openai>=1.40
 python-dotenv>=1.0

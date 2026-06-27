@@ -24,14 +24,15 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
     system = (
         "You are an equity analyst. For the given equity sub-sector, list up to 5 of the "
         "MOST important KPIs that drive its growth/quality and are NOT generic income-"
-        "statement items. Return ONLY a JSON list of "
-        '{metric_code (snake_case), label, definition, unit, source_hint}.'
+        'statement items. Return ONLY a JSON object: {"metrics": [ up to 5 of '
+        '{"metric_code": snake_case, "label", "definition", "unit", "source_hint"} ]}.'
     )
     proposals = []
     for sub in subs:
         try:
-            txt = llm._call(llm.MODEL_CHEAP, system, sub, max_tokens=700)
-            data = json.loads(txt[txt.find("["): txt.rfind("]") + 1])
+            txt = llm._call(llm.MODEL_AGENT, system, sub, max_tokens=700, json_mode=True)
+            obj = json.loads(txt)
+            data = obj.get("metrics", obj if isinstance(obj, list) else [])
             proposals.append({"sub_sector": sub, "proposed": data})
             with db.connect() as c, c.cursor() as cur:
                 for d in data:

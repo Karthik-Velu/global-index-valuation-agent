@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 
-from . import db, quality, recalibration
+from . import config, db, llm, quality, recalibration
 from .config import DATA_DIR
 from .dataagent import agent as source_probe   # deterministic source health/scoring
 from .sectoragent import tagging
@@ -35,7 +35,7 @@ def _tracked_tickers() -> list[str]:
         return [r[0] for r in cur.fetchall()]
 
 
-def run(ingest: bool = True, tickers: list[str] | None = None) -> dict:
+def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool = False) -> dict:
     print("== Data pipeline (job) ==")
     steps: dict = {}
 
@@ -75,6 +75,24 @@ def run(ingest: bool = True, tickers: list[str] | None = None) -> dict:
     rc = recalibration.run()
     steps["recalibration"] = {"recommend": rc["recommend"], "kind": rc["kind"]}
 
+    # 7. LLM AGENTS (optional, infrequent) — they IMPROVE the jobs (propose new
+    #    sources/KPIs), they don't do the deterministic work. Only run when activated
+    #    AND a model is configured (Ollama / a provider key).
+    if with_agents and llm.available():
+        from .dataagent.discover import discover_for_needs
+        from .sectoragent.research import research_thin_subsectors
+        from .sources import registry
+        disc = discover_for_needs(registry.list_needs())
+        res = research_thin_subsectors()
+        steps["agents"] = {"active": True, "model": config.MODEL_AGENT,
+                          "discovery": disc, "research": res}
+        print(f"   agents: ran source-discovery + sector-KPI research on {config.MODEL_AGENT}")
+    elif with_agents:
+        steps["agents"] = {"active": False, "note": "no model configured — set up Ollama or a provider key"}
+        print("   agents: requested but no model configured (Ollama not running / no key)")
+    else:
+        steps["agents"] = {"active": False, "note": "not requested (run with --agents)"}
+
     report = {"asof": date.today().isoformat(),
               "generated_at": datetime.now(timezone.utc).isoformat(), "steps": steps}
     REPORT_PATH.write_text(json.dumps(report, indent=2, default=str))
@@ -84,4 +102,9 @@ def run(ingest: bool = True, tickers: list[str] | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    run()
+    import argparse
+    p = argparse.ArgumentParser(prog="engine.datapipeline", description="Data pipeline job")
+    p.add_argument("--no-ingest", action="store_true", help="skip EDGAR ingestion")
+    p.add_argument("--agents", action="store_true", help="also run the LLM agents (needs a model)")
+    a = p.parse_args()
+    run(ingest=not a.no_ingest, with_agents=a.agents)

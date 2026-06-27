@@ -1,40 +1,88 @@
-"""Differential model router.
+"""Provider-agnostic model router.
 
-The ONLY place the LLM is used. It never sees raw stock data — only the already
-aggregated, ranked scoreboard (≤ ~50 rows). Two tiers:
-
-  * cheap_tag()  -> Haiku. High volume, low stakes: a 6-word tag per market.
-  * smart_brief() -> Opus. One call per run: the top-level "what matters now".
-
-If no ANTHROPIC_API_KEY is set, both return deterministic fallbacks so the whole
-product still works for free.
+The ONLY place an LLM is used. Routes a `model_id` ("scheme:model") to the right
+provider so cheap/owned models (Ollama, DeepSeek, GLM, OpenRouter, Groq) and frontier
+(Anthropic) are interchangeable. With no model configured, callers fall back to free
+deterministic text — the whole product still works for $0.
 """
 from __future__ import annotations
 
 import json
 
-from .config import ANTHROPIC_API_KEY, LLM_ENABLED, MODEL_CHEAP, MODEL_SMART
+from . import config
+from .config import MODEL_AGENT, MODEL_CHEAP, MODEL_SMART
 
-_client = None
+_anthropic = None
 
 
-def _get_client():
-    global _client
-    if _client is None:
+def _parse(model_id: str) -> tuple[str, str]:
+    scheme, _, model = (model_id or "").partition(":")
+    return scheme, (model or scheme)
+
+
+def _conf(scheme: str) -> tuple[str | None, str]:
+    """(base_url, api_key) for OpenAI-compatible providers; ('anthropic', key) for Anthropic."""
+    return {
+        "anthropic": ("anthropic", config.ANTHROPIC_API_KEY),
+        "ollama": (config.OLLAMA_BASE_URL, "ollama"),
+        "openrouter": ("https://openrouter.ai/api/v1", config.OPENROUTER_API_KEY),
+        "groq": ("https://api.groq.com/openai/v1", config.GROQ_API_KEY),
+        "deepseek": ("https://api.deepseek.com/v1", config.DEEPSEEK_API_KEY),
+        "zai": ("https://api.z.ai/api/paas/v4", config.ZAI_API_KEY),
+        "glm": ("https://api.z.ai/api/paas/v4", config.ZAI_API_KEY),
+    }.get(scheme, (None, ""))
+
+
+def available(model_id: str | None = None) -> bool:
+    """Is this model usable right now (key present / endpoint reachable)?"""
+    scheme, _ = _parse(model_id or MODEL_CHEAP)
+    base, key = _conf(scheme)
+    if scheme == "anthropic":
+        return bool(key)
+    if scheme == "ollama":
+        try:
+            import requests
+            requests.get(base.replace("/v1", "") + "/api/tags", timeout=1.5)
+            return True
+        except Exception:
+            return False
+    return bool(key)
+
+
+def _anthropic_client():
+    global _anthropic
+    if _anthropic is None:
         from anthropic import Anthropic
+        _anthropic = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    return _anthropic
 
-        _client = Anthropic(api_key=ANTHROPIC_API_KEY)
-    return _client
+
+def _call(model_id: str, system: str, user: str, max_tokens: int = 400,
+          json_mode: bool = False) -> str:
+    scheme, model = _parse(model_id)
+    base, key = _conf(scheme)
+    if scheme == "anthropic":
+        msg = _anthropic_client().messages.create(
+            model=model, max_tokens=max_tokens, system=system,
+            messages=[{"role": "user", "content": user}])
+        return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    # OpenAI-compatible (Ollama / OpenRouter / Groq / DeepSeek / GLM)
+    from openai import OpenAI
+    client = OpenAI(base_url=base, api_key=key or "x")
+    kwargs = {"model": model, "max_tokens": max_tokens,
+              "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+    if json_mode:  # constrained JSON output (Ollama + most providers support this)
+        kwargs["response_format"] = {"type": "json_object"}
+    try:
+        resp = client.chat.completions.create(**kwargs)
+    except Exception:
+        kwargs.pop("response_format", None)  # provider may not support it
+        resp = client.chat.completions.create(**kwargs)
+    return (resp.choices[0].message.content or "").strip()
 
 
-def _call(model: str, system: str, user: str, max_tokens: int = 400) -> str:
-    msg = _get_client().messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+# Any model configured? (computed once; agents/narration check this.)
+LLM_ENABLED = available(MODEL_CHEAP) or available(MODEL_SMART)
 
 
 def cheap_tags(markets: list[dict]) -> dict[str, str]:
