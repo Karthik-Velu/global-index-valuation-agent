@@ -171,8 +171,11 @@ the gap to *agentic*.
 
 ## Documentation
 
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — the sequenced build plan: the two-tier data
+  architecture (Postgres + Parquet/DuckDB), Phase 1 (cloud DB + stock-level data),
+  backtesting methodology, and the news/macro context layer.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the target-state design: 8 pillars,
-  model-routing strategy, cost ladder, moat & monetization, phased roadmap.
+  model-routing strategy, cost ladder, moat & monetization.
 - **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion agent.
 
 ## Disclaimer
