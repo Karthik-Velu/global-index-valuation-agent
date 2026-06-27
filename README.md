@@ -88,18 +88,24 @@ synthesis. Full design in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#2-the-mode
 
 ---
 
-## The two agents
+## Jobs and agents
 
-This repo contains two cooperating agents:
+We keep the terminology precise (see **[docs/AGENTS.md](docs/AGENTS.md)**):
+- **Jobs** = deterministic Python (no LLM) — they do the work, run frequently, ~free.
+- **Agents** = LLM-powered review that *improves the jobs* — infrequent. *(None are
+  active yet — no model is configured.)*
 
-1. **The valuation engine** (`engine/`) — the product above. Sources indices, scores
-   them, surfaces insights, grades itself, and publishes the dashboard.
-2. **The [data-ingestion agent](docs/DATA_INGESTION.md)** (`engine/dataagent/`) — its sole
-   job is to keep the data good: it discovers candidate sources, **probes them** for
-   coverage / cleanliness / freshness / **license**, scores them, and rewires which
-   source feeds each need. It ships a backlog of 40 research-verified, license-clean
-   sources (`engine/sources/seed_catalog.json`) and already flags that Yahoo is
-   license-restricted and where the coverage gaps are.
+**Jobs running today:**
+1. **Valuation / scoring** (`engine/`) — sources indices, scores them, surfaces
+   insights, grades itself, publishes the dashboard. *(weekly)*
+2. **Data pipeline** (`engine/datapipeline.py`) — one sequenced job: probe sources →
+   ingest fundamentals (SEC EDGAR) → tag stocks by sector → validate + auto-fix the
+   KPI catalog → data-quality checks → recalibration check. Validation runs *right
+   after* ingestion. *(daily)* See [docs/DATA_INGESTION.md](docs/DATA_INGESTION.md).
+
+**Agents (LLM, to set up later):** source-discovery, sector-KPI research, quality-
+triage, analyst, strategist, model-upgrade — each with its expected work and cadence
+in [docs/AGENTS.md](docs/AGENTS.md).
 
 ---
 

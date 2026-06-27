@@ -46,23 +46,27 @@ def _checks(cur) -> list[dict]:
                        "entity": tk, "metric_code": mc, "value": v,
                        "detail": f"negative {mc} at {pe}"})
 
-    # 3. Time-series jumps: FY series with an >8x jump or a sign flip (units error or
-    #    unflagged restatement).
-    cur.execute("""select fm.security_id, s.ticker, fm.metric_code, fm.period_end, fm.value
-                   from fundamental_metrics fm join securities s on s.id=fm.security_id
-                   where fm.fiscal_period='FY' and fm.source='xbrl' and fm.value is not null
-                   order by fm.security_id, fm.metric_code, fm.period_end""")
+    # 3. Time-series jumps: on the LATEST vintage per period (so restatements don't
+    #    create false jumps), flag a >50x move or a sign flip — the signature of a
+    #    units error, not normal growth.
+    cur.execute("""select security_id, ticker, metric_code, period_end, value from (
+                     select distinct on (fm.security_id, fm.metric_code, fm.period_end)
+                            fm.security_id, s.ticker, fm.metric_code, fm.period_end, fm.value
+                     from fundamental_metrics fm join securities s on s.id=fm.security_id
+                     where fm.fiscal_period='FY' and fm.source='xbrl' and fm.value is not null
+                     order by fm.security_id, fm.metric_code, fm.period_end, fm.filed_date desc
+                   ) t order by security_id, metric_code, period_end""")
     rows = cur.fetchall()
     for (sid, mc), grp in groupby(rows, key=lambda r: (r[0], r[2])):
         g = list(grp)
         for a, b in zip(g, g[1:]):
             va, vb = a[4], b[4]
-            if va and vb and abs(va) > 1e3:
+            if va and vb and abs(va) > 1e4:
                 ratio = vb / va
-                if ratio > 8 or ratio < -1:
+                if ratio > 50 or ratio < -1:
                     issues.append({"check_name": "timeseries_jump", "severity": "warn",
                                    "scope": "metric", "entity": b[1], "metric_code": mc, "value": vb,
-                                   "detail": f"{mc} moved {ratio:.1f}x {a[3]}→{b[3]} (units error or restatement?)"})
+                                   "detail": f"{mc} moved {ratio:.0f}x {a[3]}→{b[3]} (likely units error)"})
 
     # 4. Completeness: every security should have a revenue-like metric and net income.
     cur.execute("""select s.ticker,

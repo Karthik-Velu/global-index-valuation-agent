@@ -1,0 +1,45 @@
+name: Data pipeline (job)
+
+# One deterministic job: probe sources -> ingest (EDGAR) -> tag -> validate catalog
+# -> data-quality -> recalibration check, in sequence. Validation runs right after
+# ingestion (not as separate crons). Needs repo secret DATABASE_URL; SEC_USER_AGENT
+# recommended. LLM "agents" are separate and infrequent (see docs/AGENTS.md).
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # daily 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Run data pipeline
+        run: python -m engine.datapipeline
+      - name: Commit catalog self-corrections if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add engine/sources/metric_catalog.json
+          if git diff --staged --quiet; then echo "No catalog changes."; else
+            git commit -m "chore: data pipeline auto-corrected metric catalog [skip ci]"; git push; fi
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-pipeline-reports
+          path: |
+            data/datapipeline_report.json
+            data/quality_report.json
+            data/recalibration_report.json
+          retention-days: 30

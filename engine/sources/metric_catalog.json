@@ -726,15 +726,11 @@
       "unit": "ratio",
       "category": "quality",
       "applies_to": "Industrials (machinery, distribution), Materials, refining",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:CostOfGoodsAndServicesSold",
-        "us-gaap:CostOfRevenue",
-        "us-gaap:InventoryNet"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "high",
-      "notes": "Components (InventoryNet, CostOfGoodsAndServicesSold) are in XBRL; the ratio is computed. Watch LIFO vs FIFO (LIFO reserve tag: us-gaap:InventoryLIFOReserve) which materially affects energy/materials inventory and COGS.",
+      "notes": "Components (InventoryNet, CostOfGoodsAndServicesSold) are in XBRL; the ratio is computed. Watch LIFO vs FIFO (LIFO reserve tag: us-gaap:InventoryLIFOReserve) which materially affects energy/materials inventory and COGS. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
     },
     {
