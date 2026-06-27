@@ -1,3 +1,6 @@
+# Cloud DB (Tier A — Postgres/Supabase). Tier B (Parquet/DuckDB) added when wired.
+psycopg[binary]>=3.1
+
 # Core data + compute (the "non-intelligent" deterministic layer)
 yfinance>=0.2.40
 pandas>=2.2

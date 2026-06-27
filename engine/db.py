@@ -1,0 +1,68 @@
+"""Tier-A database access: Postgres (Supabase) for relational state.
+
+Reads DATABASE_URL from the environment (.env, loaded by config). Secrets never
+leave this process — callers get a connection, not the URL. Bulk time-series lives
+in Parquet/DuckDB (Tier B), not here.
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from . import config  # noqa: F401  (ensures .env is loaded via config's load_dotenv)
+
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+
+
+def database_url() -> str:
+    return os.getenv("DATABASE_URL", "").strip()
+
+
+def have_db() -> bool:
+    return bool(database_url())
+
+
+def connect():
+    """Open a psycopg3 connection to Supabase Postgres (SSL required)."""
+    import psycopg
+
+    url = database_url()
+    if not url:
+        raise RuntimeError("DATABASE_URL not set — add it to .env (Supabase > Settings > Database).")
+    # Supabase requires SSL; the pooler URI honors sslmode in the query string or via param.
+    kwargs = {}
+    if "sslmode=" not in url:
+        kwargs["sslmode"] = "require"
+    return psycopg.connect(url, **kwargs)
+
+
+def ping() -> str:
+    """Return the server version string if reachable (raises otherwise)."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("select version()")
+        return cur.fetchone()[0]
+
+
+def apply_migrations() -> list[str]:
+    """Apply any *.sql migrations not yet applied (tracked in schema_migrations)."""
+    applied_now = []
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("create table if not exists schema_migrations "
+                    "(name text primary key, applied_at timestamptz default now())")
+        cur.execute("select name from schema_migrations")
+        done = {r[0] for r in cur.fetchall()}
+        for f in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            if f.name in done:
+                continue
+            cur.execute(f.read_text())
+            cur.execute("insert into schema_migrations(name) values (%s)", (f.name,))
+            applied_now.append(f.name)
+        conn.commit()
+    return applied_now
+
+
+def tables() -> list[str]:
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("select table_name from information_schema.tables "
+                    "where table_schema='public' order by table_name")
+        return [r[0] for r in cur.fetchall()]
