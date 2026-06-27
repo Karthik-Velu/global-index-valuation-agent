@@ -85,6 +85,19 @@ MODEL_SMART_CHAIN = _chain("MODEL_SMART_CHAIN", ([_smart_env] if _smart_env else
 # so your explicit tier order stays authoritative; flip on once metrics accumulate.
 ADAPTIVE_ROUTING = os.getenv("ADAPTIVE_ROUTING", "false").lower() in ("1", "true", "yes", "on")
 
+# Embedding model for semantic memory retrieval (engine/memory.py). Free + local by
+# default; dim must match migration 0008 (nomic-embed-text = 768). No model -> memory
+# retrieval degrades to lexical + scope/recency (still works).
+MODEL_EMBED = os.getenv("MODEL_EMBED", "ollama:nomic-embed-text")
+EMBED_DIM = int(os.getenv("EMBED_DIM", "768"))
+
+# Semantic-memory lifecycle thresholds (engine/memory.py).
+MEM_ACTIVATE_EVIDENCE = int(os.getenv("MEM_ACTIVATE_EVIDENCE", "2"))   # candidate->active
+MEM_ACTIVATE_CONF = float(os.getenv("MEM_ACTIVATE_CONF", "0.60"))
+MEM_PROMOTE_CONF = float(os.getenv("MEM_PROMOTE_CONF", "0.85"))        # active->promote (curate to .md)
+MEM_RETIRE_CONF = float(os.getenv("MEM_RETIRE_CONF", "0.20"))          # below this -> retired
+MEM_DECAY_HALFLIFE_DAYS = float(os.getenv("MEM_DECAY_HALFLIFE_DAYS", "180"))  # confidence decay
+
 # Provider credentials / endpoints (only the ones you use need to be set).
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()

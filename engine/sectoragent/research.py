@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from .. import db, llm
+from .. import db, llm, memory
 
 
 def research_thin_subsectors(max_subsectors: int = 4) -> dict:
@@ -41,6 +41,14 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
                         "values('catalog',%s,%s,'LLM sub-sector KPI proposal',true)",
                         (d.get("metric_code", ""), f"propose for {sub}: {d.get('label', '')}"))
                 c.commit()
+            # Feed semantic memory: each proposed KPI becomes a candidate lesson.
+            for d in data:
+                if d.get("metric_code") and d.get("label"):
+                    memory.capture(
+                        f"sector_research:{sub}",
+                        f"{d['label']} ({d['metric_code']}) — {d.get('definition', '')}".strip(),
+                        kind="kpi", origin="sector-research agent", confidence=0.40,
+                        test_hint=d.get("source_hint"))
         except Exception as e:
             proposals.append({"sub_sector": sub, "error": str(e)[:140]})
     return {"researched": proposals}

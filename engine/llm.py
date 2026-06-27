@@ -154,7 +154,9 @@ def chain_for(role: str) -> list[str]:
 def call(role: str, system: str, user: str, max_tokens: int = 400,
          json_mode: bool = False) -> str:
     """Waterfall LLM call for a role. Raises RuntimeError if every tier is exhausted."""
-    sys_shared = knowledge.system_prompt(role, system)
+    # The shared playbook + the most relevant learned lessons for THIS task (the user
+    # message is the retrieval query) are injected into the system prompt.
+    sys_shared = knowledge.system_prompt(role, system, query=user)
     candidates = [m for m in chain_for(role) if available(m) and not _cooling(m)]
     if config.ADAPTIVE_ROUTING:
         candidates = modelrouting.order_by_learning(role, candidates)
@@ -180,6 +182,28 @@ def call(role: str, system: str, user: str, max_tokens: int = 400,
                                 latency_ms=int((time.monotonic() - t0) * 1000))
             last_err = e
     raise RuntimeError(f"all model tiers exhausted for role={role!r}: {last_err}")
+
+
+def embed(texts: list[str]) -> list[list[float]] | None:
+    """Embed texts with config.MODEL_EMBED (OpenAI-compatible). None if unavailable.
+
+    Used by engine/memory.py for semantic retrieval; callers must handle None and
+    fall back to lexical/scope retrieval, so embeddings stay strictly optional.
+    """
+    if not texts:
+        return []
+    model_id = config.MODEL_EMBED
+    scheme, model = _parse(model_id)
+    if scheme == "anthropic" or not available(model_id):
+        return None  # Anthropic has no embeddings endpoint; or model unreachable
+    base, key = _conf(scheme)
+    try:
+        from openai import OpenAI
+        client = OpenAI(base_url=base, api_key=key or "x")
+        resp = client.embeddings.create(model=model, input=texts)
+        return [d.embedding for d in resp.data]
+    except Exception:
+        return None
 
 
 def any_available() -> bool:

@@ -44,20 +44,32 @@ def ping() -> str:
 
 
 def apply_migrations() -> list[str]:
-    """Apply any *.sql migrations not yet applied (tracked in schema_migrations)."""
+    """Apply any *.sql migrations not yet applied (tracked in schema_migrations).
+
+    Commits per-migration, so a failure in one (e.g. an optional pgvector step on a
+    DB without the extension) leaves earlier migrations applied rather than rolling
+    the whole batch back.
+    """
     applied_now = []
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute("create table if not exists schema_migrations "
-                    "(name text primary key, applied_at timestamptz default now())")
-        cur.execute("select name from schema_migrations")
-        done = {r[0] for r in cur.fetchall()}
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("create table if not exists schema_migrations "
+                        "(name text primary key, applied_at timestamptz default now())")
+            cur.execute("select name from schema_migrations")
+            done = {r[0] for r in cur.fetchall()}
+        conn.commit()
         for f in sorted(MIGRATIONS_DIR.glob("*.sql")):
             if f.name in done:
                 continue
-            cur.execute(f.read_text())
-            cur.execute("insert into schema_migrations(name) values (%s)", (f.name,))
-            applied_now.append(f.name)
-        conn.commit()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f.read_text())
+                    cur.execute("insert into schema_migrations(name) values (%s)", (f.name,))
+                conn.commit()
+                applied_now.append(f.name)
+            except Exception:
+                conn.rollback()
+                raise
     return applied_now
 
 

@@ -119,6 +119,11 @@ quality-triage, analyst, strategist — each with its cadence in
 catalog, restatement vintages). Two-tier storage (Postgres + Parquet/DuckDB) is in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); progress in [docs/STATUS.md](docs/STATUS.md).
 
+**Memory:** learnings persist in a **3-tier memory** — raw episodic logs → a semantic
+`lessons` store (provenance, confidence, decay, pgvector retrieval, point-in-time
+history) → the curated `.md` playbooks promoted from it. So the system compounds what
+it learns instead of losing it. See [docs/MEMORY.md](docs/MEMORY.md).
+
 ---
 
 ## Quick start
@@ -159,11 +164,15 @@ engine/
   surfacing.py    # picks the few insights worth surfacing (per kind)
   ledger.py       # prediction ledger + market-feedback accuracy (Postgres)
   tuning.py       # feedback-driven auto-tuning of the opportunity weights
-  llm.py          # provider-agnostic model router (Ollama/DeepSeek/GLM/.../Anthropic)
+  llm.py          # waterfall model router (Ollama Cloud/Groq/.../Anthropic) + embeddings
+  modelrouting.py # model-specific learning: reliability scorecard + per-family profiles
+  knowledge.py    # curated playbooks + retrieval-augmented system prompts
+  memory.py       # semantic memory: capture->consolidate->promote, point-in-time recall
+  context/        # the curated .md playbooks (house_rules, sector_kpis, ...)
   pipeline.py     # valuation orchestration -> dashboard_data.json
-  datapipeline.py # the sequenced DATA pipeline job (probe->ingest->tag->validate->QA)
+  datapipeline.py # the sequenced DATA pipeline job (probe->ingest->tag->validate->QA->memory)
   db.py           # Postgres (Tier A) access + migration runner
-  migrations/     # versioned SQL schema (0001..0005)
+  migrations/     # versioned SQL schema (0001..0008)
   quality.py      # data-quality checks (warnings + score)
   recalibration.py# decides when a backtest must be redone (backward recalibration)
   fundamentals.py # stock-level retrieval routed through the chosen source
@@ -209,6 +218,8 @@ checklist; the roadmap closes the gap from *automated* to *agentic*.
 - **[docs/AGENTS.md](docs/AGENTS.md)** — jobs vs agents; each agent's work + cadence.
 - **[docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)** — the waterfall router; shared
   (model-agnostic) vs model-specific learning.
+- **[docs/MEMORY.md](docs/MEMORY.md)** — the 3-tier memory (episodic → semantic →
+  curated), the capture→consolidate→promote lifecycle, and point-in-time recall.
 - **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion job.
 
 ## Disclaimer

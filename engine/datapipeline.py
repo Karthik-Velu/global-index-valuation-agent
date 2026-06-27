@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 
-from . import config, db, llm, quality, recalibration
+from . import config, db, llm, memory, quality, recalibration
 from .config import DATA_DIR
 from .dataagent import agent as source_probe   # deterministic source health/scoring
 from .sectoragent import tagging
@@ -92,6 +92,12 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         print("   agents: requested but no model configured (Ollama not running / no key)")
     else:
         steps["agents"] = {"active": False, "note": "not requested (run with --agents)"}
+
+    # 8. Semantic-memory lifecycle (deterministic): consolidate freshly captured
+    #    candidates to 'active', then decay/retire stale ones. Runs after the agents
+    #    so anything they just captured is consolidated in the same pass.
+    steps["memory"] = {"consolidate": memory.consolidate(), "decay": memory.verify_decay(),
+                       "stats": memory.stats()}
 
     report = {"asof": date.today().isoformat(),
               "generated_at": datetime.now(timezone.utc).isoformat(), "steps": steps}

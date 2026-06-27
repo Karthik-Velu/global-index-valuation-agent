@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from .. import llm
+from .. import llm, memory
 from ..sources import registry
 
 
@@ -48,4 +48,10 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
             if s.get("id"):
                 registry.upsert_source(s)
                 out.append({"need": need["id"], "lead": s["id"], "license": s.get("license")})
+                memory.capture(
+                    f"source:{s['id']}",
+                    f"{s.get('name', s['id'])} — candidate {need['kind']} source "
+                    f"(license: {s.get('license', 'unknown')}, access: {s.get('access_method', '?')}).",
+                    kind="source_status", origin="source-discovery agent", confidence=0.30,
+                    testable=True, test_hint=s.get("endpoint"))
     return out
