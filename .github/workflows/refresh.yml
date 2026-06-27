@@ -1,0 +1,57 @@
+name: Weekly data refresh
+
+# Re-runs the engine in the cloud each week, commits the new published snapshot
+# (dashboard/dashboard_data.json), and triggers a Vercel redeploy. This is the
+# hosted equivalent of scripts/weekly_refresh.sh and feeds the auto-tuner.
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # Mondays 07:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Refresh data (engine runs deterministically; no API key needed)
+        run: python -m engine.cli refresh --no-cache --no-llm
+
+      - name: Publish snapshot to the static dir
+        run: cp data/dashboard_data.json dashboard/dashboard_data.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/dashboard_data.json
+          if git diff --staged --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "chore: weekly data refresh [skip ci]"
+            git push
+          fi
+
+      # Optional: set repo secret VERCEL_DEPLOY_HOOK to auto-redeploy the site.
+      # (Vercel → Project → Settings → Git → Deploy Hooks → create one.)
+      - name: Trigger Vercel redeploy
+        if: ${{ env.VERCEL_DEPLOY_HOOK != '' }}
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: curl -fsSL -X POST "$VERCEL_DEPLOY_HOOK" || true

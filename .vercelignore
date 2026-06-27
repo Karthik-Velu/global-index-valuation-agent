@@ -1,0 +1,14 @@
+# The Vercel deployment is the STATIC dashboard only. Keep the Python engine,
+# data, and tooling out of the upload so Vercel never tries to build Python.
+engine/
+scripts/
+data/
+.github/
+.venv/
+__pycache__/
+requirements.txt
+.env
+.env.*
+*.db
+*.log
+README.md

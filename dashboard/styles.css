@@ -1,0 +1,31 @@
+/* Small custom layer on top of Tailwind CDN */
+.section-title { font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px; }
+.ctrl {
+  background: #0b0f17; border: 1px solid #243049; color: #cbd5e1;
+  border-radius: 8px; padding: 5px 9px; font-size: 12px; outline: none;
+}
+.ctrl:focus { border-color: #60a5fa; }
+
+table#table th {
+  text-align: right; font-weight: 600; color: #94a3b8; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .03em; padding: 6px 8px;
+  border-bottom: 1px solid #243049; cursor: pointer; white-space: nowrap; user-select: none;
+}
+table#table th:first-child, table#table td:first-child { text-align: left; }
+table#table td { padding: 7px 8px; border-bottom: 1px solid #16203212; text-align: right; white-space: nowrap; }
+table#table tbody tr { cursor: pointer; }
+table#table tbody tr:hover { background: #1a223580; }
+
+.badge { font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
+.pill { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:999px; }
+
+.scorebar { height: 6px; border-radius: 999px; background: #243049; overflow: hidden; min-width: 54px; display:inline-block; vertical-align: middle; }
+.scorebar > i { display:block; height:100%; }
+
+.fb-btn { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid #243049; color:#94a3b8; }
+.fb-btn:hover { color:#e2e8f0; border-color:#60a5fa; }
+.fb-btn.active { color:#0b0f17; background:#60a5fa; border-color:#60a5fa; }
+
+#scatter svg text { fill: #64748b; font-size: 10px; }
+.dot { cursor: pointer; transition: opacity .15s; }
+.dot:hover { opacity: 1 !important; }

@@ -1,0 +1,17 @@
+# Core data + compute (the "non-intelligent" deterministic layer)
+yfinance>=0.2.40
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+
+# API for the dashboard + feedback writes
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+
+# LLM layer (differential model routing). Optional at runtime:
+# the engine runs fully without an API key — insights are just skipped.
+anthropic>=0.40
+python-dotenv>=1.0

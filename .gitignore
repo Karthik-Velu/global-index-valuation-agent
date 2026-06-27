@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local data, caches, and generated output
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.json
+data/*.log
+data/cache/
+data/snapshots/
+# NOTE: the dashboard's published snapshot (dashboard/dashboard_data.json) is
+# intentionally NOT ignored — it is the static data the hosted site serves.
+
+# Secrets / local tooling
+.env
+.env.*
+!.env.example
+.claude/
+.vercel/
+*.lock
+
+# Node / Next.js dashboard
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.env.local
+
+# OS
+.DS_Store

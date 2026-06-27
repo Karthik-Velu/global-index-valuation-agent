@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Global Index Valuation Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { colors: {
+      ink: '#0b0f17', panel: '#121826', panel2: '#1a2235', line: '#243049',
+      cheap: '#34d399', rich: '#f87171', warn: '#fbbf24', accent: '#60a5fa' } } } }
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-ink text-slate-200 antialiased">
+  <div id="app" class="max-w-[1400px] mx-auto px-5 py-6">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-white">Global Index Valuation Agent</h1>
+        <p class="text-sm text-slate-400">Where is the world's equity value &mdash; and where's the opportunity?</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm flex-wrap">
+        <div id="tuning" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
+        <div id="trackrecord" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-300"></div>
+        <div id="asof" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
+        <button id="refreshBtn" class="px-3 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Focus: one lens for the whole view -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <span class="text-xs text-slate-500 uppercase tracking-wider mr-1">Focus</span>
+      <div id="focus" class="flex gap-1 flex-wrap"></div>
+    </div>
+
+    <!-- 1. The headline read -->
+    <section id="brief" class="rounded-xl bg-gradient-to-br from-panel to-panel2 border border-line p-5 mb-5">
+      <div class="text-[11px] uppercase tracking-wider text-accent mb-2">Strategist read</div>
+      <p id="briefText" class="text-[15px] leading-relaxed text-slate-100">Loading&hellip;</p>
+    </section>
+
+    <!-- 2. Surfaced insights -->
+    <section class="mb-6">
+      <h2 class="section-title">What to pay attention to</h2>
+      <div id="insights" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+
+    <!-- 3. The map: value vs momentum -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="lg:col-span-2 rounded-xl bg-panel border border-line p-4">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="section-title mb-0">Value &times; Growth map</h2>
+          <span class="text-xs text-slate-500">cheap &amp; high fundamental growth = top-right</span>
+        </div>
+        <div id="scatter"></div>
+      </div>
+      <div class="rounded-xl bg-panel border border-line p-4">
+        <h2 class="section-title">💎 Cheap &amp; growing (GARP)</h2>
+        <div id="topOpp" class="space-y-1.5 mb-4"></div>
+        <h2 class="section-title">🚀 Highest fundamental growth</h2>
+        <div id="topGrowth" class="space-y-1.5 mb-4"></div>
+        <h2 class="section-title">🏷️ Cheapest value</h2>
+        <div id="topValue" class="space-y-1.5"></div>
+      </div>
+    </section>
+
+    <!-- 3c. Regional valuation heatmap -->
+    <section class="rounded-xl bg-panel border border-line p-4 mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="section-title mb-0">Valuation by region</h2>
+        <span class="text-xs text-slate-500">avg value score · greener = cheaper</span>
+      </div>
+      <div id="heatmap" class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
+    </section>
+
+    <!-- 4. Full scoreboard with filters -->
+    <section class="rounded-xl bg-panel border border-line p-4">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <h2 class="section-title mb-0 mr-2">Full scoreboard</h2>
+        <input id="search" placeholder="Search market&hellip;" class="ctrl w-40" />
+        <select id="fRegion" class="ctrl"></select>
+        <select id="fDev" class="ctrl"></select>
+        <select id="fBand" class="ctrl">
+          <option value="">All value bands</option><option>Cheap</option><option>Fair</option><option>Expensive</option>
+        </select>
+        <label class="text-xs text-slate-400 flex items-center gap-1 ml-1">
+          <input type="checkbox" id="fHideRich" class="accent-accent" /> hide overvalued
+        </label>
+        <span id="rowcount" class="text-xs text-slate-500 ml-auto"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="table">
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-xs text-slate-600 mt-6">
+      <span id="meta"></span>
+    </footer>
+  </div>
+
+  <!-- Drill-down side panel -->
+  <div id="drawer" class="fixed inset-y-0 right-0 w-[380px] bg-panel2 border-l border-line p-5 translate-x-full transition-transform duration-200 overflow-y-auto z-50"></div>
+  <div id="scrim" class="fixed inset-0 bg-black/50 hidden z-40"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
