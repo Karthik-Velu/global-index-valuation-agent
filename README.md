@@ -103,9 +103,16 @@ We keep the terminology precise (see **[docs/AGENTS.md](docs/AGENTS.md)**):
    KPI catalog → data-quality checks → recalibration check. Validation runs *right
    after* ingestion. *(daily)* See [docs/DATA_INGESTION.md](docs/DATA_INGESTION.md).
 
-**Agents (LLM, to set up later):** source-discovery, sector-KPI research, quality-
-triage, analyst, strategist, model-upgrade — each with its expected work and cadence
-in [docs/AGENTS.md](docs/AGENTS.md).
+**Agents (LLM):** provider-agnostic (`scheme:model` → Ollama / DeepSeek / GLM /
+OpenRouter / Anthropic) and **activatable locally for $0** via Ollama. Source-discovery,
+sector-KPI research, quality-triage, analyst, strategist, model-upgrade — each with its
+expected work and cadence in [docs/AGENTS.md](docs/AGENTS.md). They *improve* the jobs;
+they don't run in the deterministic hot path.
+
+**Data foundation:** a cloud **Postgres** (Supabase) is the single source of truth;
+**SEC EDGAR** ingests sector-aware, point-in-time stock-level fundamentals (110-KPI
+catalog, restatement vintages). Two-tier storage (Postgres + Parquet/DuckDB) is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); progress in [docs/STATUS.md](docs/STATUS.md).
 
 ---
 
@@ -122,15 +129,19 @@ python -m engine.cli refresh
 uvicorn engine.api:app --port 8000
 ```
 
-Optional — turn on the LLM strategist narrative (otherwise it uses free deterministic text):
+Optional — activate the LLM (otherwise free deterministic text + dormant agents):
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY (or a cheap model — see ARCHITECTURE.md)
+cp .env.example .env
+# Free + local ($0): install Ollama, then  ollama pull qwen2.5
+#   and set  MODEL_CHEAP=ollama:qwen2.5  MODEL_AGENT=ollama:qwen2.5  in .env
+# Or a key: ANTHROPIC_API_KEY / OPENROUTER_API_KEY (see docs/ARCHITECTURE.md, docs/AGENTS.md)
 ```
 
-Run the data-ingestion agent:
+Cloud DB + data pipeline (needs `DATABASE_URL` in `.env` — Supabase):
 ```bash
-python -m engine.dataagent.cli run       # probe sources, score, rewire, report
-python -m engine.dataagent.cli sources --leads   # the prioritized backlog of sources
+python -c "from engine import db; db.apply_migrations()"   # apply schema
+python -m engine.datapipeline            # probe -> ingest (EDGAR) -> tag -> validate -> QA
+python -m engine.datapipeline --agents   # also run the LLM agents (needs a model)
 ```
 
 ## Project structure
@@ -138,20 +149,27 @@ python -m engine.dataagent.cli sources --leads   # the prioritized backlog of so
 ```
 engine/
   universe.py     # the ~90 indices (index -> liquid ETF proxy)
-  datasource.py   # free data fetch + normalize + cache (the dumb layer)
+  datasource.py   # free index data fetch + normalize + local cache
   metrics.py      # value / growth / momentum / opportunity scores, ranked within kind
   surfacing.py    # picks the few insights worth surfacing (per kind)
-  ledger.py       # prediction ledger + market-feedback accuracy
+  ledger.py       # prediction ledger + market-feedback accuracy (Postgres)
   tuning.py       # feedback-driven auto-tuning of the opportunity weights
-  llm.py          # optional narration (cheap tags + smart brief); free fallbacks
-  fundamentals.py # stock-level retrieval, routed through the ingestion agent's choice
-  pipeline.py     # orchestration -> dashboard_data.json
+  llm.py          # provider-agnostic model router (Ollama/DeepSeek/GLM/.../Anthropic)
+  pipeline.py     # valuation orchestration -> dashboard_data.json
+  datapipeline.py # the sequenced DATA pipeline job (probe->ingest->tag->validate->QA)
+  db.py           # Postgres (Tier A) access + migration runner
+  migrations/     # versioned SQL schema (0001..0005)
+  quality.py      # data-quality checks (warnings + score)
+  recalibration.py# decides when a backtest must be redone (backward recalibration)
+  fundamentals.py # stock-level retrieval routed through the chosen source
   api.py / cli.py # FastAPI server + CLI
-  sources/        # SourceAdapter interface, registry, adapters, seed_catalog.json
-  dataagent/      # the data-ingestion agent (probe, score, decide, discover, cli)
+  sources/        # SourceAdapter interface, registry, adapters (EDGAR/SimFin/...),
+                  #   seed_catalog.json (40 sources), metric_catalog.json (110 KPIs)
+  dataagent/      # source probe/score/decide (job) + discover (agent)
+  sectoragent/    # SIC tagging + catalog validation (job) + KPI research (agent)
 dashboard/        # static, no-build UI (focus lens, Value×Growth map, scoreboard)
-docs/             # ARCHITECTURE.md (target design) + DATA_INGESTION.md
-.github/workflows/# weekly data refresh + daily data-source health
+docs/             # STATUS, ROADMAP, ARCHITECTURE, AGENTS, DATA_INGESTION
+.github/workflows/# data-pipeline (daily) + valuation refresh (weekly)
 scripts/          # local cron helper
 ```
 
@@ -162,27 +180,29 @@ serves a committed snapshot of it and refreshes weekly via GitHub Actions.
 
 ## Status & roadmap
 
-- **Phase 1 (live):** index-level valuation + fundamental growth across ~90 markets, an
-  interactive dashboard, both feedback loops, auto-tuning, and the data-ingestion agent.
-- **Honest caveats:** scores are **relative within each run**; the strategy has **not yet
-  been backtested**, so treat it as experimental. Free Yahoo data is license-restricted
-  (the ingestion agent is migrating to license-clean sources for the public build).
-- **Next (designed, see [ARCHITECTURE.md](docs/ARCHITECTURE.md)):** an in-loop LLM agent
-  (tools + memory + reflection), a validated learning model + **backtest**, multi-user
-  backend + alerts, stock-level (Phase 2) data, and a self-hosted, auto-upgradeable model.
+**Full current state: [docs/STATUS.md](docs/STATUS.md).** In short:
+- **Live:** the index-level dashboard (public, on Vercel); a cloud **Postgres** data
+  foundation (single source of truth); **SEC EDGAR** ingesting sector-aware, point-in-time
+  stock-level fundamentals (110-KPI catalog, restatement vintages); the sequenced daily
+  data-pipeline job; and **LLM agents activatable locally for $0** (Ollama).
+- **Honest caveats:** scores are **relative within each run** and the strategy is **not yet
+  backtested** — experimental. Free Yahoo data is license-restricted (migrating to
+  license-clean sources, EDGAR-first).
+- **Next:** ingest the S&P 500 (with agents), non-US fundamentals (EDINET/SimFin), Tier B
+  (R2/Parquet for prices), then **Phase 2** — the backtest + validated ranking model.
 
-The [architecture doc](docs/ARCHITECTURE.md) includes a measurable "definition of
-agentic" checklist — today the system is *automated and instrumented*; the roadmap closes
-the gap to *agentic*.
+The [architecture doc](docs/ARCHITECTURE.md) has a measurable "definition of agentic"
+checklist; the roadmap closes the gap from *automated* to *agentic*.
 
 ## Documentation
 
-- **[docs/ROADMAP.md](docs/ROADMAP.md)** — the sequenced build plan: the two-tier data
-  architecture (Postgres + Parquet/DuckDB), Phase 1 (cloud DB + stock-level data),
-  backtesting methodology, and the news/macro context layer.
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the target-state design: 8 pillars,
-  model-routing strategy, cost ladder, moat & monetization.
-- **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion agent.
+- **[docs/STATUS.md](docs/STATUS.md)** — current state + what's next (start here).
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — sequenced build plan; two-tier data
+  architecture (Postgres + Parquet/DuckDB); backtesting + news/macro layer.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — target-state design: 8 pillars,
+  model-routing, cost ladder, moat & monetization.
+- **[docs/AGENTS.md](docs/AGENTS.md)** — jobs vs agents; each agent's work + cadence.
+- **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion job.
 
 ## Disclaimer
 
