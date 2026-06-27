@@ -1,59 +1,105 @@
 # Global Index Valuation Agent
 
-Finds where the world's equity value and opportunity is, across **~90 indices**
-(58 countries + US sectors, styles, regions and broad benchmarks), and surfaces the
-handful of calls worth your attention — so you spend a minute, not an afternoon.
+**Where is the world's equity value — and where's the opportunity?**
+A cost-effective research agent that ranks **~90 global market indices** by *value* and
+*fundamental growth*, surfaces the handful of calls worth your attention, and learns
+from whether its past calls actually played out — so you spend a minute, not an afternoon.
 
-Everything is scored **within its peer group** (`kind`): countries rank against
-countries, sectors against sectors. Adding US sectors never distorts the country
-comparison. The dashboard's **Focus** control switches the whole view between
-lenses (Countries / Sectors / Styles / Regions / Broad).
+[![Live demo](https://img.shields.io/badge/live-demo-2dd4bf)](https://global-index-valuation-agent.vercel.app)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](requirements.txt)
+&nbsp;·&nbsp; **[▶ Live demo](https://global-index-valuation-agent.vercel.app)** ·
+**[Architecture](docs/ARCHITECTURE.md)** · **[Data-ingestion agent](docs/DATA_INGESTION.md)**
 
-It is built as an **agent, not a report generator**: every run records a
-prediction, and later runs grade those predictions against what the market
-actually did. That market feedback — plus your own pin/dismiss/rating feedback —
-is fed back into what gets surfaced.
-
----
-
-## What it answers
-
-1. **Sources every major index** (Phase 1: index level via consistent ETF proxies).
-2. **Computes valuation** — P/E, P/B, P/S, P/CF, dividend & earnings yield.
-3. **"Cheap and good value"** — a within-peer-group **Value score** (with value-trap guards).
-4. **"High growth potential"** — a **Growth score** built from the *fundamentals*
-   (revenue + earnings growth of each index's top holdings, blended with forward
-   analyst estimates) — **not** stock-price momentum. Surfaced as a "high growth"
-   tag and a **Value × Growth** map.
-5. **"Cheap AND growing, not overvalued"** — a true-GARP **Opportunity score**
-   (value 40% + fundamental growth 40% + momentum 12% + mean-reversion 8%) that
-   gates out the richest cohort. The "💎 GARP" flag marks the sweet spot.
-
-### How fundamental growth is measured (cheaply)
-Index-level forward earnings growth isn't available free, and Yahoo's ETF
-"3-yr earnings growth" field is empty for international ETFs. So instead of a
-price-momentum proxy, the engine does a **bounded mini-bottom-up**: it takes each
-index's **top ~10 cap-weighted holdings**, pulls each stock's revenue growth,
-earnings growth, and forward analyst estimate, de-dupes across all indices (so each
-stock is fetched once), winsorizes outliers, and weights back up to an index-level
-growth number. Full top-1000 constituent growth lands in Phase 2.
+> [!WARNING]
+> **For research/education only — not investment advice.** The rankings are
+> **experimental and unvalidated** (no backtest yet — see [roadmap](#status--roadmap)).
+> Do your own research. See [DISCLAIMER.md](DISCLAIMER.md).
 
 ---
 
-## Cost model (why it's cheap)
+## What it is
 
-The expensive thing in an AI product is putting a model in the data loop. We don't.
+Most equity tools are either **data terminals you dig through** (Bloomberg, Koyfin, TIKR)
+or **opaque ratings that never show whether they worked** (Simply Wall St, Stockopedia).
+This is neither. It is an **agent that does the research for you** and shows its work:
 
-| Layer | Who does it | Cost |
-|---|---|---|
-| Fetch, parse, compute metrics, score, rank | **Deterministic Python** | ~free |
-| Per-market one-line tag (high volume) | **Haiku** (cheap tier) | tiny |
-| One top-level strategist brief per run | **Opus** (smart tier) | tiny |
+- It sources every major index, computes valuation + **fundamental** growth, and ranks
+  markets **within their peer group** (countries vs countries, sectors vs sectors).
+- It surfaces the few things that matter — *cheapest value*, *highest fundamental
+  growth*, and the **GARP sweet spot** (cheap **and** growing) — at the top.
+- It records every call against a **fixed date** and grades itself against what the
+  market actually did, so the track record is public and falsifiable.
 
-The LLM only ever sees the final ≤50-row scoreboard. With no `ANTHROPIC_API_KEY`
-set, the model layer is skipped entirely and deterministic fallbacks fill in — the
-whole product still runs for **$0**. This is the "differential models" design:
-cheap model for the cheap job, smart model for the one job that needs it.
+Try it: **<https://global-index-valuation-agent.vercel.app>** (the strategist read, the
+insight cards, and the Value × Growth map are the one-minute answer).
+
+## Why it's different (the wedge)
+
+1. **Top-down + bottom-up in one view.** "Which *market* is cheap & growing" and (Phase 2)
+   "which *stock* within it" on one globally-comparable scale. Most tools are stock-only
+   or single-market.
+2. **A 1-minute answer, not a terminal.** Insights rise to the top; filters are there if
+   you want to dig.
+3. **A transparent, self-validating track record.** It grades its own calls in the open.
+4. **Cost-engineered to run for ~$0.** The expensive model never touches the raw data.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+  SRC["Free data sources<br/>(ETF holdings, prices, fundamentals)"] --> ENG
+  subgraph ENG["Engine — deterministic, free (weekly)"]
+    direction TB
+    F["Fetch + normalize"] --> M["Score: value · growth · momentum · opportunity<br/>(within each peer group)"]
+    M --> S["Surface the few insights that matter"]
+    M --> L["Record predictions → grade past calls → auto-tune weights"]
+  end
+  ENG --> J["dashboard_data.json (published snapshot)"]
+  J --> UI["Static dashboard on Vercel<br/>insights · Value×Growth map · scoreboard"]
+  LLM["LLM (optional, cheap tier)<br/>tags + strategist brief"] -.-> S
+```
+
+**The deterministic spine.** Fetching, parsing, computing P/E and other metrics, scoring,
+ranking, and grading are all plain Python — free, exact, auditable. The LLM is optional
+and only ever narrates the final ≤90-row scoreboard. With no API key the product still
+runs end-to-end for **$0** (deterministic fallbacks fill in the text).
+
+**The scores** (all ranked *within* a peer-group `kind`, so adding US sectors never
+distorts the country comparison):
+
+| Score | Question it answers |
+|---|---|
+| **Value** | Is it cheap? (P/E, P/B, P/S, yields — with value-trap guards) |
+| **Growth** | Are the underlying **fundamentals** growing? (revenue + earnings growth of the top holdings + forward estimates — **not** price momentum) |
+| **Opportunity (GARP)** | Cheap **and** growing **and** not overvalued? (value 40% · growth 40% · momentum 12% · mean-reversion 8%) |
+
+**Two feedback loops** make it an agent, not a report:
+- **Market feedback** — every run records a prediction; later runs grade it (rank-IC,
+  hit-rate) and the [auto-tuner](engine/tuning.py) nudges the weights toward what worked.
+- **User feedback** — pin / dismiss / rate, which re-weights what surfaces next.
+
+**Cost model — right model for the right task.** Deterministic work is free; LLM work is
+routed by frequency × stakes: cheap/owned models (self-hosted Qwen, GLM-4-Flash,
+DeepSeek) for frequent customer-facing calls, frontier models only for the rare weekly
+synthesis. Full design in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#2-the-model-routing-strategy-the-cost-lever).
+
+---
+
+## The two agents
+
+This repo contains two cooperating agents:
+
+1. **The valuation engine** (`engine/`) — the product above. Sources indices, scores
+   them, surfaces insights, grades itself, and publishes the dashboard.
+2. **The [data-ingestion agent](docs/DATA_INGESTION.md)** (`engine/dataagent/`) — its sole
+   job is to keep the data good: it discovers candidate sources, **probes them** for
+   coverage / cleanliness / freshness / **license**, scores them, and rewires which
+   source feeds each need. It ships a backlog of 40 research-verified, license-clean
+   sources (`engine/sources/seed_catalog.json`) and already flags that Yahoo is
+   license-restricted and where the coverage gaps are.
 
 ---
 
@@ -63,116 +109,82 @@ cheap model for the cheap job, smart model for the one job that needs it.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 1. Build the data (fetch + score + write data/dashboard_data.json)
-python -m engine.cli refresh --no-cache
+# 1. Build the data (fetch + score + grade + write data/dashboard_data.json)
+python -m engine.cli refresh
 
-# 2. Launch the dashboard
+# 2. Launch the dashboard  ->  http://localhost:8000
 uvicorn engine.api:app --port 8000
-# open http://localhost:8000
 ```
 
-Optional — turn on the LLM narrative (Haiku tags + Opus brief):
-
+Optional — turn on the LLM strategist narrative (otherwise it uses free deterministic text):
 ```bash
-cp .env.example .env   # then paste your ANTHROPIC_API_KEY
-python -m engine.cli refresh --no-cache   # now with_llm by default
+cp .env.example .env   # add ANTHROPIC_API_KEY (or a cheap model — see ARCHITECTURE.md)
 ```
 
-CLI extras:
-
+Run the data-ingestion agent:
 ```bash
-python -m engine.cli accuracy                       # model track record so far
-python -m engine.cli feedback market brazil pin     # record feedback from the terminal
+python -m engine.dataagent.cli run       # probe sources, score, rewire, report
+python -m engine.dataagent.cli sources --leads   # the prioritized backlog of sources
 ```
 
----
-
-## The two feedback loops
-
-- **Market feedback** (`engine/ledger.py`): each run writes a prediction
-  (value/opportunity score + the proxy's price) to SQLite. Later runs compute the
-  realized forward return per market and score the ranking with a Spearman rank-IC
-  and a top-vs-bottom-quartile hit rate. Shown live in the header as "track record".
-  Accuracy accrues automatically as you re-run over days/weeks.
-- **User feedback**: pin / dismiss / 👍 / 👎 on insights and markets writes to the
-  same ledger and nudges what surfaces next time (`engine/surfacing.py`).
-- **Auto-tuning** (`engine/tuning.py`): each run measures the rank-IC of every
-  opportunity component (value / momentum / mean-reversion) against realized forward
-  returns and shifts the weights toward what actually worked — blended 70/30 with the
-  priors so it adapts without overfitting. Safe by construction: a no-op until there
-  are ≥ 4 graded runs, with the effective weights pinned in `data/weights.json` and
-  shown in the dashboard header ("⚙ auto-tuned"). Feed it with a weekly refresh:
-
-  ```bash
-  # scripts/weekly_refresh.sh re-fetches, scores, grades, and re-tunes.
-  crontab -e   # then (use this repo's absolute path):
-  0 7 * * 1 /path/to/Agent/scripts/weekly_refresh.sh >> /path/to/Agent/data/cron.log 2>&1
-  ```
-
----
-
-## Hosting (GitHub + Vercel)
-
-The dashboard is a **static site** (no build step), so it deploys to Vercel as-is.
-The Python engine never runs on Vercel — it would need a long-lived server and the
-multi-minute data fetch can't run on a serverless request. Instead:
-
-- The site serves a **published snapshot**, `dashboard/dashboard_data.json`, which is
-  committed to the repo. The dashboard tries the local engine API first
-  (`/api/dashboard`) and falls back to this static file when there's no API.
-- `vercel.json` serves `dashboard/` statically; `.vercelignore` keeps the engine,
-  data, and tooling out of the deploy.
-- Feedback still works on the hosted site — it persists to `localStorage` (the
-  authoritative feedback loop + auto-tuning run in the local engine / CI).
-- **Data stays fresh automatically**: `.github/workflows/refresh.yml` re-runs the
-  engine every Monday, commits the new snapshot, and (optionally) pings a Vercel
-  deploy hook. This is the cloud version of `scripts/weekly_refresh.sh`.
-
-For auto-redeploy on each weekly commit, either connect the GitHub repo in the Vercel
-dashboard, or create a Vercel **Deploy Hook** and add it as the repo secret
-`VERCEL_DEPLOY_HOOK`.
-
-## Architecture
+## Project structure
 
 ```
 engine/
-  universe.py    # the markets (index -> liquid ETF proxy). Add rows to expand toward 100.
-  datasource.py  # free Yahoo data, normalised + cached in SQLite (the dumb fetch layer)
-  metrics.py     # value / momentum / mean-reversion / opportunity scores, ranked WITHIN kind
-  surfacing.py   # picks the few insights worth surfacing (per kind); honours user feedback
-  ledger.py      # prediction ledger + market-feedback scoring + user feedback
-  tuning.py      # feedback-driven auto-tuning of the opportunity weights
-  llm.py         # differential model router (Haiku tags, Opus brief) — optional
-  pipeline.py    # orchestration -> writes data/dashboard_data.json
-  api.py         # FastAPI: serves dashboard + JSON + feedback writes
-  cli.py         # refresh / accuracy / feedback
-dashboard/       # single-page UI (no build step): focus lens, insights, value×momentum
-                 #   map, regional heatmap, scoreboard, drill-down, feedback
-scripts/
-  weekly_refresh.sh  # cron/launchd entry point that feeds the auto-tuner
-data/            # SQLite ledger + cache + dashboard_data.json (gitignored)
+  universe.py     # the ~90 indices (index -> liquid ETF proxy)
+  datasource.py   # free data fetch + normalize + cache (the dumb layer)
+  metrics.py      # value / growth / momentum / opportunity scores, ranked within kind
+  surfacing.py    # picks the few insights worth surfacing (per kind)
+  ledger.py       # prediction ledger + market-feedback accuracy
+  tuning.py       # feedback-driven auto-tuning of the opportunity weights
+  llm.py          # optional narration (cheap tags + smart brief); free fallbacks
+  fundamentals.py # stock-level retrieval, routed through the ingestion agent's choice
+  pipeline.py     # orchestration -> dashboard_data.json
+  api.py / cli.py # FastAPI server + CLI
+  sources/        # SourceAdapter interface, registry, adapters, seed_catalog.json
+  dataagent/      # the data-ingestion agent (probe, score, decide, discover, cli)
+dashboard/        # static, no-build UI (focus lens, Value×Growth map, scoreboard)
+docs/             # ARCHITECTURE.md (target design) + DATA_INGESTION.md
+.github/workflows/# weekly data refresh + daily data-source health
+scripts/          # local cron helper
 ```
 
-`data/dashboard_data.json` is the single contract between engine and UI.
+`data/dashboard_data.json` is the single contract between engine and UI. The hosted site
+serves a committed snapshot of it and refreshes weekly via GitHub Actions.
 
 ---
 
-## Phases
+## Status & roadmap
 
-- **Phase 1 (done): index level.** ~50 markets via single-methodology ETF proxies
-  so valuations are truly comparable across countries. Growth signal = momentum +
-  mean-reversion (forward EPS isn't reliably free at index level).
-- **Phase 2: full bottom-up.** Replace each index's `proxy` with its constituent
-  list (top ~1000 stocks, ≤5 indices/country), compute per-stock fundamentals, and
-  aggregate (median + cap-weighted) behind the *same* `Index` interface — nothing
-  downstream changes. This unlocks true forward-growth/PEG opportunity scoring and
-  stock-level drill-down.
+- **Phase 1 (live):** index-level valuation + fundamental growth across ~90 markets, an
+  interactive dashboard, both feedback loops, auto-tuning, and the data-ingestion agent.
+- **Honest caveats:** scores are **relative within each run**; the strategy has **not yet
+  been backtested**, so treat it as experimental. Free Yahoo data is license-restricted
+  (the ingestion agent is migrating to license-clean sources for the public build).
+- **Next (designed, see [ARCHITECTURE.md](docs/ARCHITECTURE.md)):** an in-loop LLM agent
+  (tools + memory + reflection), a validated learning model + **backtest**, multi-user
+  backend + alerts, stock-level (Phase 2) data, and a self-hosted, auto-upgradeable model.
 
-### Notes / honesty
+The [architecture doc](docs/ARCHITECTURE.md) includes a measurable "definition of
+agentic" checklist — today the system is *automated and instrumented*; the roadmap closes
+the gap to *agentic*.
 
-- ETF "Price/X" fields from Yahoo are stored as reciprocals; we invert them. Spot-
-  checked against known levels (US ~27, China ~10, Brazil ~13) — sane.
-- Scores are **relative within each run's universe**, which is the right frame for
-  an allocation call but means they shift as the universe expands.
-- Free Yahoo data is unofficial and occasionally rate-limits; the SQLite cache makes
-  re-runs resilient.
+## Documentation
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the target-state design: 8 pillars,
+  model-routing strategy, cost ladder, moat & monetization, phased roadmap.
+- **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion agent.
+
+## Disclaimer
+
+This software is provided for **informational and educational purposes only**. It is
+**not** investment advice, a recommendation, or an offer to buy or sell any security. The
+rankings are experimental and unvalidated, may contain errors, and rely on free data that
+can be incomplete or wrong. Markets are risky; **do your own research** and consult a
+licensed professional. The authors accept no liability for any use of this software. See
+[DISCLAIMER.md](DISCLAIMER.md).
+
+## License
+
+[MIT](LICENSE) for the code. Market data is subject to each source's own terms — see the
+license notes in `engine/sources/seed_catalog.json` and the data-ingestion agent.
