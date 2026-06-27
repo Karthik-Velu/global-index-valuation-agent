@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOTE ON DATA: This license covers the source code only. Market data accessed or
-produced by this software is subject to the terms of each upstream data
-provider (see license notes in engine/sources/seed_catalog.json). Some sources
-prohibit redistribution or commercial use; it is the operator's responsibility
-to comply with each source's terms when deploying this software.
