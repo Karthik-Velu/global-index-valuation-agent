@@ -80,71 +80,80 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     sector_by_ticker = sector_by_ticker or {}
     stats = {"securities": 0, "metrics": 0, "filings": 0, "missing": [], "errors": []}
 
-    with db.connect() as conn:
-        for tk in tickers:
-            cik = cik_for(tk)
-            if not cik:
-                stats["missing"].append(tk)
-                continue
+    for tk in tickers:
+        cik = cik_for(tk)
+        if not cik:
+            stats["missing"].append(tk)
+            continue
+        try:
+            facts = _companyfacts(cik)  # slow network — done OUTSIDE any DB connection
+        except Exception as e:
+            stats["errors"].append(f"{tk}: {str(e)[:80]}")
+            continue
+        if not facts:
+            stats["missing"].append(tk)
+            continue
+
+        # Build all rows in memory first (no DB held during the slow fetch above).
+        # Then write with a SHORT-LIVED connection per company — long-lived connections
+        # get dropped by the pooler across a 500-company run. Retry once on a drop;
+        # isolate per-company errors so one blip can't kill the batch.
+        for attempt in (1, 2):
             try:
-                facts = _companyfacts(cik)
-            except Exception as e:
-                stats["errors"].append(f"{tk}: {str(e)[:80]}")
-                continue
-            if not facts:
-                stats["missing"].append(tk)
-                continue
-            with conn.cursor() as cur:
-                cur.execute(
-                    """insert into securities (ticker, exchange, name, country, cik, kind, sector)
-                       values (%s,'', %s, 'United States', %s, 'stock', %s)
-                       on conflict (ticker, exchange) do update set cik=excluded.cik, name=excluded.name,
-                         sector=coalesce(excluded.sector, securities.sector)
-                       returning id""",
-                    (tk.upper(), facts.get("entityName"), str(cik), sector_by_ticker.get(tk)),
-                )
-                sec_id = cur.fetchone()[0]
+                with db.connect() as conn, conn.cursor() as cur:
+                    cur.execute(
+                        """insert into securities (ticker, exchange, name, country, cik, kind, sector)
+                           values (%s,'', %s, 'United States', %s, 'stock', %s)
+                           on conflict (ticker, exchange) do update set cik=excluded.cik, name=excluded.name,
+                             sector=coalesce(excluded.sector, securities.sector)
+                           returning id""",
+                        (tk.upper(), facts.get("entityName"), str(cik), sector_by_ticker.get(tk)),
+                    )
+                    sec_id = cur.fetchone()[0]
+
+                    metric_rows: dict[tuple, tuple] = {}
+                    filing_rows: dict[str, tuple] = {}
+                    for mc, ns, concept, unit, f in _iter_facts(facts, tagmap):
+                        end, filed = f.get("end"), f.get("filed")
+                        if not end or not filed:
+                            continue
+                        fp = f.get("fp") or ""
+                        form = f.get("form") or ""
+                        accn = f.get("accn")
+                        audited = form in _AUDITED_FORMS
+                        key = (sec_id, end, fp, mc, "xbrl", filed)
+                        metric_rows.setdefault(key, (
+                            sec_id, end, fp, mc, f.get("val"), unit, form, audited, filed,
+                            f"{ns}:{concept}"))
+                        if accn and accn not in filing_rows:
+                            filing_rows[accn] = (sec_id, form, end, fp, filed, accn, audited)
+
+                    if metric_rows:
+                        cur.executemany(
+                            """insert into fundamental_metrics
+                               (security_id,period_end,fiscal_period,metric_code,value,unit,
+                                report_type,audited,filed_date,raw_tag,source)
+                               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'xbrl')
+                               on conflict do nothing""",
+                            list(metric_rows.values()),
+                        )
+                    if filing_rows:
+                        cur.executemany(
+                            """insert into filings
+                               (security_id,form,period_end,fiscal_period,filed_date,accession,audited,source)
+                               values (%s,%s,%s,%s,%s,%s,%s,'edgar')
+                               on conflict (security_id, accession) do nothing""",
+                            list(filing_rows.values()),
+                        )
+                    conn.commit()
                 stats["securities"] += 1
-
-                # Accumulate, dedup by PK, then batch-write (one round-trip each).
-                metric_rows: dict[tuple, tuple] = {}
-                filing_rows: dict[str, tuple] = {}
-                for mc, ns, concept, unit, f in _iter_facts(facts, tagmap):
-                    end, filed = f.get("end"), f.get("filed")
-                    if not end or not filed:
-                        continue
-                    fp = f.get("fp") or ""
-                    form = f.get("form") or ""
-                    accn = f.get("accn")
-                    audited = form in _AUDITED_FORMS
-                    key = (sec_id, end, fp, mc, "xbrl", filed)
-                    metric_rows.setdefault(key, (
-                        sec_id, end, fp, mc, f.get("val"), unit, form, audited, filed,
-                        f"{ns}:{concept}"))
-                    if accn and accn not in filing_rows:
-                        filing_rows[accn] = (sec_id, form, end, fp, filed, accn, audited)
-
-                if metric_rows:
-                    cur.executemany(
-                        """insert into fundamental_metrics
-                           (security_id,period_end,fiscal_period,metric_code,value,unit,
-                            report_type,audited,filed_date,raw_tag,source)
-                           values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'xbrl')
-                           on conflict do nothing""",
-                        list(metric_rows.values()),
-                    )
-                    stats["metrics"] += len(metric_rows)
-                if filing_rows:
-                    cur.executemany(
-                        """insert into filings
-                           (security_id,form,period_end,fiscal_period,filed_date,accession,audited,source)
-                           values (%s,%s,%s,%s,%s,%s,%s,'edgar')
-                           on conflict (security_id, accession) do nothing""",
-                        list(filing_rows.values()),
-                    )
-                    stats["filings"] += len(filing_rows)
-            conn.commit()
-            time.sleep(sleep)  # SEC fair-use
+                stats["metrics"] += len(metric_rows)
+                stats["filings"] += len(filing_rows)
+                break  # success
+            except Exception as e:
+                if attempt == 2:
+                    stats["errors"].append(f"{tk}: {str(e)[:80]}")
+        time.sleep(sleep)  # SEC fair-use
     return stats
 
 
