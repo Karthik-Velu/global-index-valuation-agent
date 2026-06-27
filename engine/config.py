@@ -42,21 +42,25 @@ MODEL_SMART = _smart_env or "anthropic:claude-opus-4-8"
 MODEL_AGENT = _agent_env or MODEL_CHEAP
 
 # Default waterfalls (best/most-capable first). Unavailable tiers are skipped.
+# `ollamacloud:` = Ollama Cloud hosted (needs OLLAMA_API_KEY); `ollama:` = local daemon.
 _AGENT_FALLBACKS = [
-    "ollama:gpt-oss:120b-cloud",                      # Ollama Cloud (`ollama signin`) — big, free tier
+    "ollamacloud:gpt-oss:120b",                       # Ollama Cloud — big, reliable JSON
+    "ollamacloud:deepseek-v3.2",                      # cloud alt
     "groq:llama-3.3-70b-versatile",                   # Groq free tier — fast 70B
     "openrouter:deepseek/deepseek-chat-v3-0324:free", # OpenRouter free
     "ollama:qwen2.5",                                 # local, offline, $0
 ]
 _CHEAP_FALLBACKS = [
+    "ollamacloud:gpt-oss:20b",                        # Ollama Cloud — light/fast
     "groq:llama-3.3-70b-versatile",
     "openrouter:meta-llama/llama-3.3-70b-instruct:free",
     "ollama:qwen2.5",
 ]
 _SMART_FALLBACKS = [
     "anthropic:claude-opus-4-8",                      # frontier for the rare weekly synthesis
+    "ollamacloud:gpt-oss:120b",
+    "ollamacloud:deepseek-v3.2",
     "groq:llama-3.3-70b-versatile",
-    "ollama:gpt-oss:120b-cloud",
 ]
 
 

@@ -36,6 +36,8 @@ def _conf(scheme: str) -> tuple[str | None, str]:
     return {
         "anthropic": ("anthropic", config.ANTHROPIC_API_KEY),
         "ollama": (config.OLLAMA_BASE_URL, config.OLLAMA_API_KEY or "ollama"),
+        "ollamacloud": ("https://ollama.com/v1", config.OLLAMA_API_KEY),  # hosted; keeps local ollama: separate
+
         "openrouter": ("https://openrouter.ai/api/v1", config.OPENROUTER_API_KEY),
         "groq": ("https://api.groq.com/openai/v1", config.GROQ_API_KEY),
         "deepseek": ("https://api.deepseek.com/v1", config.DEEPSEEK_API_KEY),
@@ -170,6 +172,10 @@ def call(role: str, system: str, user: str, max_tokens: int = 400,
         t0 = time.monotonic()
         try:
             out = _call(model_id, sysm, user, max_tokens=max_tokens, json_mode=use_json)
+            if not (out or "").strip():
+                # e.g. a reasoning model whose token budget was consumed before any
+                # visible content — treat as a tier failure and fall through.
+                raise RuntimeError("empty completion (token budget may be too small)")
             modelrouting.record(role, model_id, True, attempt=i, json_requested=json_mode,
                                 json_ok=(_json_parses(out) if json_mode else None),
                                 latency_ms=int((time.monotonic() - t0) * 1000))
