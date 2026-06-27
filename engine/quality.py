@@ -23,17 +23,17 @@ from .config import DATA_DIR
 REPORT_PATH = DATA_DIR / "quality_report.json"
 REVENUE_CODES = ["revenue_total", "total_revenue", "revenue", "revenues"]
 # Metrics that genuinely cannot be negative. NB: gross_profit, net_income, operating
-# income and free cash flow CAN be negative (e.g. TSLA gross profit in 2012), so they
-# are deliberately excluded — flagging them was a false positive.
-_CURRENCY_NONNEG = tuple(REVENUE_CODES + ["total_assets", "total_deposits", "shares_outstanding"])
+# income, free cash flow AND revenue can all be negative — e.g. TSLA gross profit in
+# 2012, and insurers/asset-managers (AIG 2008, Blackstone) book investment losses that
+# make total_revenue negative in crises. Only balance-sheet stocks and share counts
+# are truly non-negative.
+_CURRENCY_NONNEG = ("total_assets", "total_deposits", "shares_outstanding")
 
-# Core single-line-item metrics where a >50x year-over-year move genuinely signals a
-# UNITS ERROR (thousands filed as units). Composite metrics (total_debt,
-# dividends_and_buybacks, net_working_capital, …) sum components that vary in
-# availability across periods, so they swing for benign reasons — the jump check is
-# deliberately NOT run on them. These core items are also what the backtest depends on.
-_JUMP_CORE = {"total_revenue", "net_income", "operating_income", "gross_profit",
-              "total_assets", "total_equity", "operating_cash_flow"}
+# Metrics where a large year-over-year move genuinely signals a UNITS ERROR (thousands
+# filed as units). Restricted to the two large, stable, never-negative line items:
+# revenue and total assets. Earnings/cash-flow/equity legitimately swing and flip sign
+# (esp. financials in 2008/2020), so they are NOT used for units-error detection.
+_JUMP_CORE = {"total_revenue", "total_assets"}
 
 
 def _units() -> dict[str, str]:
@@ -88,9 +88,12 @@ def _checks(cur) -> list[dict]:
             if not (250 <= gap <= 450):          # only true year-over-year comparisons
                 continue
             va, vb = a[4], b[4]
-            if va and vb and abs(va) > 1e4 and abs(vb) > 1e4:
-                jump = max(abs(vb / va), abs(va / vb))
-                if jump > 50:
+            # Both must be positive + material: a sign flip is a real event (a loss),
+            # not a units error. Only an order-of-magnitude (>100x) move on these stable
+            # line items looks like a thousands-vs-units scaling mistake.
+            if va and vb and va > 1e5 and vb > 1e5:
+                jump = max(vb / va, va / vb)
+                if jump > 100:
                     issues.append({"check_name": "timeseries_jump", "severity": "warn",
                                    "scope": "metric", "entity": b[1], "metric_code": mc, "value": vb,
                                    "detail": f"{mc} moved {vb / va:.0f}x {a[3]}→{b[3]} (likely units error)"})
@@ -145,11 +148,17 @@ def run() -> dict:
                 (i["check_name"], i["severity"], i["scope"], i.get("entity"),
                  i.get("metric_code"), i.get("detail"), i.get("value")))
         conn.commit()
+        cur.execute("select count(*) from securities")
+        n_sec = cur.fetchone()[0] or 1
 
     from collections import Counter
     by_sev = Counter(i["severity"] for i in issues)
     by_check = Counter(i["check_name"] for i in issues)
-    score = max(0, 100 - 8 * by_sev.get("error", 0) - 2 * by_sev.get("warn", 0))
+    # Rate-based so the score is meaningful at any scale: issues are judged relative to
+    # the number of companies, not as an absolute count (errors weigh 4x warnings).
+    # ~2 weighted issues per company -> 0; a clean large dataset stays near 100.
+    weighted = by_sev.get("warn", 0) + 4 * by_sev.get("error", 0)
+    score = round(max(0, 100 - 100 * min(1.0, weighted / (2 * n_sec))))
     report = {"asof": date.today().isoformat(), "generated_at": datetime.now(timezone.utc).isoformat(),
               "data_quality_score": score, "n_issues": len(issues),
               "by_severity": dict(by_sev), "by_check": dict(by_check),
