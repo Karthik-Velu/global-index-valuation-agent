@@ -6,11 +6,14 @@ for them (the agent flags which leads are worth adapting next).
 from __future__ import annotations
 
 from .base import SourceAdapter
+from .edgar import EdgarAdapter
 from .simfin import SimFinAdapter
 from .stooq import StooqAdapter
 from .yahoo import YahooAdapter
 
-ADAPTERS: dict[str, SourceAdapter] = {a.id: a for a in [YahooAdapter(), StooqAdapter(), SimFinAdapter()]}
+ADAPTERS: dict[str, SourceAdapter] = {
+    a.id: a for a in [YahooAdapter(), StooqAdapter(), SimFinAdapter(), EdgarAdapter()]
+}
 
 
 def active_adapter(need_id: str, default: str | None = None) -> SourceAdapter | None:

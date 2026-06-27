@@ -1,0 +1,1818 @@
+{
+  "metrics": [
+    {
+      "metric_code": "net_interest_income",
+      "label": "Net Interest Income (NII)",
+      "definition": "Interest and dividend income earned on loans/securities minus interest expense paid on deposits and borrowings. The core revenue engine of a spread-based bank.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "Commercial banks; banking arms of diversified financials",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:InterestIncomeExpenseNet",
+        "us-gaap:InterestIncomeExpenseAfterProvisionForLoanLoss"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "us-gaap:InterestIncomeExpenseNet is the standard tag for NII (confirmed via XBRL US dqc_0181 / FASB 2024 taxonomy). Gross components also tagged: us-gaap:InterestAndDividendIncomeOperating, us-gaap:InterestExpense.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "net_interest_margin",
+      "label": "Net Interest Margin (NIM)",
+      "definition": "Net interest income divided by average interest-earning assets. Measures spread efficiency; the single most-watched profitability driver for banks and highly rate-sensitive.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Commercial banks",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "NIM is not a reliably standardized us-gaap concept. Banks disclose it in MD&A / earnings releases; otherwise compute as NII / average earning assets. Average earning assets itself is rarely cleanly tagged.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "gross_loans",
+      "label": "Gross Loans / Loan Book",
+      "definition": "Total loans and leases (held for investment) before allowance for credit losses \u2014 the primary earning asset and the basis for credit-risk and growth analysis.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "Commercial banks; lenders within diversified financials",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss",
+        "us-gaap:NotesReceivableGross",
+        "us-gaap:LoansAndLeasesReceivableNetReportedAmount"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Post-CECL the dominant tag is us-gaap:FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss (confirmed via FASB CECL TIG). Net loans use us-gaap:FinancingReceivableExcludingAccruedInterestAfterAllowanceForCreditLoss. Loan mix by category is in dimensional members, not separate line tags.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "total_deposits",
+      "label": "Total Deposits",
+      "definition": "Customer deposits (demand, savings, time). The cheapest, stickiest funding source; deposit franchise quality (% noninterest-bearing, cost of deposits) is a core moat indicator.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "Commercial banks",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:Deposits",
+        "us-gaap:InterestBearingDepositLiabilities",
+        "us-gaap:NoninterestBearingDepositLiabilities"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Headline us-gaap:Deposits is well tagged. Mix (noninterest- vs interest-bearing) and cost of deposits are key for moat analysis; mix is tagged, but cost-of-deposits % is usually computed or from MD&A.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "non_performing_loans",
+      "label": "Non-Performing Loans (NPLs) / Nonaccrual Loans",
+      "definition": "Loans on nonaccrual status or 90+ days past due \u2014 the leading indicator of asset-quality deterioration and future charge-offs.",
+      "unit": "USD",
+      "category": "quality",
+      "applies_to": "Commercial banks",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:FinancingReceivableExcludingAccruedInterestNonaccrualStatus",
+        "us-gaap:FinancingReceivableRecordedInvestmentNonaccrualStatus"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Nonaccrual amount is tagged (often dimensionally by loan class). The NPL RATIO (NPLs/gross loans) is not a standard concept \u2014 compute it. Some banks report total NPAs (incl. OREO) only in MD&A.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "provision_for_credit_losses",
+      "label": "Provision for Credit Losses",
+      "definition": "P&L charge to build (or release from) the allowance for credit losses; the period's credit cost. A primary earnings swing factor and management's read on forward credit conditions.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "Commercial banks; lenders",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:ProvisionForLoanLeaseAndOtherLosses",
+        "us-gaap:ProvisionForLoanAndLeaseLosses",
+        "us-gaap:ProvisionForDoubtfulAccounts"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Legacy tag us-gaap:ProvisionForLoanLeaseAndOtherLosses; CECL-era filers may use us-gaap:ProvisionForLoanAndLeaseLosses or a broader 'credit loss expense' line. Tag usage varies post-CECL \u2014 reconcile to the allowance rollforward.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "allowance_for_credit_losses",
+      "label": "Allowance for Credit Losses (ACL) / Coverage Ratio",
+      "definition": "Balance-sheet reserve against expected loan losses. ACL / gross loans (coverage) and ACL / NPLs gauge reserve adequacy and cushion.",
+      "unit": "USD",
+      "category": "quality",
+      "applies_to": "Commercial banks; lenders",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest",
+        "us-gaap:AllowanceForDoubtfulAccountsReceivable"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "ACL balance is tagged (CECL: us-gaap:FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest). Coverage ratios are computed by the analyst.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "net_charge_off_ratio",
+      "label": "Net Charge-Off (NCO) Ratio",
+      "definition": "Net charge-offs (gross charge-offs minus recoveries) annualized as a percent of average loans. The realized-loss measure that validates (or contradicts) provisioning.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "Commercial banks",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:FinancingReceivableAllowanceForCreditLossesWriteOffs",
+        "us-gaap:FinancingReceivableAllowanceForCreditLossRecovery"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Dollar charge-offs and recoveries are tagged (in the allowance rollforward). The NCO RATIO is computed (annualized NCOs / avg loans) or taken from MD&A; not a standalone concept.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "cet1_ratio",
+      "label": "CET1 Capital Ratio (Basel III)",
+      "definition": "Common Equity Tier 1 capital divided by risk-weighted assets. The binding regulatory solvency constraint that gates dividends and buybacks; the key bank capital-adequacy metric.",
+      "unit": "percent",
+      "category": "balance",
+      "applies_to": "Commercial banks; bank holding companies",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:TierOneRiskBasedCapitalToRiskWeightedAssets"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "There is NO clean dedicated CET1-ratio us-gaap concept widely used; the older us-gaap:TierOneRiskBasedCapitalToRiskWeightedAssets (Tier 1, not CET1) is tagged but distinct. CET1 is typically disclosed in MD&A/regulatory-capital footnote text. Beware scale (1.0 = 100%; see XBRL US dqc_0139/dqc_0157).",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "return_on_assets",
+      "label": "Return on Assets (ROA)",
+      "definition": "Net income / average total assets. Core measure of how efficiently a bank's balance sheet generates profit; benchmark ~1%+ for strong banks.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Commercial banks; diversified financials",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Net income (us-gaap:NetIncomeLoss) and assets (us-gaap:Assets) are tagged; ROA itself is computed. Average assets rarely tagged \u2014 approximate from period-end balances.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "return_on_tangible_common_equity",
+      "label": "ROE / Return on Tangible Common Equity (ROTCE)",
+      "definition": "Net income to common / average (tangible) common equity. ROTCE is the headline return metric for banks because it strips goodwill and is the basis for P/TBV valuation.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Commercial banks; diversified financials",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "ROE/ROTCE are computed or pulled from MD&A. Inputs are tagged (NetIncomeLoss, StockholdersEquity, GoodwillAndIntangibleAssets) but tangible common equity and the ratio are not standardized.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "efficiency_ratio",
+      "label": "Efficiency Ratio (Cost-to-Income)",
+      "definition": "Noninterest expense divided by total revenue (NII + noninterest income). Lower is better; the core operating-leverage and cost-discipline metric for banks.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Commercial banks",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:NoninterestExpense",
+        "us-gaap:NoninterestIncome"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Numerator/denominator components are tagged (us-gaap:NoninterestExpense, us-gaap:NoninterestIncome, plus NII). The ratio is computed or from MD&A; definitions vary (adjusted/tax-equivalent), so prefer the bank's own disclosed figure for comparability.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "tangible_book_value_per_share",
+      "label": "Tangible Book Value per Share (TBVPS)",
+      "definition": "(Common equity \u2212 goodwill \u2212 intangibles) / shares outstanding. The central valuation anchor for banks; P/TBV is the primary multiple used to value bank stocks.",
+      "unit": "USD/share",
+      "category": "valuation",
+      "applies_to": "Commercial banks; insurers; diversified financials",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:StockholdersEquity",
+        "us-gaap:Goodwill",
+        "us-gaap:IntangibleAssetsNetExcludingGoodwill"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Book value per share is sometimes tagged but inconsistently; TANGIBLE BVPS is essentially always computed from tagged inputs (equity, goodwill, intangibles, shares us-gaap:CommonStockSharesOutstanding / dei:EntityCommonStockSharesOutstanding).",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "net_premiums_written",
+      "label": "Net Premiums Written / Earned",
+      "definition": "Premiums on policies written (written) or recognized over the coverage period (earned), net of reinsurance ceded. The top-line growth and exposure measure for insurers.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "P&C and life/health insurers",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PremiumsWrittenNet",
+        "us-gaap:PremiumsEarnedNet",
+        "us-gaap:PremiumsEarnedNetPropertyAndCasualty"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Both written (us-gaap:PremiumsWrittenNet) and earned (us-gaap:PremiumsEarnedNet) are tagged. Gross-vs-net and ceded reinsurance are separate tags; watch the written/earned distinction for growth analysis.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "combined_ratio",
+      "label": "Combined Ratio",
+      "definition": "Loss ratio + expense ratio (incurred losses + LAE + underwriting expenses, divided by premiums). Below 100% = underwriting profit. THE core P&C underwriting-quality metric.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "P&C insurers (and reinsurers)",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Not a standardized us-gaap concept (confirmed: no standard combined/loss-ratio tag; firms extend or disclose narratively). Almost always taken from MD&A / 8-K / investor supplement, or computed from losses, LAE, expenses and premiums. Definitions vary (accident-year vs calendar-year, ex-cat).",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "loss_ratio",
+      "label": "Loss Ratio (and Expense Ratio)",
+      "definition": "Incurred losses + loss adjustment expense / earned premiums (loss ratio); underwriting expenses / premiums (expense ratio). The two components of the combined ratio.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "P&C insurers",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "Ratios not standardized in us-gaap. Components are tagged: incurred losses/LAE via us-gaap:PolicyholderBenefitsAndClaimsIncurredNet / LiabilityForClaimsAndClaimsAdjustmentExpense rollforward. Compute or pull from MD&A; reserve development (favorable/adverse) is a critical quality signal usually in footnotes/MD&A.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "insurance_float",
+      "label": "Float",
+      "definition": "Policyholder funds held before claims are paid (loss reserves + unearned premiums, net of certain assets) \u2014 an effectively low/negative-cost source of investable capital. Central to insurer intrinsic value (Buffett-style).",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "P&C insurers; reinsurers",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:LiabilityForClaimsAndClaimsAdjustmentExpense",
+        "us-gaap:UnearnedPremiums"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "'Float' is a non-GAAP construct \u2014 no direct tag. Approximated from tagged reserves (us-gaap:LiabilityForClaimsAndClaimsAdjustmentExpense) and unearned premiums (us-gaap:UnearnedPremiums); the company's own float definition is in MD&A/shareholder letters.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "policy_loss_reserves",
+      "label": "Loss & Policy Reserves (Adequacy / Development)",
+      "definition": "Liability for unpaid claims and claim adjustment expenses (P&C) and future policy benefits (life). Reserve adequacy and prior-year development drive insurer earnings quality.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "P&C and life insurers",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:LiabilityForClaimsAndClaimsAdjustmentExpense",
+        "us-gaap:LiabilityForFuturePolicyBenefits"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Reserve balances are tagged. The KEY quality signal \u2014 favorable vs adverse prior-year reserve development \u2014 is in the claims-development table/footnote (partly dimensional XBRL post-ASU 2015-09) and discussed in MD&A; treat development as mgmt-disclosed.",
+      "sector_group": "FINANCIALS \u2014 commercial banks, diversified financials, and insurance"
+    },
+    {
+      "metric_code": "annual_recurring_revenue",
+      "label": "Annual Recurring Revenue (ARR)",
+      "definition": "Annualized run-rate of recurring subscription revenue at period end (MRR x 12 or contractual annualized recurring value). Excludes one-time/professional services. The single most important top-line driver for SaaS valuation and the base for growth and retention math.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "NOT in standardized us-gaap XBRL. Non-GAAP, company-defined; disclosed in earnings press release and investor deck, sometimes as a custom extension tag that is not cross-comparable. Definitions vary by filer (cloud ARR vs total ARR) \u2014 read the footnote.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "net_revenue_retention",
+      "label": "Net Revenue Retention / Net Dollar Retention (NRR/NDR)",
+      "definition": "Recurring revenue from the prior-period cohort of customers measured one year later, including expansion/upsell and net of churn and downgrades, divided by the cohort's starting recurring revenue. >100% signals durable organic growth without new logos. Premier quality+growth gauge for SaaS.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "NOT in XBRL. Company-defined, disclosed in MD&A/press release/deck. Methodology (trailing-12 vs point-in-time, dollar-based vs logo) differs across filers; not standardized.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "gross_revenue_churn",
+      "label": "Gross Revenue Churn Rate",
+      "definition": "Recurring revenue lost from cancellations and downgrades over a period divided by beginning recurring revenue, before any expansion offset. Isolates customer/dollar attrition risk that NRR can mask.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Often only qualitatively disclosed; sometimes given as logo churn vs dollar churn. Frequently must be inferred from ARR walk in the deck.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "remaining_performance_obligation",
+      "label": "Remaining Performance Obligation (RPO) / current RPO",
+      "definition": "Total contracted revenue not yet recognized (ASC 606), i.e. deferred revenue plus unbilled committed backlog. Current RPO (expected within 12 months) is the forward-revenue anchor. Best standardized, audited proxy for SaaS backlog and demand momentum.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "enterprise software / SaaS; IT services",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueRemainingPerformanceObligation",
+        "us-gaap:RevenueRemainingPerformanceObligationExpectedTimingOfSatisfactionPeriod1"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "IS in us-gaap XBRL \u2014 key exception. Current vs non-current split is captured via the ExpectedTimingOfSatisfaction axis/dimension, so pulling cRPO requires reading the dimensional member, not just the default fact.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "deferred_revenue",
+      "label": "Deferred Revenue / Contract Liability",
+      "definition": "Customer payments received in advance of revenue recognition; a leading indicator of billings and near-term recognized revenue. Used with revenue to derive calculated billings (rev + change in deferred).",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "enterprise software / SaaS",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:ContractWithCustomerLiability",
+        "us-gaap:ContractWithCustomerLiabilityCurrent",
+        "us-gaap:ContractWithCustomerLiabilityNoncurrent",
+        "us-gaap:DeferredRevenueCurrent"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "IS in XBRL. Newer filings use ContractWithCustomerLiability (post-ASC606); older/legacy filers used DeferredRevenueCurrent/Noncurrent. Check both. 'Calculated billings' itself is computed, not tagged.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "rule_of_40",
+      "label": "Rule of 40",
+      "definition": "Revenue growth rate (%) plus a profitability margin (% \u2014 typically FCF margin or non-GAAP operating margin). >=40 indicates a healthy growth/profitability balance. Central screening heuristic for SaaS quality.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Computed by the analyst. Inputs (revenue growth from us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax across periods; FCF from OpCF - capex) are in XBRL, but which margin to use is analyst choice and not standardized.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "new_bookings",
+      "label": "New Bookings / Total Bookings",
+      "definition": "Total contract value of new/renewed orders signed in the period (often reported in both reported and local/constant currency). The forward demand signal for IT services/consulting; bookings precede revenue by several quarters.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "IT services / consulting",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "NOT in XBRL. Headline KPI for Accenture-type names; disclosed in press release and MD&A, frequently only in USD and constant-currency narrative. Book-to-bill (bookings/revenue) is derived from it.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "backlog",
+      "label": "Backlog / Order Backlog",
+      "definition": "Contracted but not-yet-delivered revenue for services and hardware firms. Provides revenue visibility and is a quality-of-earnings signal. For services it is distinct from RPO; for hardware (semis) it reflects demand/lead times.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "IT services / consulting; semis / hardware",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "Generally NOT a standardized us-gaap tag (backlog narrative lives in MD&A item 101/business section). Where a filer treats backlog as RPO under ASC606 it may appear as RevenueRemainingPerformanceObligation, but classic 'backlog' disclosure is prose.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "billable_utilization",
+      "label": "Billable Utilization Rate",
+      "definition": "Percentage of available consultant/delivery-staff hours that are billable to clients. The core operating-leverage and margin driver for labor-based IT services; small swings move operating margin materially.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "IT services / consulting",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Operational metric disclosed (if at all) in MD&A/earnings call. Often qualitative ('utilization remained high').",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "attrition_rate",
+      "label": "Employee Attrition Rate",
+      "definition": "Annualized voluntary employee turnover, typically trailing-12-month. High attrition raises hiring/training cost, pressures delivery and margins, and signals wage inflation in talent-driven IT services.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "IT services / consulting",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Human-capital metric in MD&A/earnings call narrative; definitions (voluntary vs total, TTM vs quarterly annualized) vary by filer.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "revenue_per_employee",
+      "label": "Revenue per Employee",
+      "definition": "Total revenue divided by period-end (or average) headcount. Productivity/efficiency gauge for people-intensive IT services; also tracks shift toward higher-value or AI-augmented delivery.",
+      "unit": "USD",
+      "category": "quality",
+      "applies_to": "IT services / consulting",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "dei:EntityNumberOfEmployees"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "medium",
+      "notes": "Computed. Revenue is in us-gaap XBRL; headcount is sometimes in dei:EntityNumberOfEmployees (cover-page tag, not always present/timely) otherwise pulled from MD&A. Ratio itself is not tagged.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "organic_revenue_growth",
+      "label": "Organic vs Inorganic Revenue Growth",
+      "definition": "Decomposition of revenue growth into organic (constant-currency, ex-acquisitions) versus inorganic (M&A) and FX contribution. Critical for judging the durability/quality of a services or roll-up software grower's top line.",
+      "unit": "percent",
+      "category": "growth",
+      "applies_to": "IT services / consulting; enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Management-defined non-GAAP bridge in MD&A/press release; the organic/inorganic/FX split is narrative and non-standardized.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "gross_margin",
+      "label": "Gross Margin",
+      "definition": "(Revenue - cost of revenue) / revenue. For semis/hardware it is the central cyclical valuation lever (utilization, pricing, mix, node transitions); for SaaS, high/expanding gross margin underpins the unit economics.",
+      "unit": "percent",
+      "category": "income",
+      "applies_to": "semis / hardware; enterprise software / SaaS",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:CostOfGoodsAndServicesSold",
+        "us-gaap:CostOfRevenue",
+        "us-gaap:GrossProfit",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "GAAP gross margin is computable from XBRL (GrossProfit / Revenue, or Revenue minus CostOfGoodsAndServicesSold). BUT the headline 'non-GAAP gross margin' (ex-SBC, ex-amortization) that the Street quotes is NOT tagged \u2014 extract from press release.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "capital_expenditures",
+      "label": "Capital Expenditures / Capital Intensity",
+      "definition": "Cash spent on PP&E (fabs, equipment, data centers). For semis this is the dominant capital-intensity and free-cash-flow swing factor; capex/revenue gauges cycle position and supply discipline.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "semis / hardware",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:PaymentsToAcquireProductiveAssets"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "IS in XBRL (cash-flow statement). Capex/revenue ratio is computed. Note some filers tag broader PaymentsToAcquireProductiveAssets \u2014 reconcile to the cash-flow line.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "inventory_and_days",
+      "label": "Inventory and Days of Inventory (DIO)",
+      "definition": "Inventory balance and days inventory outstanding (inventory/COGS x days). A primary leading indicator of the semiconductor/hardware cycle \u2014 rising days signal demand softening, channel overhang, and coming gross-margin pressure (write-downs).",
+      "unit": "USD / days",
+      "category": "balance",
+      "applies_to": "semis / hardware",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:InventoryNet",
+        "us-gaap:CostOfGoodsAndServicesSold"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Inventory balance IS in XBRL (InventoryNet, plus gross/reserve components). DIO is computed from inventory and COGS. Channel/distributor inventory (the real cycle tell) is NOT in XBRL \u2014 call/MD&A only.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "rd_intensity",
+      "label": "R&D Expense / R&D Intensity",
+      "definition": "Research & development expense and R&D as % of revenue. Proxies investment in future products and competitive moat; especially load-bearing for semis (node/IP roadmap) and software platform durability.",
+      "unit": "USD / percent",
+      "category": "income",
+      "applies_to": "semis / hardware; enterprise software / SaaS",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:ResearchAndDevelopmentExpense",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "IS in XBRL. Intensity ratio computed against revenue. Reliable and cross-comparable.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "stock_based_compensation",
+      "label": "Stock-Based Compensation (SBC) and Dilution",
+      "definition": "Non-cash equity compensation expense, plus net share-count change. Material in tech: inflates non-GAAP profitability and free-cash-flow optics while diluting shareholders. Buy-side adjusts FCF and multiples for it.",
+      "unit": "USD",
+      "category": "quality",
+      "applies_to": "enterprise software / SaaS; semis / hardware; IT services",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:ShareBasedCompensation",
+        "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "SBC expense and diluted share count ARE in XBRL. SBC as % of revenue and dilution rate are computed. Quality-of-earnings adjustment that distinguishes real FCF from non-GAAP FCF.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "free_cash_flow",
+      "label": "Free Cash Flow and FCF Margin",
+      "definition": "Operating cash flow minus capex; FCF margin = FCF/revenue. The cash-generation backbone of tech valuation (DCF, FCF yield), and the profitability leg of Rule-of-40 for SaaS.",
+      "unit": "USD / percent",
+      "category": "cashflow",
+      "applies_to": "enterprise software / SaaS; IT services; semis / hardware",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Both inputs ARE in XBRL; FCF is computed (OpCF - capex). Companies' own 'adjusted FCF' definitions (capitalized software, finance-lease adjustments) are non-GAAP and disclosed in the press release, not tagged.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "reportable_segment_revenue",
+      "label": "Reportable Segment Revenue & Operating Margin",
+      "definition": "Revenue and operating income by reportable segment / product line / geography. Drives sum-of-the-parts valuation and reveals mix shift (e.g., cloud vs license, data-center vs gaming, consulting vs managed services).",
+      "unit": "USD",
+      "category": "segment",
+      "applies_to": "enterprise software / SaaS; semis / hardware; IT services",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:OperatingIncomeLoss"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "IS in XBRL but reported dimensionally via the StatementBusinessSegmentsAxis / ProductOrServiceAxis members \u2014 you must read the segment members, not just default facts. Segment definitions are filer-specific, limiting cross-company comparability.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "customer_concentration",
+      "label": "Customer Concentration",
+      "definition": "Revenue share from largest customers (e.g., % from top customer or customers >10% of revenue). Key risk factor for semis/hardware (single-foundry-customer dependence) and enterprise software with large-deal reliance.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "semis / hardware; enterprise software / SaaS",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:ConcentrationRiskPercentage1"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "medium",
+      "notes": "Partly tagged: ConcentrationRiskPercentage1 with ConcentrationRiskByBenchmark/Customer axes appears in some filings, but the >10%-customer disclosure is frequently narrative in the risk-factor/segment footnote and not consistently dimensionalized.",
+      "sector_group": "TECHNOLOGY \u2014 IT services/consulting, enterprise software/SaaS, semiconductors/hardware"
+    },
+    {
+      "metric_code": "order_backlog",
+      "label": "Order Backlog / Remaining Performance Obligations",
+      "definition": "Total contracted but not-yet-recognized revenue (firm orders). Leading indicator of forward revenue for equipment, E&C, aerospace, and project-based industrials. Note: ASC 606 RPO is a narrower, legally-defined subset of the 'backlog' management guides to, which often includes unfunded/options.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "Industrials (capital goods, E&C, aerospace/defense, machinery); some energy services",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueRemainingPerformanceObligation",
+        "us-gaap:RevenueRemainingPerformanceObligationExpectedTimingOfSatisfactionAmount"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "RPO tag exists and is reliably filed under ASC 606, but the headline 'backlog' number companies report is usually a non-GAAP figure in the 8-K/MD&A that differs from RPO (includes options, unfunded govt awards). Use RPO from XBRL as the auditable floor; pull the managed backlog number from press releases.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "book_to_bill",
+      "label": "Book-to-Bill Ratio",
+      "definition": "New orders booked divided by revenue billed in the period. >1.0 signals growing backlog/demand; <1.0 signals contraction. Key momentum gauge for semis-equipment, electrical equipment, and capital goods.",
+      "unit": "ratio",
+      "category": "growth",
+      "applies_to": "Industrials (capital goods, semicap, electrical); defense",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Not an XBRL concept. Orders are typically disclosed only in 8-K/earnings releases and decks; bill = revenue (XBRL). Compute from disclosed orders / XBRL revenue. Many industrials report book-to-bill directly in the press release.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "capacity_utilization",
+      "label": "Capacity Utilization Rate",
+      "definition": "Output as a percentage of installed productive capacity. Drives incremental margins, operating leverage, and pricing power; below-trend utilization signals overcapacity/price risk in commodities and process industries.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Materials (chemicals, steel, paper, cement), refining, some industrials",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "No standardized us-gaap tag. Found in MD&A/decks (e.g., refinery utilization %, mill operating rates). Sometimes only available at industry level (Fed G.17). Must be extracted from narrative text.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "capex_total",
+      "label": "Total Capital Expenditures",
+      "definition": "Cash spent acquiring/constructing PP&E. Core driver of asset growth, FCF drag, and reinvestment intensity (capex/revenue, capex/D&A).",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:PaymentsToAcquireProductiveAssets",
+        "us-gaap:PaymentsForCapitalImprovements"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Reliably in XBRL from the investing section of the cash flow statement. PaymentsToAcquirePropertyPlantAndEquipment is the dominant tag; some filers use PaymentsToAcquireProductiveAssets or add PaymentsToExploreAndDevelopOilAndGasProperties for E&P. Sum components for total capex.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "maintenance_capex",
+      "label": "Maintenance (Sustaining) Capex",
+      "definition": "Portion of capex required to maintain current productive capacity, vs. growth capex that expands it. Critical for normalizing FCF and estimating true owner earnings; growth capex is discretionary/value-creating.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "All capital-intensive sectors; especially energy, midstream, materials",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "NOT in standardized XBRL. The maintenance vs. growth split is a management-defined, often non-GAAP disclosure in MD&A/decks (common in midstream, mining, MLPs). Where undisclosed, analysts proxy maintenance capex with D&A. Must be extracted or estimated.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "ppe_net",
+      "label": "Net Property, Plant & Equipment",
+      "definition": "Gross PP&E less accumulated depreciation. Core asset base for capital-intensive businesses; anchors asset turnover, capital intensity, and replacement-value analyses.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PropertyPlantAndEquipmentNet",
+        "us-gaap:PropertyPlantAndEquipmentGross",
+        "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Standard balance-sheet tags, reliably filed. Gross PP&E and accumulated depreciation let you compute asset age (accum dep / gross) \u2014 a useful tell on impending replacement capex.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "depreciation_depletion_amortization",
+      "label": "Depreciation, Depletion & Amortization",
+      "definition": "Non-cash charge for consuming long-lived assets (depletion for resource extraction). Proxy for sustaining capital consumption and a key add-back in FCF/EBITDA.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "All capital-intensive sectors; depletion specific to energy/materials",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:DepreciationDepletionAndAmortization",
+        "us-gaap:DepreciationAmortizationAndAccretionNet",
+        "us-gaap:Depreciation"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Reliably in XBRL. Use the DepreciationDepletionAndAmortization tag from the cash flow statement for the all-in figure; the income-statement line may bundle differently.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "inventory_turnover",
+      "label": "Inventory Turnover / Days Inventory",
+      "definition": "COGS divided by average inventory (or 365/turns for days). Measures production/throughput efficiency and working-capital discipline; commodity inventory builds can signal demand softness.",
+      "unit": "ratio",
+      "category": "quality",
+      "applies_to": "Industrials (machinery, distribution), Materials, refining",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:CostOfGoodsAndServicesSold",
+        "us-gaap:CostOfRevenue",
+        "us-gaap:InventoryNet"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Components (InventoryNet, CostOfGoodsAndServicesSold) are in XBRL; the ratio is computed. Watch LIFO vs FIFO (LIFO reserve tag: us-gaap:InventoryLIFOReserve) which materially affects energy/materials inventory and COGS.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "net_working_capital",
+      "label": "Net Working Capital / Cash Conversion Cycle",
+      "definition": "Operating current assets less operating current liabilities (receivables + inventory \u2212 payables). Drives cash flow timing; a swing source/use of cash in cyclical production businesses.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:AccountsReceivableNetCurrent",
+        "us-gaap:InventoryNet",
+        "us-gaap:AccountsPayableCurrent",
+        "us-gaap:AssetsCurrent",
+        "us-gaap:LiabilitiesCurrent"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "All components in XBRL; NWC and cash conversion cycle are computed. For thesis work, exclude cash and short-term debt to isolate operating working capital.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "roic",
+      "label": "Return on Invested Capital",
+      "definition": "NOPAT (EBIT*(1\u2212tax)) divided by invested capital (debt + equity \u2212 cash, or net PP&E + NWC). The central value-creation test for capital-intensive firms: ROIC vs. WACC determines whether reinvestment creates or destroys value.",
+      "unit": "percent",
+      "category": "valuation",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss",
+        "us-gaap:StockholdersEquity",
+        "us-gaap:LongTermDebtNoncurrent",
+        "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Not a tag; computed from XBRL components. Definitional choices (lease capitalization, goodwill in/out, average vs. ending capital) matter hugely \u2014 document your convention. ROIC-WACC spread and the trend are the thesis drivers.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "production_volume",
+      "label": "Production Volume (Output)",
+      "definition": "Physical units produced/sold (boe/d, tonnes, MWh, barrels, board-feet). Combined with realized price, the top-line revenue driver for energy and materials; volume growth is half the production-business thesis.",
+      "unit": "physical_units (boe/d, tonnes, bbl, MWh, etc.)",
+      "category": "kpi",
+      "applies_to": "Energy (E&P, mining), Materials (metals, chemicals), utilities",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:OilAndGasProductionForPeriodBarrelsOfOilEquivalent",
+        "srt:OilAndGasProductionVolumeMeasure"
+      ],
+      "source_if_not_xbrl": "investor_deck",
+      "importance": "critical",
+      "notes": "Partially/inconsistently in XBRL. ASR 302/Subtopic 932 production disclosures exist (oil & gas tags above, often under srt: dimensional members), but tagging quality is poor and mining/chemicals volumes have no standard tag. In practice extract from MD&A production tables, 8-K and investor decks.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "proved_reserves",
+      "label": "Proved Reserves (1P / 2P)",
+      "definition": "Estimated recoverable hydrocarbon/mineral quantities. The asset base for E&P and mining; reserve life (reserves/annual production) and reserve replacement ratio gate the long-term thesis and NAV.",
+      "unit": "physical_units (boe, tonnes, oz)",
+      "category": "kpi",
+      "applies_to": "Energy (E&P), Materials (mining)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:ProvedDevelopedAndUndevelopedReserveNetVolume",
+        "us-gaap:ProvedDevelopedReservesVolume",
+        "us-gaap:ProvedUndevelopedReserveVolume"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Oil & gas reserve quantity tags exist (Subtopic 932 disclosure tables) but are filed inconsistently and frequently as text blocks, not clean numeric facts. Mining reserves (SK-1300) have essentially no clean us-gaap numeric tags. Treat as semi-structured; extract and validate against the 10-K supplemental reserve schedule.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "realized_price",
+      "label": "Average Realized Price",
+      "definition": "Actual price received per unit sold, net of hedges/differentials/transport. With volume, drives revenue; the gap to benchmark (basis differential) and hedge impact are key margin and risk variables.",
+      "unit": "USD per physical unit",
+      "category": "kpi",
+      "applies_to": "Energy (E&P, refining), Materials (metals, chemicals)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:OilAndGasPropertySuccessfulEffortMethodNet",
+        "srt:OilAndGasProductionAndSalesAveragePrice"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "ASR 302 'average sales price per unit' disclosure exists in the taxonomy but is sparsely/poorly tagged. Realized pricing net of hedging is almost always a management table in MD&A/8-K. Extract from narrative and reconcile revenue = volume x realized price.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "all_in_sustaining_cost",
+      "label": "All-In Sustaining Cost (AISC)",
+      "definition": "Total cash cost to produce a unit including sustaining capex, G&A and reclamation (mining) \u2014 or full-cycle cost for energy. The core competitiveness/margin metric: position on the cost curve determines survival through commodity troughs.",
+      "unit": "USD per unit (e.g., $/oz, $/boe)",
+      "category": "kpi",
+      "applies_to": "Materials (gold/precious metals mining); analogous cash cost metrics in energy",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "investor_deck",
+      "importance": "critical",
+      "notes": "NO XBRL tag. AISC is a World Gold Council-defined non-GAAP metric reported only in MD&A/8-K/decks. Energy analogs (cash operating cost/boe, lifting cost, breakeven) are likewise non-GAAP narrative disclosures. Must be extracted; definitions vary by company so normalize carefully.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "asset_turnover",
+      "label": "Asset Turnover / Capital Intensity",
+      "definition": "Revenue divided by total (or net PP&E) assets. Measures how efficiently the heavy asset base generates sales; low turnover is structural in capital-intensive sectors and must clear the ROIC hurdle.",
+      "unit": "ratio",
+      "category": "quality",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:Revenues",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Assets",
+        "us-gaap:PropertyPlantAndEquipmentNet"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "medium",
+      "notes": "Components in XBRL; ratio computed. Capital intensity (PP&E/revenue or capex/revenue) is the more thesis-relevant cut for these sectors.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "ebitda_margin",
+      "label": "EBITDA & EBITDA Margin",
+      "definition": "Earnings before interest, taxes, D&A, and the margin on revenue. Standard cash-proxy profitability and valuation base (EV/EBITDA) for high-D&A capital-intensive businesses; incremental margins reveal operating leverage.",
+      "unit": "USD / percent",
+      "category": "income",
+      "applies_to": "All capital-intensive sectors",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss",
+        "us-gaap:DepreciationDepletionAndAmortization"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "EBITDA is NOT a us-gaap tag (non-GAAP). Compute as OperatingIncomeLoss + DepreciationDepletionAndAmortization from XBRL. Companies report Adjusted EBITDA in 8-K with company-specific add-backs \u2014 reconcile but treat skeptically.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "net_debt_to_ebitda",
+      "label": "Net Debt / EBITDA (Leverage)",
+      "definition": "Total debt less cash, divided by EBITDA. The key solvency/cyclical-survival gauge; capital-intensive cyclicals with high leverage at the cycle peak are the classic blow-up risk.",
+      "unit": "ratio",
+      "category": "quality",
+      "applies_to": "All capital-intensive sectors; especially cyclical energy/materials",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+        "us-gaap:DebtInstrumentCarryingAmount",
+        "us-gaap:LongTermDebtCurrent",
+        "us-gaap:LongTermDebtNoncurrent"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Debt and cash components in XBRL; EBITDA computed (see ebitda_margin). Include operating-lease liabilities (us-gaap:OperatingLeaseLiabilityNoncurrent) for a true leverage picture in lease-heavy industrials.",
+      "sector_group": "Industrials, Energy & Materials (capital-intensive / production businesses)"
+    },
+    {
+      "metric_code": "comparable_store_sales_growth",
+      "label": "Comparable / Same-Store Sales Growth",
+      "definition": "Year-over-year percentage change in sales from stores (and usually digital) open at least 12-13 months, excluding new/closed units. The single most-watched organic demand signal for retail.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "NOT in standardized us-gaap. A non-GAAP operating metric disclosed in MD&A and the 8-K earnings release; some filers use custom XBRL extensions but there is no comparable cross-company tag. Definition (what counts as comp, digital inclusion, calendar shift) varies by company \u2014 read the footnote.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "comp_sales_traffic_vs_ticket",
+      "label": "Comp Decomposition: Traffic vs. Average Ticket",
+      "definition": "Split of comparable sales growth into transaction count (traffic/customer count) and average transaction value (ticket/basket), often further into units-per-transaction and price/mix.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Critical quality signal \u2014 traffic-driven comps are higher quality than price-driven ones. Found in MD&A narrative and earnings-call commentary; rarely tagged.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "revenue_total",
+      "label": "Total Revenue / Net Sales",
+      "definition": "Total net sales / revenue from contracts with customers for the period. Base for all margin, growth, and per-unit ratios.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues",
+        "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "In XBRL. Post-ASC 606, most use RevenueFromContractWithCustomerExcludingAssessedTax; older/some filers use us-gaap:Revenues. Check both tags when pulling a time series.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "revenue_growth_organic",
+      "label": "Organic / Constant-Currency Revenue Growth",
+      "definition": "Revenue growth excluding M&A, divestitures, and FX. Isolates underlying demand \u2014 central for staples and medtech with large international exposure.",
+      "unit": "percent",
+      "category": "growth",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL as 'organic'. Reported revenue is in XBRL, but the organic/constant-FX bridge (volume / price / mix / FX / M&A buckets) is a non-GAAP reconciliation in MD&A or the 8-K. For staples, the volume-vs-price/mix split is the key quality read.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "inventory_growth_vs_sales",
+      "label": "Inventory Growth vs. Sales Growth Spread",
+      "definition": "Difference between YoY inventory growth and YoY sales growth. A positive spread (inventory outpacing sales) is a leading indicator of future markdowns and gross-margin pressure.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:InventoryNet",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Computed entirely from XBRL (InventoryNet vs. Revenue, both period-over-period). One of the most reliable early bearish signals in retail and fully derivable from standardized tags.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "store_unit_count",
+      "label": "Store / Unit Count and Net New Units",
+      "definition": "Total number of operating locations at period end plus openings/closings (net unit growth). Drives the new-unit growth leg of the retail revenue model; square-footage growth is a related cut.",
+      "unit": "count",
+      "category": "kpi",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in standardized us-gaap. Disclosed in MD&A item, 10-K business section, or investor supplement; occasionally a custom extension. Combine with comps to separate unit-driven vs. same-store-driven growth.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "sales_per_square_foot",
+      "label": "Sales per Square Foot / per Unit Productivity",
+      "definition": "Net sales divided by selling square footage (or per store). Measures real-estate / unit productivity and is key to assessing maturity and remodel/relocation ROI.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "investor_deck",
+      "importance": "medium",
+      "notes": "NOT in XBRL. Square footage is not a standardized tag; this is an investor-deck / MD&A disclosure or analyst-computed from disclosed footage and segment sales.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "ecommerce_penetration",
+      "label": "E-commerce / Digital Sales Penetration & Growth",
+      "definition": "Digital/online sales as a percent of total, and digital growth rate. Increasingly central to consumer thesis on channel shift, fulfillment cost, and margin mix.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Retail/Consumer Discretionary & Staples",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT consistently in XBRL. Some filers tag a digital revenue line via a product/channel dimension on us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax (srt:ProductOrServiceAxis), but penetration % and growth are usually MD&A / 8-K disclosures.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "pipeline_stage_count",
+      "label": "Pipeline / Clinical-Stage Program Count",
+      "definition": "Number of candidates by development phase (Preclinical / Phase 1 / 2 / 3 / Filed-NDA-BLA / Approved). Proxy for future-revenue optionality and the single biggest driver of pre-/early-commercial pharma valuation.",
+      "unit": "count",
+      "category": "kpi",
+      "applies_to": "Healthcare/Pharma/Medtech",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "NOT in XBRL at all \u2014 no clinical-phase taxonomy exists. Extracted from the 10-K business/pipeline section, investor deck pipeline chart, and clinicaltrials.gov / press releases. Requires manual or NLP extraction; phase transitions are catalyst events.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "product_drug_revenue",
+      "label": "Product / Drug-Level Revenue Concentration",
+      "definition": "Revenue by individual product (e.g., a lead drug or device platform) and its share of total. Assesses concentration risk and the magnitude of upcoming patent-cliff/LOE exposure.",
+      "unit": "USD",
+      "category": "segment",
+      "applies_to": "Healthcare/Pharma/Medtech",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "srt:ProductOrServiceAxis",
+        "us-gaap:RevenueFromContractWithCustomerMember"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Partially in XBRL via the disaggregation-of-revenue table tagged with the srt:ProductOrServiceAxis dimension and company-specific product members \u2014 but granularity and member naming vary, and many top-drug figures live only in MD&A. Treat as semi-structured; verify against the narrative.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "segment_revenue",
+      "label": "Reportable Segment Revenue & Operating Income",
+      "definition": "Revenue and operating profit by reportable segment (e.g., Pharmaceutical / MedTech / Consumer; or store banners). Foundational for sum-of-the-parts valuation and mix analysis.",
+      "unit": "USD",
+      "category": "segment",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:OperatingIncomeLoss",
+        "us-gaap:SegmentReportingInformationLineItems",
+        "srt:StatementBusinessSegmentsAxis"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "In XBRL via the segment footnote dimensioned on srt:StatementBusinessSegmentsAxis (ASC 280). Segment members are company-defined extensions, so mapping across peers requires manual alignment.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "patent_cliff_loe_exposure",
+      "label": "Patent Cliff / Loss-of-Exclusivity Exposure",
+      "definition": "Revenue (and share of total) tied to products losing patent/regulatory exclusivity within the forecast horizon, with expected genericization/biosimilar timing. Key downside driver for branded pharma.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "Healthcare/Pharma/Medtech",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "NOT in XBRL. Synthesized from MD&A risk-factor and patent-expiry disclosures, investor decks, and external patent/Orange Book data. Drives the terminal-decline assumptions for key franchises.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "operating_margin",
+      "label": "Operating Margin (EBIT Margin)",
+      "definition": "Operating income divided by revenue. Captures the combined effect of gross margin, SG&A leverage, and R&D \u2014 the core profitability outcome for both sub-sectors.",
+      "unit": "percent",
+      "category": "income",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Computed. OperatingIncomeLoss is reliably tagged. For retailers, SG&A leverage on positive comps is the main margin lever; for pharma, R&D and SG&A (selling/DTC) dominate.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "sga_ratio",
+      "label": "SG&A / Selling Expense Ratio",
+      "definition": "Selling, general & administrative expense as a percent of revenue. Tracks operating leverage in retail and commercial/DTC spend efficiency in pharma/medtech.",
+      "unit": "percent",
+      "category": "quality",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:SellingGeneralAndAdministrativeExpense",
+        "us-gaap:GeneralAndAdministrativeExpense",
+        "us-gaap:SellingAndMarketingExpense"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "medium",
+      "notes": "Computed. SG&A tagged as SellingGeneralAndAdministrativeExpense (or split into SellingAndMarketingExpense + GeneralAndAdministrativeExpense). Note retailer COGS/SG&A classification differences when comparing margins across peers.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "free_cash_flow_conversion",
+      "label": "Free Cash Flow & FCF Conversion",
+      "definition": "Operating cash flow minus capex, and FCF as a percent of net income (or revenue). Validates earnings quality, funds dividends/buybacks (staples) and R&D/M&A (pharma).",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:NetIncomeLoss"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Computed. FCF = operating cash flow minus capex, both tagged. Conversion vs. net income flags working-capital (inventory/receivables) drains \u2014 especially important in inventory-heavy retail.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "book_to_bill_backlog",
+      "label": "Backlog / Book-to-Bill (Medtech & Capital Equipment)",
+      "definition": "Order backlog and the ratio of orders booked to revenue billed. Forward-demand indicator for medtech capital equipment and durable-goods consumer makers.",
+      "unit": "ratio",
+      "category": "kpi",
+      "applies_to": "Healthcare/Medtech & Durable Consumer",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "medium",
+      "notes": "Mostly NOT in XBRL. Remaining performance obligations (RPO) under ASC 606 are sometimes tagged (us-gaap:RevenueRemainingPerformanceObligation), but orders/book-to-bill are typically MD&A or 8-K disclosures. Use RPO as the closest structured proxy where available.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "ev_to_ebitda_and_pe",
+      "label": "Valuation Multiples (EV/EBITDA, P/E, EV/Sales)",
+      "definition": "Headline relative-valuation multiples used to price both sub-sectors; EV/Sales matters for pre-profit biotech, EV/EBITDA and P/E for mature consumer and big pharma.",
+      "unit": "ratio",
+      "category": "valuation",
+      "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:NetIncomeLoss",
+        "us-gaap:EarningsPerShareDiluted",
+        "us-gaap:LongTermDebtNoncurrent",
+        "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+        "dei:EntityCommonStockSharesOutstanding"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Computed/hybrid. EPS, net income, debt, and cash come from XBRL (incl. dei: shares outstanding); market price and therefore market cap / EV are external market data. EBITDA itself is non-GAAP \u2014 derive from OperatingIncomeLoss + D&A or take the company's adjusted figure from the 8-K.",
+      "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
+    },
+    {
+      "metric_code": "ffo_per_share",
+      "label": "Funds From Operations (FFO) per Share",
+      "definition": "NAREIT FFO = net income (GAAP) excluding gains/losses on property sales and impairments, plus real estate depreciation & amortization; divided by diluted shares. The primary REIT earnings measure replacing EPS because GAAP depreciation understates real-estate earnings power.",
+      "unit": "USD_per_share",
+      "category": "valuation",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "Non-GAAP; NOT a standardized us-gaap concept. Companies sometimes tag a custom/extension element (e.g., abc:FundsFromOperations) but it is not comparable across filers. Components (NetIncomeLoss, DepreciationDepletionAndAmortization, GainLossOnSaleOfProperties) ARE in XBRL and can be used to reconstruct FFO. Source: earnings release / supplemental package.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "affo_per_share",
+      "label": "Adjusted FFO (AFFO / Cash Available for Distribution) per Share",
+      "definition": "FFO further adjusted for recurring maintenance capex, straight-line rent, and non-cash items; the truest proxy for recurring cash earnings and dividend coverage in REITs.",
+      "unit": "USD_per_share",
+      "category": "valuation",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "Non-GAAP, no standardized tag; definition varies by company (AFFO vs FAD vs CAD). Maintenance capex and straight-line rent adjustments are disclosed only in the supplement. Extraction from earnings release required.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "net_asset_value_per_share",
+      "label": "Net Asset Value (NAV) per Share",
+      "definition": "Estimated private-market value of real estate (typically forward NOI capitalized at a market cap rate) plus other assets, less debt and preferred, per share. The core REIT valuation anchor; price/NAV premium or discount drives the thesis.",
+      "unit": "USD_per_share",
+      "category": "valuation",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Analyst-computed (not reported by company). Inputs: forward same-store NOI, applied cap rate, and DebtCurrent/LongTermDebtNoncurrent (XBRL) plus property NOI (supplement). No XBRL concept exists.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "same_store_noi_growth",
+      "label": "Same-Store / Same-Property NOI Growth",
+      "definition": "Year-over-year growth in net operating income (rental revenue less property operating expenses, excluding D&A and corporate G&A) for the pool of properties owned in both comparison periods. Isolates organic operating performance from acquisitions.",
+      "unit": "percent",
+      "category": "growth",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Same-store pool is a management-defined non-GAAP construct; NOT in XBRL. Total NOI inputs (OperatingLeaseLeaseIncome, RealEstateRevenueNet, property opex) are tagged but the same-store cut is only in MD&A / supplement.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "occupancy_rate",
+      "label": "Occupancy Rate (Physical / Economic / Leased)",
+      "definition": "Percent of available space leased or occupied. Physical occupancy = occupied/total; leased occupancy includes signed-not-yet-commenced. A primary demand and pricing-power indicator for property REITs.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Operating statistic, NOT in us-gaap XBRL. Disclosed in MD&A and supplemental operating data. Definitions (physical vs economic vs leased) differ by company and property type.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "implied_cap_rate",
+      "label": "Capitalization Rate (Cap Rate)",
+      "definition": "Forward (or trailing) NOI divided by property value. Used both for acquisitions (going-in cap rate) and to capitalize NOI into NAV. Implied cap rate from the stock = NOI / (market cap + net debt).",
+      "unit": "percent",
+      "category": "valuation",
+      "applies_to": "REITs",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Analyst-computed or disclosed per-transaction in MD&A; no XBRL concept. Market cap rates sourced from broker/appraisal data, not filings.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "rental_revenue",
+      "label": "Rental / Lease Revenue",
+      "definition": "Revenue from operating leases on real estate (base rent plus tenant recoveries/expense reimbursements). The top-line driver of REIT NOI and the most reliably tagged REIT input.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "REITs",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:OperatingLeaseLeaseIncome",
+        "us-gaap:RealEstateRevenueNet",
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Post-ASC 842, base/lease income is commonly tagged us-gaap:OperatingLeaseLeaseIncome; tenant recoveries may be under RevenueFromContractWithCustomerExcludingAssessedTax. Some filers still use RealEstateRevenueNet. Verify which the company elects.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "real_estate_gross_and_net",
+      "label": "Real Estate Investment, Gross and Net of Depreciation",
+      "definition": "Carrying value of real estate held for investment at cost (gross) and net of accumulated depreciation. Basis for asset intensity, depreciation, and a sanity check against NAV.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "REITs",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RealEstateInvestmentPropertyAtCost",
+        "us-gaap:RealEstateInvestmentPropertyNet",
+        "us-gaap:RealEstateInvestmentPropertyAccumulatedDepreciation"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "medium",
+      "notes": "Reliably tagged in us-gaap for equity REITs. Gross book cost is far below market value because real estate is held at depreciated historical cost \u2014 the core reason FFO/NAV exist.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "rate_base",
+      "label": "Regulated Rate Base",
+      "definition": "Net value of utility property (plant in service less accumulated depreciation, plus working capital and regulatory adjustments) on which a regulated utility is allowed to earn its authorized return. Rate base x allowed ROE drives regulated earnings; rate base growth is the central utility growth thesis.",
+      "unit": "USD",
+      "category": "kpi",
+      "applies_to": "Utilities",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "investor_deck",
+      "importance": "critical",
+      "notes": "Regulatory construct set in rate-case orders \u2014 NOT a us-gaap XBRL line item. Disclosed in MD&A, rate-case filings, and investor decks (often as a multi-year rate-base CAGR target). Utility net PP&E (PublicUtilitiesPropertyPlantAndEquipmentNet) is an XBRL proxy but is not equal to rate base.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "allowed_roe",
+      "label": "Authorized / Allowed Return on Equity",
+      "definition": "The return on the equity portion of rate base granted by the regulator in the most recent rate case. Combined with the authorized equity layer (capital structure) it determines allowed regulated earnings; the gap between allowed and earned ROE signals regulatory lag/quality.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Utilities",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "critical",
+      "notes": "Regulator-set, NOT in XBRL. Found in rate-case orders and MD&A regulatory discussion. Track allowed vs actual (earned) ROE \u2014 under-earning indicates regulatory lag or cost disallowances.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "regulatory_assets_liabilities",
+      "label": "Regulatory Assets and Liabilities",
+      "definition": "Costs deferred for future recovery from customers (regulatory assets) or amounts owed back to customers (regulatory liabilities) under ASC 980 rate-regulated accounting. Indicate timing of cost recovery and regulatory relationship quality.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "Utilities",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RegulatoryAssetsNoncurrent",
+        "us-gaap:RegulatoryAssetsCurrent",
+        "us-gaap:RegulatoryLiabilityNoncurrent",
+        "us-gaap:RegulatoryLiabilityCurrent"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Genuinely in us-gaap (ASC 980). Large or growing regulatory assets can flag recovery risk; regulatory liabilities often relate to deferred taxes / over-recovery. Current vs noncurrent split is tagged.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "afudc",
+      "label": "Allowance for Funds Used During Construction (AFUDC)",
+      "definition": "Non-cash carrying-cost return (debt + equity components) capitalized into rate base on construction-work-in-progress for regulated utilities. High AFUDC signals a large capex/growth program and inflates GAAP earnings quality questions.",
+      "unit": "USD",
+      "category": "quality",
+      "applies_to": "Utilities",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PublicUtilitiesAllowanceForFundsUsedDuringConstructionCapitalizedCostOfEquity",
+        "us-gaap:PublicUtilitiesAllowanceForFundsUsedDuringConstructionAdditions"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "medium",
+      "notes": "Utility-specific us-gaap concepts exist. The equity component of AFUDC is non-cash income \u2014 a quality flag: high AFUDC means earnings are running ahead of cash until assets enter service.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "regulated_vs_unregulated_earnings",
+      "label": "Regulated vs Unregulated Earnings Mix",
+      "definition": "Split of operating income/EBITDA between rate-regulated (low-risk, allowed-return) operations and competitive/merchant/unregulated operations. Regulated-heavy mix commands a higher multiple due to earnings stability.",
+      "unit": "percent",
+      "category": "segment",
+      "applies_to": "Utilities",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss"
+      ],
+      "source_if_not_xbrl": "mgmt_mdna",
+      "importance": "high",
+      "notes": "Segment operating income IS tagged with the us-gaap:StatementBusinessSegmentsAxis dimension, but the regulated/unregulated labeling and reconciliation are management-defined and read from segment MD&A. Not a clean standalone concept.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "arpu",
+      "label": "Average Revenue Per User / Unit (ARPU)",
+      "definition": "Service revenue divided by average subscribers over the period (often split prepaid/postpaid, mobile/broadband). The core telecom pricing and monetization KPI; ARPU x subscribers x (1 - churn) frames revenue.",
+      "unit": "USD_per_subscriber_per_month",
+      "category": "kpi",
+      "applies_to": "Telecom",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "Operating KPI, NOT in us-gaap XBRL. Reported in earnings release and investor supplements; definition (gross vs service revenue, which subscriber base) varies by carrier. Service revenue input may be tagged RevenueFromContractWithCustomerExcludingAssessedTax.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "subscribers_net_adds",
+      "label": "Subscribers and Net Additions",
+      "definition": "Period-end subscriber/connection count and net adds (gross adds less disconnects), typically segmented postpaid phone / prepaid / broadband. The volume driver of telecom revenue and the headline market reacts to.",
+      "unit": "subscribers",
+      "category": "kpi",
+      "applies_to": "Telecom",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "Operating statistic, NOT in XBRL. Postpaid phone net adds is the most-watched single number. Source: 8-K earnings release tables and investor fact sheet.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "churn_rate",
+      "label": "Churn Rate",
+      "definition": "Percent of subscribers disconnecting per period (monthly), usually split postpaid phone vs prepaid. Low/declining churn signals network quality, pricing power, and customer-lifetime-value strength.",
+      "unit": "percent",
+      "category": "kpi",
+      "applies_to": "Telecom",
+      "in_xbrl": false,
+      "xbrl_tags": [],
+      "source_if_not_xbrl": "8k_press",
+      "importance": "critical",
+      "notes": "Operating KPI, NOT in XBRL. Postpaid phone churn is the key retention metric. Disclosed in earnings release / supplement only.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "network_capex_intensity",
+      "label": "Network Capex and Capex Intensity",
+      "definition": "Capital expenditure on network/spectrum/property, and capex as a percent of revenue. Capital intensity is central to telecom and utility cash-flow conversion and to free-cash-flow-based dividend coverage.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "Telecom; Utilities; REITs",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:PaymentsForCapitalImprovements",
+        "us-gaap:PaymentsToAcquireProductiveAssets"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Total capex IS in XBRL (cash flow statement). The split between maintenance vs growth capex (critical for AFFO and utility rate base) is NOT tagged and comes from MD&A. Spectrum purchases may use PaymentsToAcquireIntangibleAssets / a separate line.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "interest_coverage",
+      "label": "Interest / Fixed-Charge Coverage",
+      "definition": "EBITDA (or FFO before interest) divided by interest expense (plus preferred dividends for fixed-charge coverage). Measures ability to service debt \u2014 critical for these high-leverage, rate-sensitive businesses.",
+      "unit": "ratio",
+      "category": "quality",
+      "applies_to": "REITs; Utilities; Telecom",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:InterestExpense",
+        "us-gaap:InterestAndDebtExpense",
+        "us-gaap:InterestExpenseDebt"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Interest expense IS tagged; the numerator (EBITDA/FFO) is non-GAAP. Fixed-charge coverage adds PreferredStockDividendsAndOtherAdjustments. Rising rates compress coverage as debt reprices \u2014 a key risk lens for this sector group.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "dividend_payout_and_coverage",
+      "label": "Dividend per Share, Payout Ratio and Coverage",
+      "definition": "Dividend per share and payout = dividends / (AFFO for REITs, FFO, or FCF). Coverage = cash earnings / dividends. These are yield vehicles, so dividend sustainability and growth are central to the total-return thesis; REITs must distribute >=90% of taxable income.",
+      "unit": "USD_per_share",
+      "category": "cashflow",
+      "applies_to": "REITs; Utilities; Telecom",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:CommonStockDividendsPerShareDeclared",
+        "us-gaap:PaymentsOfDividendsCommonStock",
+        "us-gaap:PaymentsOfDividends"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "Dividends per share declared and dividends paid ARE in XBRL. Payout vs AFFO/FFO is computed because the denominator is non-GAAP. For REITs the AFFO payout ratio is the binding dividend-safety test.",
+      "sector_group": "Real Estate (REITs), Utilities, Telecom \u2014 yield / regulated / subscriber businesses"
+    },
+    {
+      "metric_code": "total_revenue",
+      "label": "Total Revenue / Net Sales",
+      "definition": "Top-line revenue from contracts with customers for the period; the base for growth, margins, and P/S. Use the post-ASC606 tag as primary with legacy fallbacks.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "us-gaap:Revenues",
+        "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
+        "us-gaap:SalesRevenueNet"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Tag inconsistency is the #1 ingestion gotcha: post-2018 filers use RevenueFromContractWithCustomerExcludingAssessedTax; older/some filers use Revenues or legacy SalesRevenueNet. Build a coalesce priority list per filer. Financials/banks often report total revenue differently (net interest income + noninterest income) and may not tag a single Revenues fact.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "gross_profit",
+      "label": "Gross Profit",
+      "definition": "Revenue minus cost of goods/services sold; drives gross margin, a core quality/pricing-power signal.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:GrossProfit",
+        "us-gaap:CostOfRevenue",
+        "us-gaap:CostOfGoodsAndServicesSold"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "Many filers do not tag GrossProfit directly (especially single-step income statements and financials); compute as Revenue - CostOfRevenue/CostOfGoodsAndServicesSold when the explicit fact is absent. Gross margin = gross_profit / total_revenue.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "operating_income",
+      "label": "Operating Income (EBIT)",
+      "definition": "Income from operations before interest and taxes; basis for operating margin and EV/EBIT.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "Well-standardized. Operating margin = operating_income / total_revenue. For banks/insurers OperatingIncomeLoss is often not reported in the same sense; use pretax income instead.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "net_income",
+      "label": "Net Income (to common)",
+      "definition": "Bottom-line profit attributable to the company; for per-share work use the figure attributable to parent/common after minority interest and preferred dividends.",
+      "unit": "USD",
+      "category": "income",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:NetIncomeLoss",
+        "us-gaap:ProfitLoss",
+        "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "NetIncomeLoss = attributable to parent; ProfitLoss = including noncontrolling interest. For EPS reconciliation use NetIncomeLossAvailableToCommonStockholdersBasic (after preferred dividends). Pick deliberately for ROE and P/E.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "ebitda",
+      "label": "EBITDA",
+      "definition": "Earnings before interest, taxes, depreciation, and amortization; capital-structure-neutral cash-earnings proxy and the denominator for EV/EBITDA.",
+      "unit": "USD",
+      "category": "valuation",
+      "applies_to": "all_sectors_ex_financials",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:OperatingIncomeLoss",
+        "us-gaap:DepreciationDepletionAndAmortization",
+        "us-gaap:DepreciationAmortizationAndAccretionNet"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "NOT an XBRL concept. Compute = OperatingIncomeLoss + DepreciationDepletionAndAmortization (or pull D&A from the cash flow statement: DepreciationDepletionAndAmortization). Adjusted EBITDA (add-backs for SBC, restructuring) is non-GAAP and ONLY in the 8-K earnings release / MD&A, never standardized XBRL. Not meaningful for banks/insurers.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "eps_basic_diluted",
+      "label": "EPS Basic & Diluted",
+      "definition": "Net income to common per weighted-average share, basic and fully diluted; diluted is the standard for P/E.",
+      "unit": "USD_per_share",
+      "category": "income",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:EarningsPerShareBasic",
+        "us-gaap:EarningsPerShareDiluted",
+        "us-gaap:WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
+        "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "GAAP diluted EPS is tagged. Non-GAAP/adjusted EPS (the number consensus is often set on) is MD&A/8-K only. Weighted-average diluted share count tags feed your own EPS recompute and share-dilution tracking.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "total_assets",
+      "label": "Total Assets",
+      "definition": "Sum of all assets; denominator for ROA, asset turnover, and leverage.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:Assets"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Instant (point-in-time) fact, not duration. One of the most reliably tagged concepts across all filers.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "total_equity",
+      "label": "Total Stockholders' Equity",
+      "definition": "Book value of equity; denominator for ROE and numerator basis for P/B.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:StockholdersEquity",
+        "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "StockholdersEquity = attributable to parent (use for P/B and ROE on common). The ...IncludingPortionAttributableToNoncontrollingInterest variant includes minority interest; choose consistently. Book value per share = StockholdersEquity / shares outstanding.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "total_debt",
+      "label": "Total Debt",
+      "definition": "Interest-bearing short- plus long-term debt; feeds net debt, leverage ratios, and enterprise value.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:LongTermDebtNoncurrent",
+        "us-gaap:LongTermDebtCurrent",
+        "us-gaap:DebtCurrent",
+        "us-gaap:LongTermDebt",
+        "us-gaap:DebtLongtermAndShorttermCombinedAmount"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "No single universal 'total debt' tag. Compute = LongTermDebtCurrent + LongTermDebtNoncurrent (or current portion + noncurrent). Tagging varies widely by filer (notes payable, finance leases tagged separately). Post-ASC842 finance/operating lease liabilities (us-gaap:FinanceLeaseLiability, us-gaap:OperatingLeaseLiability) may or may not belong in 'debt' depending on your convention.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "cash_and_investments",
+      "label": "Cash & Equivalents (+ Short-Term Investments)",
+      "definition": "Liquid assets netted against debt to get net debt for enterprise value.",
+      "unit": "USD",
+      "category": "balance",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+        "us-gaap:ShortTermInvestments",
+        "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Note the post-ASU2016-18 tag CashCashEquivalentsRestrictedCash... is what reconciles to the cash flow statement ending balance; the balance-sheet line is usually CashAndCashEquivalentsAtCarryingValue. Net debt = total_debt - cash_and_investments.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "shares_outstanding",
+      "label": "Shares Outstanding",
+      "definition": "Common shares outstanding; the cover-page point-in-time count used for market cap, and the period-end balance-sheet count.",
+      "unit": "shares",
+      "category": "balance",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "dei:EntityCommonStockSharesOutstanding",
+        "us-gaap:CommonStockSharesOutstanding",
+        "us-gaap:CommonStockSharesIssued"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "dei:EntityCommonStockSharesOutstanding is the cover-page count (as of a date NEAR but not equal to period end \u2014 often the latest practicable date) and is the cleanest for current market cap. us-gaap:CommonStockSharesOutstanding is the balance-sheet date count. Multi-class issuers split across class members on us-gaap:StatementClassOfStockAxis \u2014 sum the classes. Use weighted-average diluted for per-share earnings, point-in-time for market cap.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "operating_cash_flow",
+      "label": "Cash Flow from Operations",
+      "definition": "Net cash generated by operations; the quality check on earnings and the base for free cash flow.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "...ContinuingOperations variant excludes discontinued ops; coalesce. Cash-conversion quality = operating_cash_flow / net_income.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "capex",
+      "label": "Capital Expenditures",
+      "definition": "Cash spent on property, plant & equipment (and sometimes capitalized software); subtracted from operating cash flow to get free cash flow.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+        "us-gaap:PaymentsToAcquireProductiveAssets",
+        "us-gaap:PaymentsForCapitalImprovements"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Tagged as a positive cash-outflow value. Some filers also capitalize software/development separately (us-gaap:PaymentsToDevelopSoftware) which a strict FCF definition should include. Reported as positive; subtract from OCF.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "dividends_and_buybacks",
+      "label": "Dividends & Share Repurchases",
+      "definition": "Cash returned to shareholders via dividends and buybacks; drives dividend yield and total shareholder yield.",
+      "unit": "USD",
+      "category": "cashflow",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "us-gaap:PaymentsOfDividendsCommonStock",
+        "us-gaap:PaymentsOfDividends",
+        "us-gaap:CommonStockDividendsPerShareDeclared",
+        "us-gaap:PaymentsForRepurchaseOfCommonStock"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "high",
+      "notes": "Dividends-per-share (CommonStockDividendsPerShareDeclared) feeds dividend yield directly; total cash dividends and buybacks come from the financing section of the cash flow statement. Payout ratio = dividends / net_income.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "pe_ratio",
+      "label": "P/E Ratio",
+      "definition": "Price per share divided by diluted EPS (or market cap / net income); the headline equity multiple.",
+      "unit": "ratio",
+      "category": "valuation",
+      "applies_to": "all_sectors",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:EarningsPerShareDiluted",
+        "us-gaap:NetIncomeLoss"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "NOT in XBRL \u2014 requires live market price, which EDGAR never contains. P/E = price / diluted_eps (trailing or forward). Forward P/E needs consensus estimates (third-party). Pair the XBRL earnings denominator with a market-data price feed keyed by date for point-in-time.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "pb_ps_ratios",
+      "label": "P/B and P/S Ratios",
+      "definition": "Price-to-book (market cap / stockholders' equity) and price-to-sales (market cap / revenue); core relative-value screens.",
+      "unit": "ratio",
+      "category": "valuation",
+      "applies_to": "all_sectors",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:StockholdersEquity",
+        "us-gaap:Revenues"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "NOT in XBRL. P/B = market_cap / total_equity; P/S = market_cap / total_revenue. P/B is especially load-bearing for financials/banks; P/S for unprofitable growth names. market_cap = price * shares_outstanding (price from market feed).",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "ev_ebitda",
+      "label": "EV / EBITDA",
+      "definition": "Enterprise value divided by EBITDA; capital-structure-neutral multiple for cross-company comparison.",
+      "unit": "ratio",
+      "category": "valuation",
+      "applies_to": "all_sectors_ex_financials",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:StockholdersEquity",
+        "us-gaap:LongTermDebt",
+        "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "critical",
+      "notes": "NOT in XBRL. EV = market_cap + total_debt + preferred + minority interest - cash_and_investments; then EV / EBITDA. Every component except market price comes from XBRL; price from a market feed. Not used for banks/insurers (use P/E, P/B, P/TBV instead).",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "dividend_and_fcf_yield",
+      "label": "Dividend Yield & FCF Yield",
+      "definition": "Dividend per share / price, and free cash flow / market cap (or enterprise value); cash-return valuation gauges.",
+      "unit": "percent",
+      "category": "valuation",
+      "applies_to": "all_sectors",
+      "in_xbrl": false,
+      "xbrl_tags": [
+        "us-gaap:CommonStockDividendsPerShareDeclared",
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"
+      ],
+      "source_if_not_xbrl": "computed",
+      "importance": "high",
+      "notes": "NOT in XBRL. Dividend yield = DPS / price; FCF yield = free_cash_flow / market_cap (equity FCF yield) or FCF / EV (unlevered). Numerators are XBRL-derived; denominators need a market price feed.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    },
+    {
+      "metric_code": "filing_metadata_pit",
+      "label": "Filing Metadata & Point-in-Time Vintage Keys",
+      "definition": "Per-fact provenance fields from companyfacts (form, period, fiscal year/period, filed date, accession, frame) needed to build a restatement-aware point-in-time store and pick the right form (10-K audited vs 10-Q vs 8-K).",
+      "unit": "metadata",
+      "category": "quality",
+      "applies_to": "all_sectors",
+      "in_xbrl": true,
+      "xbrl_tags": [
+        "dei:DocumentType",
+        "dei:DocumentPeriodEndDate",
+        "dei:DocumentFiscalYearFocus",
+        "dei:DocumentFiscalPeriodFocus",
+        "dei:EntityCentralIndexKey",
+        "dei:AmendmentFlag"
+      ],
+      "source_if_not_xbrl": "n_a",
+      "importance": "critical",
+      "notes": "MECHANICS: companyfacts JSON returns, per concept per unit, an array of fact objects each with: end (and start for durations), val, accn (accession number), fy, fp (Q1-Q3/FY), form (10-K, 10-Q, 8-K, 10-K/A), filed (the as-filed date \u2014 your point-in-time key), and frame. Point-in-time rule: key on (cik, concept, period_end, accn); when a later 10-K/A or subsequent 10-K re-reports an earlier period with a different val, APPEND a new vintage keyed by filed-date rather than overwriting, so you can reproduce 'what was known on date D'. Prefer form=10-K (audited) over 10-Q over 8-K when multiple facts cover the same period. dei:DocumentType/DocumentPeriodEndDate/AmendmentFlag identify form and restatements. Endpoints: companyfacts = data.sec.gov/api/xbrl/companyfacts/CIK{10-digit-zero-padded}.json; per-concept = companyconcept/CIK{n}/us-gaap/{Tag}.json; cross-company same-period = frames/us-gaap/{Tag}/USD/CY{yyyy}Q{q}I.json. All require a descriptive User-Agent header (e.g. 'Firm Name email@domain'); ~10 req/s rate limit. Segment facts carry us-gaap:StatementBusinessSegmentsAxis / ProductOrServiceAxis dimensions that the flat companyfacts feed mostly drops \u2014 pull segment detail from the filing's R-files / Financial Report API or dimensional frames.",
+      "sector_group": "UNIVERSAL CORE + VALUATION + XBRL MECHANICS"
+    }
+  ]
+}
