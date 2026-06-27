@@ -103,11 +103,16 @@ We keep the terminology precise (see **[docs/AGENTS.md](docs/AGENTS.md)**):
    KPI catalog → data-quality checks → recalibration check. Validation runs *right
    after* ingestion. *(daily)* See [docs/DATA_INGESTION.md](docs/DATA_INGESTION.md).
 
-**Agents (LLM):** provider-agnostic (`scheme:model` → Ollama / DeepSeek / GLM /
-OpenRouter / Anthropic) and **activatable locally for $0** via Ollama. Source-discovery,
-sector-KPI research, quality-triage, analyst, strategist, model-upgrade — each with its
-expected work and cadence in [docs/AGENTS.md](docs/AGENTS.md). They *improve* the jobs;
-they don't run in the deterministic hot path.
+**Agents (LLM):** provider-agnostic with a **waterfall router** — each role has an
+ordered chain (`scheme:model` → Ollama Cloud / Groq / DeepSeek / GLM / OpenRouter /
+Anthropic) that falls through to the next tier on rate-limit or error, and degrades to
+free deterministic text if every tier is down. **Activatable for $0** (local Ollama).
+Shared, model-agnostic instructions live in version-controlled playbooks
+(`engine/context/*.md`); model-specific reliability is **learned** from outcome metrics
+(`model_scorecard`) and can reorder the chain. Full design in
+[docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md). Source-discovery, sector-KPI research,
+quality-triage, analyst, strategist — each with its cadence in
+[docs/AGENTS.md](docs/AGENTS.md). They *improve* the jobs; they don't run in the hot path.
 
 **Data foundation:** a cloud **Postgres** (Supabase) is the single source of truth;
 **SEC EDGAR** ingests sector-aware, point-in-time stock-level fundamentals (110-KPI
@@ -202,6 +207,8 @@ checklist; the roadmap closes the gap from *automated* to *agentic*.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — target-state design: 8 pillars,
   model-routing, cost ladder, moat & monetization.
 - **[docs/AGENTS.md](docs/AGENTS.md)** — jobs vs agents; each agent's work + cadence.
+- **[docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)** — the waterfall router; shared
+  (model-agnostic) vs model-specific learning.
 - **[docs/DATA_INGESTION.md](docs/DATA_INGESTION.md)** — the data-ingestion job.
 
 ## Disclaimer

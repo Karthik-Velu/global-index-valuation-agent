@@ -1,18 +1,29 @@
-"""Provider-agnostic model router.
+"""Provider-agnostic WATERFALL model router.
 
-The ONLY place an LLM is used. Routes a `model_id` ("scheme:model") to the right
-provider so cheap/owned models (Ollama, DeepSeek, GLM, OpenRouter, Groq) and frontier
-(Anthropic) are interchangeable. With no model configured, callers fall back to free
-deterministic text — the whole product still works for $0.
+The ONLY place an LLM is used. Each ROLE (cheap / smart / agent / source_discovery /
+sector_research / …) has an ordered chain of `scheme:model` candidates. `call()`:
+
+  1. injects the shared, model-agnostic knowledge playbook (engine/knowledge.py),
+  2. applies per-family prompt packaging (engine/modelrouting.py),
+  3. tries tier 1; on rate-limit / auth / server / timeout it classifies the error,
+     puts that model on a short cooldown, and falls through to the next tier,
+  4. logs every attempt so the scorecard can learn which model to trust.
+
+Models with no key / unreachable endpoint are skipped. If every tier is unavailable,
+callers fall back to free deterministic text — the whole product still runs for $0.
 """
 from __future__ import annotations
 
 import json
+import time
 
-from . import config
-from .config import MODEL_AGENT, MODEL_CHEAP, MODEL_SMART
+from . import config, knowledge, modelrouting
+from .config import MODEL_AGENT, MODEL_CHEAP, MODEL_SMART  # noqa: F401 (back-compat exports)
 
 _anthropic = None
+_AVAIL: dict[str, tuple[bool, float]] = {}   # model_id -> (ok, monotonic_expiry)
+_COOLDOWN: dict[str, float] = {}             # model_id -> monotonic_until
+_COOLDOWN_SECS = {"rate_limit": 90, "auth": 3600, "server": 20, "timeout": 20, "other": 10}
 
 
 def _parse(model_id: str) -> tuple[str, str]:
@@ -24,7 +35,7 @@ def _conf(scheme: str) -> tuple[str | None, str]:
     """(base_url, api_key) for OpenAI-compatible providers; ('anthropic', key) for Anthropic."""
     return {
         "anthropic": ("anthropic", config.ANTHROPIC_API_KEY),
-        "ollama": (config.OLLAMA_BASE_URL, "ollama"),
+        "ollama": (config.OLLAMA_BASE_URL, config.OLLAMA_API_KEY or "ollama"),
         "openrouter": ("https://openrouter.ai/api/v1", config.OPENROUTER_API_KEY),
         "groq": ("https://api.groq.com/openai/v1", config.GROQ_API_KEY),
         "deepseek": ("https://api.deepseek.com/v1", config.DEEPSEEK_API_KEY),
@@ -33,20 +44,56 @@ def _conf(scheme: str) -> tuple[str | None, str]:
     }.get(scheme, (None, ""))
 
 
-def available(model_id: str | None = None) -> bool:
-    """Is this model usable right now (key present / endpoint reachable)?"""
-    scheme, _ = _parse(model_id or MODEL_CHEAP)
+def _check_available(model_id: str) -> bool:
+    scheme, _ = _parse(model_id)
     base, key = _conf(scheme)
     if scheme == "anthropic":
         return bool(key)
     if scheme == "ollama":
+        # Remote (Ollama Cloud) endpoint: auth by key. Local daemon: ping it.
+        if config.OLLAMA_API_KEY and "localhost" not in (base or "") and "127.0.0.1" not in (base or ""):
+            return True
         try:
             import requests
-            requests.get(base.replace("/v1", "") + "/api/tags", timeout=1.5)
+            requests.get((base or "").replace("/v1", "") + "/api/tags", timeout=1.5)
             return True
         except Exception:
             return False
     return bool(key)
+
+
+def available(model_id: str | None = None) -> bool:
+    """Is this model usable right now? Cached 60s so we don't re-ping every call."""
+    model_id = model_id or config.MODEL_CHEAP_CHAIN[0]
+    hit = _AVAIL.get(model_id)
+    if hit and hit[1] > time.monotonic():
+        return hit[0]
+    ok = _check_available(model_id)
+    _AVAIL[model_id] = (ok, time.monotonic() + 60)
+    return ok
+
+
+def _cooling(model_id: str) -> bool:
+    return _COOLDOWN.get(model_id, 0.0) > time.monotonic()
+
+
+def _cooldown(model_id: str, kind: str) -> None:
+    _COOLDOWN[model_id] = time.monotonic() + _COOLDOWN_SECS.get(kind, 10)
+
+
+def _classify(exc: Exception) -> str:
+    """Map any provider exception to: rate_limit | auth | server | timeout | other."""
+    name = type(exc).__name__.lower()
+    status = getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
+    if status == 429 or "ratelimit" in name:
+        return "rate_limit"
+    if status in (401, 403) or "authentication" in name or "permission" in name:
+        return "auth"
+    if (isinstance(status, int) and 500 <= status < 600) or "internalserver" in name:
+        return "server"
+    if "timeout" in name or "connection" in name or "apiconnection" in name:
+        return "timeout"
+    return "other"
 
 
 def _anthropic_client():
@@ -59,6 +106,7 @@ def _anthropic_client():
 
 def _call(model_id: str, system: str, user: str, max_tokens: int = 400,
           json_mode: bool = False) -> str:
+    """Single-model primitive — raises on failure (the chain handles fallback)."""
     scheme, model = _parse(model_id)
     base, key = _conf(scheme)
     if scheme == "anthropic":
@@ -66,23 +114,88 @@ def _call(model_id: str, system: str, user: str, max_tokens: int = 400,
             model=model, max_tokens=max_tokens, system=system,
             messages=[{"role": "user", "content": user}])
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
-    # OpenAI-compatible (Ollama / OpenRouter / Groq / DeepSeek / GLM)
+    # OpenAI-compatible (Ollama / Ollama Cloud / OpenRouter / Groq / DeepSeek / GLM)
     from openai import OpenAI
     client = OpenAI(base_url=base, api_key=key or "x")
     kwargs = {"model": model, "max_tokens": max_tokens,
               "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
-    if json_mode:  # constrained JSON output (Ollama + most providers support this)
+    if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
     try:
         resp = client.chat.completions.create(**kwargs)
     except Exception:
-        kwargs.pop("response_format", None)  # provider may not support it
-        resp = client.chat.completions.create(**kwargs)
+        if "response_format" in kwargs:  # provider may not support it — retry once plainly
+            kwargs.pop("response_format", None)
+            resp = client.chat.completions.create(**kwargs)
+        else:
+            raise
     return (resp.choices[0].message.content or "").strip()
 
 
-# Any model configured? (computed once; agents/narration check this.)
-LLM_ENABLED = available(MODEL_CHEAP) or available(MODEL_SMART)
+def _json_parses(text: str) -> bool:
+    """Is there a parseable JSON object in the text (strict, then tolerant slice)?"""
+    for candidate in (text, text[text.find("{"): text.rfind("}") + 1] if "{" in text else ""):
+        try:
+            json.loads(candidate)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def chain_for(role: str) -> list[str]:
+    if role == "cheap":
+        return config.MODEL_CHEAP_CHAIN
+    if role == "smart":
+        return config.MODEL_SMART_CHAIN
+    return config.MODEL_AGENT_CHAIN  # agent + any specialised agent role
+
+
+def call(role: str, system: str, user: str, max_tokens: int = 400,
+         json_mode: bool = False) -> str:
+    """Waterfall LLM call for a role. Raises RuntimeError if every tier is exhausted."""
+    sys_shared = knowledge.system_prompt(role, system)
+    candidates = [m for m in chain_for(role) if available(m) and not _cooling(m)]
+    if config.ADAPTIVE_ROUTING:
+        candidates = modelrouting.order_by_learning(role, candidates)
+    last_err: Exception | None = None
+    for i, model_id in enumerate(candidates, 1):
+        prof = modelrouting.profile(model_id)
+        sysm = sys_shared
+        if json_mode and prof.get("force_json_suffix"):
+            sysm += "\n\nReturn ONLY one valid JSON object — no other text."
+        use_json = json_mode and prof.get("supports_json_mode", True)
+        t0 = time.monotonic()
+        try:
+            out = _call(model_id, sysm, user, max_tokens=max_tokens, json_mode=use_json)
+            modelrouting.record(role, model_id, True, attempt=i, json_requested=json_mode,
+                                json_ok=(_json_parses(out) if json_mode else None),
+                                latency_ms=int((time.monotonic() - t0) * 1000))
+            return out
+        except Exception as e:  # noqa: BLE001 — classify + fall through to next tier
+            kind = _classify(e)
+            _cooldown(model_id, kind)
+            modelrouting.record(role, model_id, False, error_kind=kind, attempt=i,
+                                json_requested=json_mode,
+                                latency_ms=int((time.monotonic() - t0) * 1000))
+            last_err = e
+    raise RuntimeError(f"all model tiers exhausted for role={role!r}: {last_err}")
+
+
+def any_available() -> bool:
+    seen: set[str] = set()
+    for ch in (config.MODEL_CHEAP_CHAIN, config.MODEL_SMART_CHAIN, config.MODEL_AGENT_CHAIN):
+        for m in ch:
+            if m in seen:
+                continue
+            seen.add(m)
+            if available(m):
+                return True
+    return False
+
+
+# Any model configured anywhere in the chains? (agents/narration check this.)
+LLM_ENABLED = any_available()
 
 
 def cheap_tags(markets: list[dict]) -> dict[str, str]:
@@ -101,14 +214,13 @@ def cheap_tags(markets: list[dict]) -> dict[str, str]:
         for m in markets
     ]
     system = (
-        "You label equity-index markets for a dashboard. 'Growth' means FUNDAMENTAL "
-        "revenue/earnings growth, not price momentum. For each market return a <=7-word, "
-        "punchy plain-English tag describing its setup (e.g. 'Cheap and growing fast', "
-        "'Pricey but high growth', 'Deep value, no growth', 'Cheap, possible trap'). "
-        "Return ONLY a JSON object mapping key->tag."
+        "You label equity-index markets for a dashboard. For each market return a "
+        "<=7-word, punchy plain-English tag describing its setup (e.g. 'Cheap and "
+        "growing fast', 'Pricey but high growth', 'Deep value, no growth', 'Cheap, "
+        "possible trap'). Return ONLY a JSON object mapping key->tag."
     )
     try:
-        out = _call(MODEL_CHEAP, system, json.dumps(compact), max_tokens=900)
+        out = call("cheap", system, json.dumps(compact), max_tokens=900, json_mode=True)
         data = json.loads(out[out.find("{"): out.rfind("}") + 1])
         return {m["key"]: data.get(m["key"], _fallback_tag(m)) for m in markets}
     except Exception:
@@ -157,13 +269,13 @@ def smart_brief(scoreboard: list[dict], accuracy: dict) -> str:
     }
     system = (
         "You are a buy-side strategist writing the 1-paragraph headline read for a "
-        "global equity-index dashboard. 'Growth' = FUNDAMENTAL revenue/earnings growth, "
-        "NOT price momentum. Be specific and decisive: name the 2-3 best value buys, the "
-        "2-3 highest fundamental-growth markets, and the best 'cheap AND growing' (GARP) "
-        "ideas; flag value traps. <=130 words, no preamble, no bullet lists."
+        "global equity-index dashboard. Be specific and decisive: name the 2-3 best "
+        "value buys, the 2-3 highest fundamental-growth markets, and the best 'cheap "
+        "AND growing' (GARP) ideas; flag value traps. <=130 words, no preamble, no "
+        "bullet lists."
     )
     try:
-        return _call(MODEL_SMART, system, json.dumps(payload), max_tokens=350)
+        return call("smart", system, json.dumps(payload), max_tokens=350)
     except Exception:
         return _fallback_brief(scoreboard)
 
@@ -204,7 +316,7 @@ def _fallback_brief(scoreboard: list[dict]) -> str:
         f"Cheapest value: {v}. Highest fundamental growth: {g}. "
         f"Cheap AND growing (GARP): {gp}. "
         "Scores are within-peer-group; cross-check value-trap flags before acting. "
-        "(LLM narrative disabled — set ANTHROPIC_API_KEY for a strategist read.)"
+        "(LLM narrative disabled — configure a model chain for a strategist read.)"
     )
 
 

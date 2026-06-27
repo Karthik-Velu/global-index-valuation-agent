@@ -30,7 +30,7 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
     proposals = []
     for sub in subs:
         try:
-            txt = llm._call(llm.MODEL_AGENT, system, sub, max_tokens=700, json_mode=True)
+            txt = llm.call("sector_research", system, sub, max_tokens=700, json_mode=True)
             obj = json.loads(txt)
             data = obj.get("metrics", obj if isinstance(obj, list) else [])
             proposals.append({"sub_sector": sub, "proposed": data})

@@ -35,7 +35,7 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
         user = json.dumps({"need": need["id"], "kind": need["kind"],
                            "market_scope": need["market_scope"], "must_be_public": bool(need["public_only"])})
         try:
-            txt = llm._call(llm.MODEL_AGENT, system, user, max_tokens=900, json_mode=True)
+            txt = llm.call("source_discovery", system, user, max_tokens=900, json_mode=True)
             obj = json.loads(txt)
             data = obj.get("sources", obj if isinstance(obj, list) else [])
         except Exception as e:

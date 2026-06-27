@@ -24,13 +24,66 @@ DB_PATH = DATA_DIR / "agent.db"
 # Single JSON contract the dashboard reads. Engine writes, frontend consumes.
 DASHBOARD_JSON = DATA_DIR / "dashboard_data.json"
 
-# --- Model routing (provider-agnostic) ------------------------------------
+# --- Model routing (provider-agnostic, WATERFALL) -------------------------
 # model_id = "scheme:model" — scheme in: ollama | openrouter | groq | deepseek |
-# zai | anthropic | openai_compat. Cheap/owned tier for frequent agent work,
-# frontier reserved for rare high-stakes synthesis. $0 default = local Ollama.
-MODEL_CHEAP = os.getenv("MODEL_CHEAP", "ollama:qwen2.5")
-MODEL_SMART = os.getenv("MODEL_SMART", "anthropic:claude-opus-4-8")
-MODEL_AGENT = os.getenv("MODEL_AGENT", MODEL_CHEAP)
+# zai/glm | anthropic. Each ROLE has an ordered CHAIN of models: tier 1 is tried
+# first, and on rate-limit / auth / server error the router falls through to the
+# next tier (engine/llm.py). Models without a key/endpoint are skipped silently, so
+# the chain "just works" with whatever you've configured — down to $0 local Ollama.
+#
+# Reorder or swap tiers by setting MODEL_<ROLE>_CHAIN in .env to a comma-separated
+# list, e.g.  MODEL_AGENT_CHAIN="groq:llama-3.3-70b-versatile, ollama:qwen2.5"
+# A single MODEL_<ROLE> (back-compat) is honored as tier 1 if set.
+_cheap_env = os.getenv("MODEL_CHEAP")
+_smart_env = os.getenv("MODEL_SMART")
+_agent_env = os.getenv("MODEL_AGENT")
+MODEL_CHEAP = _cheap_env or "ollama:qwen2.5"
+MODEL_SMART = _smart_env or "anthropic:claude-opus-4-8"
+MODEL_AGENT = _agent_env or MODEL_CHEAP
+
+# Default waterfalls (best/most-capable first). Unavailable tiers are skipped.
+_AGENT_FALLBACKS = [
+    "ollama:gpt-oss:120b-cloud",                      # Ollama Cloud (`ollama signin`) — big, free tier
+    "groq:llama-3.3-70b-versatile",                   # Groq free tier — fast 70B
+    "openrouter:deepseek/deepseek-chat-v3-0324:free", # OpenRouter free
+    "ollama:qwen2.5",                                 # local, offline, $0
+]
+_CHEAP_FALLBACKS = [
+    "groq:llama-3.3-70b-versatile",
+    "openrouter:meta-llama/llama-3.3-70b-instruct:free",
+    "ollama:qwen2.5",
+]
+_SMART_FALLBACKS = [
+    "anthropic:claude-opus-4-8",                      # frontier for the rare weekly synthesis
+    "groq:llama-3.3-70b-versatile",
+    "ollama:gpt-oss:120b-cloud",
+]
+
+
+def _dedupe(seq):
+    seen, out = set(), []
+    for x in seq:
+        x = (x or "").strip()
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+def _chain(env_name, default):
+    raw = os.getenv(env_name, "").strip()
+    if raw:
+        return _dedupe(raw.split(","))
+    return _dedupe(default)
+
+
+MODEL_AGENT_CHAIN = _chain("MODEL_AGENT_CHAIN", ([_agent_env] if _agent_env else []) + _AGENT_FALLBACKS)
+MODEL_CHEAP_CHAIN = _chain("MODEL_CHEAP_CHAIN", ([_cheap_env] if _cheap_env else []) + _CHEAP_FALLBACKS)
+MODEL_SMART_CHAIN = _chain("MODEL_SMART_CHAIN", ([_smart_env] if _smart_env else []) + _SMART_FALLBACKS)
+
+# Let the learned scorecard reorder a role's chain by reliability. Off by default
+# so your explicit tier order stays authoritative; flip on once metrics accumulate.
+ADAPTIVE_ROUTING = os.getenv("ADAPTIVE_ROUTING", "false").lower() in ("1", "true", "yes", "on")
 
 # Provider credentials / endpoints (only the ones you use need to be set).
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
@@ -39,6 +92,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 ZAI_API_KEY = os.getenv("ZAI_API_KEY", "").strip()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()  # set for Ollama Cloud (remote endpoint)
 
 # --- Scoring weights -------------------------------------------------------
 # Value (cheapness) is a blend of yield-style metrics. Higher yield = cheaper.
