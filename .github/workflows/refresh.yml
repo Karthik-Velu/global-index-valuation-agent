@@ -19,6 +19,8 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}   # ledger/predictions now live in Postgres
     steps:
       - uses: actions/checkout@v4
 

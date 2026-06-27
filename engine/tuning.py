@@ -91,20 +91,18 @@ def retune() -> dict:
 def _component_return_pairs() -> list[dict]:
     """Join each past prediction's component scores to its realized forward return,
     measured to the most recent price we have for that market."""
-    c = sqlite3.connect(DB_PATH)
+    from . import db
     try:
-        latest = dict(c.execute(
-            "SELECT key, price FROM predictions WHERE asof=(SELECT MAX(asof) FROM predictions)"
-        ).fetchall())
-        rows = c.execute(
-            """SELECT asof,key,price,value_score,momentum_score,mean_reversion_score,growth_score
-               FROM predictions
-               WHERE asof < (SELECT MAX(asof) FROM predictions)"""
-        ).fetchall()
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute("select key, price from predictions "
+                        "where asof=(select max(asof) from predictions)")
+            latest = dict(cur.fetchall())
+            cur.execute(
+                """select asof,key,price,value_score,momentum_score,mean_reversion_score,growth_score
+                   from predictions where asof < (select max(asof) from predictions)""")
+            rows = cur.fetchall()
     except Exception:
         return []
-    finally:
-        c.close()
 
     pairs = []
     for asof, key, price, vs, ms, mr, gs in rows:
