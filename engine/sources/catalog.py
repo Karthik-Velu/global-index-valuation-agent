@@ -8,19 +8,45 @@ from pathlib import Path
 
 CATALOG_PATH = Path(__file__).parent / "metric_catalog.json"
 
+# Canonical concept -> metric for the core financial-statement line items. These win
+# over catalog order, so derived/ratio metrics (e.g. free_cash_flow_conversion,
+# rd_intensity) that list a raw concept as a computation INPUT can't steal it from the
+# real line item via first-wins ordering. (That collision is what left AAPL with no
+# net_income — it reports NetIncomeLoss, which free_cash_flow_conversion had claimed.)
+_CANONICAL: dict[str, str] = {
+    # Top-line revenue (modern ASC 606 concepts + legacy)
+    "RevenueFromContractWithCustomerExcludingAssessedTax": "total_revenue",
+    "RevenueFromContractWithCustomerIncludingAssessedTax": "total_revenue",
+    "Revenues": "total_revenue",
+    "SalesRevenueNet": "total_revenue",
+    # Profitability
+    "NetIncomeLoss": "net_income",
+    "OperatingIncomeLoss": "operating_income",
+    "GrossProfit": "gross_profit",
+    # Cash flow
+    "NetCashProvidedByUsedInOperatingActivities": "operating_cash_flow",
+    # Balance-sheet core
+    "Assets": "total_assets",
+    "StockholdersEquity": "total_equity",
+}
+
 
 def load() -> list[dict]:
     return json.loads(CATALOG_PATH.read_text())["metrics"]
 
 
 def xbrl_tag_map() -> dict[str, str]:
-    """XBRL concept (without namespace prefix) -> metric_code, for in_xbrl metrics."""
-    out: dict[str, str] = {}
+    """XBRL concept (without namespace prefix) -> metric_code, for in_xbrl metrics.
+
+    Canonical core line items are pinned first (and win); the rest of the catalog then
+    claims remaining concepts in file order.
+    """
+    out: dict[str, str] = dict(_CANONICAL)
     for m in load():
         if m.get("in_xbrl"):
             for tag in m.get("xbrl_tags", []):
                 concept = str(tag).split(":")[-1]
-                out.setdefault(concept, m["metric_code"])
+                out.setdefault(concept, m["metric_code"])  # won't override canonical
     return out
 
 

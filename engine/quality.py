@@ -22,8 +22,27 @@ from .config import DATA_DIR
 
 REPORT_PATH = DATA_DIR / "quality_report.json"
 REVENUE_CODES = ["revenue_total", "total_revenue", "revenue", "revenues"]
-_CURRENCY_NONNEG = tuple(REVENUE_CODES + ["total_assets", "total_deposits", "gross_profit",
-                                          "shares_outstanding"])
+# Metrics that genuinely cannot be negative. NB: gross_profit, net_income, operating
+# income and free cash flow CAN be negative (e.g. TSLA gross profit in 2012), so they
+# are deliberately excluded — flagging them was a false positive.
+_CURRENCY_NONNEG = tuple(REVENUE_CODES + ["total_assets", "total_deposits", "shares_outstanding"])
+
+# Core single-line-item metrics where a >50x year-over-year move genuinely signals a
+# UNITS ERROR (thousands filed as units). Composite metrics (total_debt,
+# dividends_and_buybacks, net_working_capital, …) sum components that vary in
+# availability across periods, so they swing for benign reasons — the jump check is
+# deliberately NOT run on them. These core items are also what the backtest depends on.
+_JUMP_CORE = {"total_revenue", "net_income", "operating_income", "gross_profit",
+              "total_assets", "total_equity", "operating_cash_flow"}
+
+
+def _units() -> dict[str, str]:
+    """metric_code -> unit, from the catalog (empty if unavailable)."""
+    try:
+        from .sources import catalog
+        return catalog.units_for()
+    except Exception:
+        return {}
 
 
 def _checks(cur) -> list[dict]:
@@ -46,27 +65,35 @@ def _checks(cur) -> list[dict]:
                        "entity": tk, "metric_code": mc, "value": v,
                        "detail": f"negative {mc} at {pe}"})
 
-    # 3. Time-series jumps: on the LATEST vintage per period (so restatements don't
-    #    create false jumps), flag a >50x move or a sign flip — the signature of a
-    #    units error, not normal growth.
+    # 3. Time-series jumps = the signature of a UNITS ERROR (e.g. thousands filed as
+    #    units), not normal growth. To avoid false positives we (a) use the latest
+    #    vintage per period, (b) only compare consecutive FY periods that are a true
+    #    year apart (so annual-vs-quarterly mixing can't masquerade as a jump),
+    #    (c) skip ratio/percent metrics (they legitimately swing and flip sign), and
+    #    (d) flag only an order-of-magnitude move (>50x either direction) with both
+    #    values material — sign flips alone (a real loss) are NOT flagged.
     cur.execute("""select security_id, ticker, metric_code, period_end, value from (
                      select distinct on (fm.security_id, fm.metric_code, fm.period_end)
                             fm.security_id, s.ticker, fm.metric_code, fm.period_end, fm.value
                      from fundamental_metrics fm join securities s on s.id=fm.security_id
                      where fm.fiscal_period='FY' and fm.source='xbrl' and fm.value is not null
+                       and fm.metric_code = any(%s)
                      order by fm.security_id, fm.metric_code, fm.period_end, fm.filed_date desc
-                   ) t order by security_id, metric_code, period_end""")
+                   ) t order by security_id, metric_code, period_end""", (list(_JUMP_CORE),))
     rows = cur.fetchall()
     for (sid, mc), grp in groupby(rows, key=lambda r: (r[0], r[2])):
         g = list(grp)
         for a, b in zip(g, g[1:]):
+            gap = (b[3] - a[3]).days if a[3] and b[3] else 0
+            if not (250 <= gap <= 450):          # only true year-over-year comparisons
+                continue
             va, vb = a[4], b[4]
-            if va and vb and abs(va) > 1e4:
-                ratio = vb / va
-                if ratio > 50 or ratio < -1:
+            if va and vb and abs(va) > 1e4 and abs(vb) > 1e4:
+                jump = max(abs(vb / va), abs(va / vb))
+                if jump > 50:
                     issues.append({"check_name": "timeseries_jump", "severity": "warn",
                                    "scope": "metric", "entity": b[1], "metric_code": mc, "value": vb,
-                                   "detail": f"{mc} moved {ratio:.0f}x {a[3]}→{b[3]} (likely units error)"})
+                                   "detail": f"{mc} moved {vb / va:.0f}x {a[3]}→{b[3]} (likely units error)"})
 
     # 4. Completeness: every security should have a revenue-like metric and net income.
     cur.execute("""select s.ticker,

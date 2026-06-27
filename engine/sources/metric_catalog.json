@@ -1139,17 +1139,11 @@
       "unit": "ratio",
       "category": "valuation",
       "applies_to": "Both (Retail/Consumer + Healthcare/Pharma/Medtech)",
-      "in_xbrl": true,
-      "xbrl_tags": [
-        "us-gaap:NetIncomeLoss",
-        "us-gaap:EarningsPerShareDiluted",
-        "us-gaap:LongTermDebtNoncurrent",
-        "us-gaap:CashAndCashEquivalentsAtCarryingValue",
-        "dei:EntityCommonStockSharesOutstanding"
-      ],
+      "in_xbrl": false,
+      "xbrl_tags": [],
       "source_if_not_xbrl": "computed",
       "importance": "high",
-      "notes": "Computed/hybrid. EPS, net income, debt, and cash come from XBRL (incl. dei: shares outstanding); market price and therefore market cap / EV are external market data. EBITDA itself is non-GAAP \u2014 derive from OperatingIncomeLoss + D&A or take the company's adjusted figure from the 8-K.",
+      "notes": "Computed/hybrid. EPS, net income, debt, and cash come from XBRL (incl. dei: shares outstanding); market price and therefore market cap / EV are external market data. EBITDA itself is non-GAAP \u2014 derive from OperatingIncomeLoss + D&A or take the company's adjusted figure from the 8-K. [auto-demoted: suspect XBRL tag]",
       "sector_group": "Consumer & Healthcare (Retail/Consumer Discretionary & Staples + Healthcare/Pharma/Medtech)"
     },
     {
