@@ -10,7 +10,6 @@ Layout:
   <root>/fundamental_metrics/base/year=YYYY/…     compacted bulk, hive-partitioned
   <root>/fundamental_metrics/delta/part-*.parquet small daily appends
   <root>/filings/filings.parquet                  read-only MIRROR (Postgres is truth)
-  <root>/securities/securities.parquet            read-only SNAPSHOT (Postgres is truth)
 
 Point-in-time semantics live in the DATA, not the layout: every restatement vintage
 is its own row keyed by filed_date — the same primary key as Postgres migration 0003.
@@ -52,6 +51,12 @@ def _fm_types() -> dict[str, str]:
             for t in _FM_DDL.split(",")}
 
 
+def _cast_select(cols) -> str:
+    """`cast("c" as TYPE) as "c", …` — the one way rows get typed on entry."""
+    types = _fm_types()
+    return ", ".join(f'cast("{c}" as {types[c]}) as "{c}"' for c in cols)
+
+
 def root() -> Path:
     return Path(os.getenv("TIERB_ROOT", "").strip() or (config.DATA_DIR / "tierb"))
 
@@ -73,6 +78,20 @@ def _fm_globs() -> list[str]:
 def have_tierb() -> bool:
     """True once the store has been initialized (by tierbsync export)."""
     return bool(_fm_globs())
+
+
+def enabled() -> bool:
+    """The one gate call sites use: store exists AND duckdb importable.
+
+    Only a missing duckdb silences this; anything else (filesystem errors, a
+    corrupt store) propagates — a broken store must fail loudly, not quietly
+    fall back to Postgres and mask drift for the whole proving window.
+    """
+    try:
+        import duckdb  # noqa: F401
+    except ImportError:
+        return False
+    return have_tierb()
 
 
 def _stamp() -> str:
@@ -104,14 +123,12 @@ def connect():
               from read_parquet([{files}], union_by_name=true, hive_partitioning=false)
             ) where _rn = 1""")
     else:  # empty typed view so queries still parse before the first export
-        empty = ", ".join(f"cast(null as {t.split(' ', 1)[1]}) as {t.split(' ', 1)[0]}"
-                          for t in (s.strip() for s in _FM_DDL.split(",")))
+        empty = ", ".join(f"cast(null as {t}) as {c}" for c, t in _fm_types().items())
         con.execute(f"create or replace view fundamental_metrics as select {empty} where false")
-    for name in ("filings", "securities"):
-        f = root() / name / f"{name}.parquet"
-        if f.exists():
-            con.execute(f"create or replace view {name} as "
-                        f"select * from read_parquet('{_sql_path(f)}')")
+    filings = root() / "filings" / "filings.parquet"
+    if filings.exists():
+        con.execute("create or replace view filings as "
+                    f"select * from read_parquet('{_sql_path(filings)}')")
     return con
 
 
@@ -120,6 +137,39 @@ def register_securities(con, rows: list[tuple]) -> None:
     con.execute("create or replace temp table securities_live (id bigint, ticker varchar)")
     if rows:
         con.executemany("insert into securities_live values (?, ?)", rows)
+
+
+def _write_delta(con, relation: str) -> Path:
+    """Write a relation as one new delta Parquet file and return its path."""
+    delta = _fm_dir() / "delta"
+    delta.mkdir(parents=True, exist_ok=True)
+    out = delta / f"part-{_stamp()}.parquet"
+    con.execute(f"copy {relation} to '{_sql_path(out)}' (format parquet, compression zstd)")
+    return out
+
+
+def _write_base(con, relation: str) -> Path:
+    """Write a relation as a fresh year-partitioned base into a scratch dir.
+    The scratch dir (with an empty delta/) is returned for _swap_in."""
+    tmp = root() / f".fm-rewrite-{_stamp()}"
+    (tmp / "base").mkdir(parents=True)
+    (tmp / "delta").mkdir()
+    if con.execute(f"select count(*) from {relation}").fetchone()[0]:
+        con.execute(f"""copy (select *, year(period_end) as year from {relation})
+                        to '{_sql_path(tmp / "base")}'
+                        (format parquet, compression zstd, partition_by (year))""")
+    return tmp
+
+
+def _swap_in(tmp: Path) -> None:
+    """Swap a freshly written fundamental_metrics dir into place via renames:
+    a crash leaves either the old or the new store, never a half-written one."""
+    old = root() / f".fm-old-{_stamp()}"
+    if _fm_dir().exists():
+        _fm_dir().rename(old)
+    tmp.rename(_fm_dir())
+    if old.exists():
+        shutil.rmtree(old)
 
 
 def append_metrics(rows) -> int:
@@ -137,49 +187,73 @@ def append_metrics(rows) -> int:
     df = pd.DataFrame(rows, columns=list(FM_APPEND_COLUMNS))
     con = connect()
     con.register("_incoming_df", df)
-    casts = ", ".join(f'cast("{c}" as {_fm_types()[c]}) as "{c}"' for c in FM_APPEND_COLUMNS)
     con.execute(f"""
         create temp table _new as
         select i.*, cast(null as double) as confidence, now() as ingested_at
-        from (select distinct on ({', '.join(FM_KEY)}) {casts} from _incoming_df) i
+        from (select distinct on ({', '.join(FM_KEY)}) {_cast_select(FM_APPEND_COLUMNS)}
+              from _incoming_df) i
         anti join fundamental_metrics f using ({', '.join(FM_KEY)})""")
     n = con.execute("select count(*) from _new").fetchone()[0]
     if n:
-        delta = _fm_dir() / "delta"
-        delta.mkdir(parents=True, exist_ok=True)
-        out = delta / f"part-{_stamp()}.parquet"
-        con.execute(f"copy _new to '{_sql_path(out)}' (format parquet, compression zstd)")
-        _write_manifest()
+        _write_delta(con, "_new")
+    return n
+
+
+class MetricWriter:
+    """Buffered Tier-B appender for ingestion loops: batches rows, flushes as
+    delta files, and CAPTURES errors instead of raising — Tier B trouble must
+    never break ingestion into the system of record. Callers surface `.error`.
+    """
+
+    def __init__(self, batch: int = 100_000):
+        self.batch = batch
+        self.rows: list[tuple] = []
+        self.added = 0
+        self.error: str | None = None
+
+    def add(self, rows) -> None:
+        self.rows.extend(rows)
+        if len(self.rows) >= self.batch:
+            self.flush()
+
+    def flush(self) -> None:
+        if not self.rows:
+            return
+        try:
+            self.added += append_metrics(self.rows)
+        except Exception as e:
+            self.error = str(e)[:160]
+        self.rows.clear()
+
+    def close(self) -> None:
+        self.flush()
+
+
+def delete_metric_codes(codes: list[str], source: str = "xbrl") -> int:
+    """Purge metrics (mis-mapped tags) by rewriting the dataset without them —
+    one rewrite-and-swap regardless of how many codes are purged."""
+    codes = [c for c in codes if c]
+    if not codes:
+        return 0
+    con = connect()
+    n = con.execute(
+        "select count(*) from fundamental_metrics "
+        "where metric_code in (select unnest(?::varchar[])) and source=?",
+        [codes, source]).fetchone()[0]
+    if not n:
+        return 0
+    con.execute(
+        "create temp table _keep as select * from fundamental_metrics "
+        "where not (metric_code in (select unnest(?::varchar[])) and source=?)",
+        [codes, source])
+    _swap_in(_write_base(con, "_keep"))
+    _write_manifest(tombstone={"metric_codes": codes, "source": source, "rows": n,
+                               "at": datetime.now(timezone.utc).isoformat()})
     return n
 
 
 def delete_metric_code(code: str, source: str = "xbrl") -> int:
-    """Purge a metric (mis-mapped tag) by rewriting the dataset without it.
-
-    The rewrite goes to a scratch dir first and is swapped in with renames, so a
-    crash leaves either the old or the new store — never a half-written one.
-    """
-    con = connect()
-    n = con.execute("select count(*) from fundamental_metrics where metric_code=? and source=?",
-                    [code, source]).fetchone()[0]
-    if not n:
-        return 0
-    con.execute("create temp table _keep as select * from fundamental_metrics "
-                "where not (metric_code=? and source=?)", [code, source])
-    tmp = root() / f".fm-rewrite-{_stamp()}"
-    (tmp / "base").mkdir(parents=True)
-    (tmp / "delta").mkdir()
-    if con.execute("select count(*) from _keep").fetchone()[0]:
-        con.execute(f"""copy (select *, year(period_end) as year from _keep)
-                        to '{_sql_path(tmp / "base")}'
-                        (format parquet, compression zstd, partition_by (year))""")
-    old = root() / f".fm-old-{_stamp()}"
-    _fm_dir().rename(old)
-    tmp.rename(_fm_dir())
-    shutil.rmtree(old)
-    _write_manifest(tombstone={"metric_code": code, "source": source, "rows": n,
-                               "at": datetime.now(timezone.utc).isoformat()})
-    return n
+    return delete_metric_codes([code], source)
 
 
 def metrics_asof(asof, metric_codes: list[str] | None = None,
@@ -219,16 +293,16 @@ def counts() -> dict:
 
 
 def stats() -> dict:
-    """Store shape for pipeline reports: files, bytes, row counts, date span."""
+    """Store shape for pipeline reports: files, bytes, row counts, date span.
+    Always includes the row counts (0 for an empty/uninitialized store)."""
     base_files = list((_fm_dir() / "base").rglob("*.parquet"))
     delta_files = list((_fm_dir() / "delta").glob("*.parquet"))
     out = {"root": str(root()), "initialized": have_tierb(),
            "base_files": len(base_files), "delta_files": len(delta_files),
            "bytes": sum(f.stat().st_size for f in base_files + delta_files)}
-    if out["initialized"]:
-        con = connect()
-        out.update(counts())
-        lo, hi = con.execute(
+    out.update(counts())
+    if out["fundamental_metrics"]:
+        lo, hi = connect().execute(
             "select min(period_end), max(period_end) from fundamental_metrics").fetchone()
         out["period_span"] = [str(lo), str(hi)]
     return out
@@ -236,7 +310,8 @@ def stats() -> dict:
 
 def _write_manifest(tombstone: dict | None = None) -> None:
     """Informational sidecar — counts for cheap sanity checks + purge tombstones.
-    The Parquet files themselves are the source of truth."""
+    Written by the sync/purge operations (NOT the append hot path); the Parquet
+    files themselves are the source of truth."""
     path = root() / "manifest.json"
     m = {"schema_version": 1, "tombstones": []}
     if path.exists():

@@ -42,17 +42,15 @@ def run() -> dict:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select count(*) from securities")
         nsec = cur.fetchone()[0]
-        # Fundamental rows live in Tier B once the Parquet store exists.
-        nrows = None
-        try:
-            from . import tierb
-            if tierb.have_tierb():
-                nrows = tierb.counts()["fundamental_metrics"]
-        except Exception:
-            nrows = None
-        if nrows is None:
-            cur.execute("select count(*) from fundamental_metrics")
-            nrows = cur.fetchone()[0]
+        # The recorded vintage should reflect the fuller store: during the
+        # transition the two counts should match (drift is a sync failure, and the
+        # larger one is closer to the truth); post-cutover Postgres reads 0 and
+        # Tier B is the only count.
+        cur.execute("select count(*) from fundamental_metrics")
+        nrows = cur.fetchone()[0]
+        from . import tierb
+        if tierb.enabled():
+            nrows = max(nrows, tierb.counts()["fundamental_metrics"])
         cur.execute("select count(*) from taxonomy_changes where kind='catalog'")
         cat_total = cur.fetchone()[0]
 

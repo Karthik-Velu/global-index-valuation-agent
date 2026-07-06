@@ -37,6 +37,12 @@ learned, what's still open. Keep it to what a future session would want to know.
   every check exercised); dual-write adds identical row counts to both stores; the
   full-export refusal guard blocks the post-cutover data-loss scenario.
 - `value` is a reserved-ish token in DuckDB — quote it as an alias.
+- An adversarial multi-angle review before merge caught real gaps: a falsy-zero skip
+  in the source-disagreement check (fixed in BOTH engines), an incremental-sync window
+  that could permanently orphan rows missed by a failed dual-write (now self-heals on
+  count drift), and silent Postgres fallbacks that could mask a broken store for the
+  whole proving window (now one `tierb.enabled()` gate + count-parity guards that warn
+  and fall back only when Tier B is genuinely behind).
 
 **Open / next**
 - **Activate**: run `tierbsync export` + `verify` with the real `DATABASE_URL` (this

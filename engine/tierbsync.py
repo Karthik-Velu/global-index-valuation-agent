@@ -13,8 +13,10 @@ and keeps the two tiers reconciled during the transition:
 Postgres rows reach DuckDB through psycopg (already a dependency) rather than the
 DuckDB postgres extension — extensions are a runtime download that can fail in
 locked-down environments, and at ~1.5M rows streaming is plenty fast. Incremental
-export only pulls rows newer than the store's high-water mark (cheap on Supabase
-free-tier egress); the anti-join on the primary key keeps it exact either way.
+export pulls only rows past the store's `ingested_at` high-water mark (cheap on
+Supabase free-tier egress) and, whenever the two stores' row counts still disagree
+afterwards, self-heals with a full-table anti-join — so rows missed by a failed
+dual-write can never fall outside the sync window permanently.
 
 Safety first (data integrity is foundational): a full export refuses to run if
 Postgres holds fewer rows than the store (that's the post-cutover state — a rebuild
@@ -26,7 +28,6 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
-import shutil
 import tarfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -54,8 +55,7 @@ def _stream_pg(con, sql, params=(), batch: int = 100_000) -> str:
     import pandas as pd
 
     con.execute(f"create or replace temp table _pg ({tierb._FM_DDL})")
-    casts = ", ".join(f'cast("{c}" as {tierb._fm_types()[c]}) as "{c}"'
-                      for c in tierb.FM_COLUMNS)
+    casts = tierb._cast_select(tierb.FM_COLUMNS)
     with db.connect() as pgc, pgc.cursor(name="tierb_stream") as cur:
         cur.execute(sql, params)
         while True:
@@ -76,38 +76,34 @@ def _pg_scalar(sql: str, params=()) -> int:
         return cur.fetchone()[0]
 
 
-def _swap_in(tmp: Path) -> None:
-    """Swap a freshly written fundamental_metrics dir into place via renames:
-    a crash leaves either the old or the new store, never a half-written one."""
-    fm = tierb.root() / "fundamental_metrics"
-    old = tierb.root() / f".fm-old-{tierb._stamp()}"
-    if fm.exists():
-        fm.rename(old)
-    tmp.rename(fm)
-    if old.exists():
-        shutil.rmtree(old)
-
-
-def _export_companions(con) -> None:
-    """Small read-only companions: filings mirror + securities snapshot (Postgres
-    stays the system of record for both)."""
+def _export_filings_mirror(con) -> None:
+    """Small read-only companion: the filings mirror (Postgres stays the system
+    of record; quality's staleness check still reads Postgres directly)."""
     import pandas as pd
 
-    specs = {"filings": "select id, security_id, form, period_end, fiscal_period, "
-                        "filed_date, accession, audited, url, source from filings",
-             "securities": "select id, ticker, name, country, sector, cik, kind "
-                           "from securities"}
-    for name, sql in specs.items():
-        with db.connect() as pgc, pgc.cursor() as cur:
-            cur.execute(sql)
-            cols = [d.name for d in cur.description]
-            df = pd.DataFrame([[_iso(v) for v in r] for r in cur.fetchall()], columns=cols)
-        d = tierb.root() / name
-        d.mkdir(parents=True, exist_ok=True)
-        con.register("_companion_df", df)
-        con.execute(f"copy _companion_df to '{tierb._sql_path(d / f'{name}.parquet')}' "
-                    "(format parquet, compression zstd)")
-        con.unregister("_companion_df")
+    with db.connect() as pgc, pgc.cursor() as cur:
+        cur.execute("select id, security_id, form, period_end, fiscal_period, "
+                    "filed_date, accession, audited, url, source from filings")
+        cols = [d.name for d in cur.description]
+        df = pd.DataFrame([[_iso(v) for v in r] for r in cur.fetchall()], columns=cols)
+    d = tierb.root() / "filings"
+    d.mkdir(parents=True, exist_ok=True)
+    con.register("_filings_df", df)
+    con.execute(f"copy _filings_df to '{tierb._sql_path(d / 'filings.parquet')}' "
+                "(format parquet, compression zstd)")
+    con.unregister("_filings_df")
+
+
+def _append_missing(con) -> int:
+    """Anti-join the streamed `_pg` rows against the store; write one delta file
+    with whatever Tier B lacks. Returns rows appended."""
+    con.execute(f"""create or replace temp table _missing as
+                    select {FM_COLS} from _pg
+                    anti join fundamental_metrics f using ({', '.join(tierb.FM_KEY)})""")
+    n = con.execute("select count(*) from _missing").fetchone()[0]
+    if n:
+        tierb._write_delta(con, "_missing")
+    return n
 
 
 def export(incremental: bool = False) -> dict:
@@ -119,7 +115,7 @@ def export(incremental: bool = False) -> dict:
         if not tierb.have_tierb():
             raise RuntimeError("no Tier B store yet — run a full export first")
         # Fast path: only pull rows newer than the store's high-water mark (with a
-        # generous margin); the PK anti-join makes the result exact regardless.
+        # generous margin); the PK anti-join makes the appended set exact.
         hwm = con.execute("select max(ingested_at) from fundamental_metrics").fetchone()[0]
         cutoff = (hwm - timedelta(days=7)) if hwm else None
         sql = f"select {FM_COLS} from fundamental_metrics"
@@ -128,14 +124,17 @@ def export(incremental: bool = False) -> dict:
             sql += " where ingested_at >= %s"
             params = (cutoff,)
         _stream_pg(con, sql, params)
-        con.execute(f"""create temp table _missing as
-                        select {FM_COLS} from _pg
-                        anti join fundamental_metrics f using ({', '.join(tierb.FM_KEY)})""")
-        n = con.execute("select count(*) from _missing").fetchone()[0]
-        if n:
-            out = tierb.root() / "fundamental_metrics" / "delta" / f"part-{tierb._stamp()}.parquet"
-            con.execute(f"copy _missing to '{tierb._sql_path(out)}' "
-                        "(format parquet, compression zstd)")
+        n = _append_missing(con)
+        # Self-heal: if counts still disagree, rows were missed OUTSIDE the window
+        # (e.g. a dual-write failed days ago while later writes advanced the mark).
+        # Re-run the anti-join against the FULL table so nothing is orphaned.
+        con = tierb.connect()  # re-register the view to include the new delta
+        tb_n = con.execute("select count(*) from fundamental_metrics").fetchone()[0]
+        if pg_n > tb_n:
+            print(f"   count drift (postgres {pg_n:,} vs tierb {tb_n:,}) — "
+                  "self-healing with a full-table anti-join")
+            _stream_pg(con, f"select {FM_COLS} from fundamental_metrics")
+            n += _append_missing(con)
         print(f"   incremental: {n} new rows (Postgres {pg_n:,} total)")
     else:
         tb_n = tierb.counts()["fundamental_metrics"] if tierb.have_tierb() else 0
@@ -144,17 +143,11 @@ def export(incremental: bool = False) -> dict:
                 f"Postgres has {pg_n:,} rows but Tier B has {tb_n:,} — a full export "
                 "would LOSE data (post-cutover?). Refusing; use --incremental if anything.")
         _stream_pg(con, f"select {FM_COLS} from fundamental_metrics")
-        tmp = tierb.root() / f".fm-rewrite-{tierb._stamp()}"
-        (tmp / "base").mkdir(parents=True)
-        (tmp / "delta").mkdir()
-        con.execute(f"""copy (select *, year(period_end) as year from _pg)
-                        to '{tierb._sql_path(tmp / "base")}'
-                        (format parquet, compression zstd, partition_by (year))""")
-        _swap_in(tmp)
+        tierb._swap_in(tierb._write_base(con, "_pg"))
         n = pg_n
         print(f"   full export: {n:,} rows")
 
-    _export_companions(con)
+    _export_filings_mirror(con)
     tierb._write_manifest()
     st = tierb.stats()
     print(f"   store: {st['fundamental_metrics']:,} rows, {st['bytes'] / 1e6:.1f} MB "
@@ -242,13 +235,7 @@ def compact() -> dict:
     con = tierb.connect()
     con.execute("create temp table _all as select * from fundamental_metrics")
     n = con.execute("select count(*) from _all").fetchone()[0]
-    tmp = tierb.root() / f".fm-rewrite-{tierb._stamp()}"
-    (tmp / "base").mkdir(parents=True)
-    (tmp / "delta").mkdir()
-    con.execute(f"""copy (select *, year(period_end) as year from _all)
-                    to '{tierb._sql_path(tmp / "base")}'
-                    (format parquet, compression zstd, partition_by (year))""")
-    _swap_in(tmp)
+    tierb._swap_in(tierb._write_base(con, "_all"))
     tierb._write_manifest()
     print(f"   compacted {n_delta} delta files into base ({n:,} rows)")
     return {"compacted": n_delta, "rows": n}
@@ -264,6 +251,23 @@ def bundle() -> Path:
         tar.add(tierb.root(), arcname="tierb")
     print(f"   bundled {tierb.root()} -> {path} ({path.stat().st_size / 1e6:.1f} MB)")
     return path
+
+
+def _extract_bundle(archive: Path) -> None:
+    """Unpack a bundle (top-level dir 'tierb') into root(), wherever root points."""
+    import shutil
+    import tempfile
+
+    with tempfile.TemporaryDirectory(dir=str(tierb.root().parent)) as scratch:
+        with tarfile.open(archive) as tar:
+            tar.extractall(scratch)
+        src = Path(scratch) / "tierb"
+        tierb.root().mkdir(parents=True, exist_ok=True)
+        for item in src.iterdir():
+            dest = tierb.root() / item.name
+            if dest.exists():
+                shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
+            shutil.move(str(item), str(dest))
 
 
 def pull() -> dict:
@@ -290,9 +294,9 @@ def pull() -> dict:
                 dl = requests.get(asset["url"], timeout=300, headers={
                     "Authorization": f"Bearer {tok}", "Accept": "application/octet-stream"})
                 dl.raise_for_status()
+                _bundle_path().parent.mkdir(exist_ok=True)
                 _bundle_path().write_bytes(dl.content)
-                with tarfile.open(_bundle_path()) as tar:
-                    tar.extractall(tierb.root().parent)
+                _extract_bundle(_bundle_path())
                 print(f"   pulled release asset {asset['name']}")
                 return {"source": "release_asset", **tierb.stats()}
         print("   no usable release asset found")

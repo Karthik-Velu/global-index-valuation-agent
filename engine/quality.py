@@ -131,7 +131,9 @@ def _checks(cur) -> list[dict]:
                    group by s.ticker, fm.metric_code, fm.period_end
                    having count(distinct fm.source) > 1""")
     for tk, mc, pe, lo, hi, nsrc in cur.fetchall():
-        if lo and abs(hi - lo) / max(abs(lo), 1) > 0.05:
+        # `lo is not None`, not truthiness: a legitimate 0.0 vs a large value is
+        # exactly the gross disagreement this check exists to catch.
+        if lo is not None and abs(hi - lo) / max(abs(lo), 1) > 0.05:
             issues.append({"check_name": "source_disagreement", "severity": "warn", "scope": "metric",
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
@@ -219,7 +221,9 @@ def _checks_tierb(duck, cur) -> list[dict]:
                where fm.value is not null
                group by s.ticker, fm.metric_code, fm.period_end
                having count(distinct fm.source) > 1""").fetchall():
-        if lo and abs(hi - lo) / max(abs(lo), 1) > 0.05:
+        # `lo is not None`, not truthiness: a legitimate 0.0 vs a large value is
+        # exactly the gross disagreement this check exists to catch.
+        if lo is not None and abs(hi - lo) / max(abs(lo), 1) > 0.05:
             issues.append({"check_name": "source_disagreement", "severity": "warn", "scope": "metric",
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
@@ -228,20 +232,25 @@ def _checks_tierb(duck, cur) -> list[dict]:
 
 def run() -> dict:
     print("== Data-Quality Agent ==")
-    duck = None
-    try:
-        from . import tierb
-        if tierb.have_tierb():
-            duck = tierb.connect()
-    except Exception:
-        duck = None
+    from . import tierb
     with db.connect() as conn, conn.cursor() as cur:
-        if duck is not None:
-            cur.execute("select id, ticker from securities")
-            tierb.register_securities(duck, cur.fetchall())
-            issues = _checks_tierb(duck, cur)
-        else:
-            issues = _checks(cur)
+        duck = None
+        if tierb.enabled():
+            # Trust Tier B only when it is not behind Postgres — a lagging store
+            # (failed dual-write, failed reconcile) must not produce false issues
+            # against the system of record. Post-cutover Postgres reads 0 rows and
+            # the store is always used.
+            cur.execute("select count(*) from fundamental_metrics")
+            pg_n = cur.fetchone()[0]
+            tb_n = tierb.counts()["fundamental_metrics"]
+            if pg_n > tb_n:
+                print(f"   WARNING: Tier B behind Postgres ({tb_n:,} vs {pg_n:,} rows) — "
+                      "checking Postgres instead; run engine.tierbsync export")
+            else:
+                duck = tierb.connect()
+                cur.execute("select id, ticker from securities")
+                tierb.register_securities(duck, cur.fetchall())
+        issues = _checks_tierb(duck, cur) if duck is not None else _checks(cur)
         # Rewrite the open set (resolved issues stop reappearing); keep history of resolved.
         cur.execute("delete from data_quality_issues where status='open'")
         for i in issues:

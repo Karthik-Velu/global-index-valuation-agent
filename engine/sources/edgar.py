@@ -83,23 +83,10 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     # Dual-write to Tier B (Parquet/DuckDB) once the store exists — same rows, same
     # ON-CONFLICT-DO-NOTHING semantics (append_metrics anti-joins on the PK), so the
     # daily full companyfacts re-feed only lands genuinely new vintages. Postgres
-    # stays the system of record until the explicit cutover; Tier B trouble is
-    # reported, never allowed to break ingestion.
-    try:
-        from .. import tierb
-        tierb_on = tierb.have_tierb()
-    except Exception:
-        tierb_on = False
-    tierb_buf: list[tuple] = []
-
-    def _tierb_flush():
-        if not tierb_buf:
-            return
-        try:
-            stats["tierb_metrics"] = stats.get("tierb_metrics", 0) + tierb.append_metrics(tierb_buf)
-        except Exception as e:
-            stats["tierb_error"] = str(e)[:160]
-        tierb_buf.clear()
+    # stays the system of record until the explicit cutover; the writer captures
+    # Tier B trouble (surfaced in stats), never letting it break ingestion.
+    from .. import tierb
+    writer = tierb.MetricWriter() if tierb.enabled() else None
 
     for tk in tickers:
         cik = cik_for(tk)
@@ -170,17 +157,19 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
                 stats["securities"] += 1
                 stats["metrics"] += len(metric_rows)
                 stats["filings"] += len(filing_rows)
-                if tierb_on:
-                    tierb_buf.extend(v + ("xbrl",) for v in metric_rows.values())
-                    if len(tierb_buf) >= 100_000:   # bounded memory, few delta files
-                        _tierb_flush()
+                if writer is not None:
+                    writer.add(v + ("xbrl",) for v in metric_rows.values())
                 break  # success
             except Exception as e:
                 if attempt == 2:
                     stats["errors"].append(f"{tk}: {str(e)[:80]}")
         time.sleep(sleep)  # SEC fair-use
-    if tierb_on:
-        _tierb_flush()
+    if writer is not None:
+        writer.close()
+        stats["tierb_metrics"] = writer.added
+        if writer.error:
+            stats["tierb_error"] = writer.error
+            print(f"   WARNING: Tier B dual-write failed: {writer.error}")
     return stats
 
 
