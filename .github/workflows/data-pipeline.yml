@@ -5,10 +5,20 @@ name: Data pipeline (job)
 # ingestion (not as separate crons). Needs repo secret DATABASE_URL; SEC_USER_AGENT
 # recommended. LLM "agents" are separate and infrequent (see docs/AGENTS.md).
 
+# Ingestion is INCREMENTAL on weekdays/Saturday (only companies that filed in the
+# last few days, via EDGAR's daily index — keeps runtime flat as the universe
+# grows) with a full re-feed sweep on Sundays (PK-dedup makes it a cheap no-op
+# for unchanged data; it is the safety net for anything the index missed).
 on:
   schedule:
-    - cron: "0 6 * * *"   # daily 06:00 UTC
-  workflow_dispatch: {}
+    - cron: "0 6 * * 1-6"   # Mon-Sat 06:00 UTC — incremental
+    - cron: "0 4 * * 0"     # Sunday 04:00 UTC — full sweep
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "full re-feed of the whole universe"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -38,7 +48,7 @@ jobs:
           restore-keys: |
             tierb-v1-
       - name: Run data pipeline (with agents; they no-op gracefully if no key)
-        run: python -m engine.datapipeline --agents
+        run: python -m engine.datapipeline --agents ${{ (github.event.schedule == '0 4 * * 0' || inputs.full == true) && '--full' || '' }}
       - name: Commit catalog self-corrections if any
         run: |
           git config user.name "github-actions[bot]"

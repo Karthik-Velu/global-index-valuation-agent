@@ -9,6 +9,36 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-014 · Global stock universe: committed seed, EDGAR-first, gated expansion
+- **Context:** Expand from 501 US large-caps to ~1,000 US + the top-10 markets of
+  Europe, Asia, and the rest of the world. The old universe lived only in the DB
+  (not reproducible); `country` was hard-coded; the catalog had zero IFRS tags, so
+  20-F filers would ingest nothing; and daily full re-feeds would blow both the CI
+  minutes budget and — during the dual-write window — the Supabase 500 MB cap.
+- **Choice 1 — the universe is committed DATA** (`engine/sources/universe_stocks.json`):
+  curated foreign stocks per market + a generated US list; the pipeline reconciles
+  the DB to the file. Reproducible from a clone, reviewable in PRs.
+- **Choice 2 — EDGAR-first foreign coverage.** Only SEC 20-F/40-F filers (public
+  domain, ADR-003), with IFRS core concepts pinned in `catalog._CANONICAL`
+  (`Revenue`, `ProfitLoss`, … → the same metric_codes, so quality/scoring work
+  unchanged). Honest per-market gaps are documented in the seed (Saudi Arabia and
+  Malaysia have no SEC filers; Germany/Sweden/HK thin) — the native-adapter track
+  (ESEF, EDINET, SEDAR) closes them later.
+- **Choice 3 — US top-N ranked by `dei:EntityPublicFloat`** via the XBRL frames API
+  (`engine/universescan.py expand-us`): the SEC's own size measure, one request,
+  no index-membership IP (ADR-003), no price feed needed.
+- **Choice 4 — incremental daily ingestion.** Daily runs pull EDGAR's daily index
+  and re-fetch only companies that actually filed (+ new seed tickers); Sundays do
+  a full sweep. Keeps CI minutes flat as the universe grows ~2.5×.
+- **Choice 5 — expansion is gated on the Tier B cutover.** While Postgres still
+  dual-writes, only the ~30-company cross-region validation batch ingests
+  (ADR-011); the remaining ~1,170 join automatically once `fundamental_metrics`
+  is truncated — a full expansion pre-cutover would overflow the 500 MB free tier.
+- **Rejected:** paid fundamentals vendors (licensing, cost); index membership
+  lists (S&P/MSCI IP); building native adapters first (weeks of work before any
+  coverage; EDGAR ADRs deliver the majors today).
+- 2026-07-06
+
 ### ADR-013 · Tier B design: psycopg streaming, filings stay in Postgres, gated cutover
 - **Context:** Implementing ADR-012 (`engine/tierb.py` + `engine/tierbsync.py`). Three
   sub-decisions shaped the build.

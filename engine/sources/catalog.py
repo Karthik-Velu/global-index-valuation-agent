@@ -28,6 +28,18 @@ _CANONICAL: dict[str, str] = {
     # Balance-sheet core
     "Assets": "total_assets",
     "StockholdersEquity": "total_equity",
+    # --- IFRS equivalents (20-F/40-F foreign filers tag ifrs-full concepts; the
+    # tag map is namespace-stripped, so these pin the same metric_codes and the
+    # whole downstream — quality checks, scoring — works unchanged). Assets and
+    # GrossProfit share their us-gaap names and are already pinned above.
+    "Revenue": "total_revenue",
+    "RevenueFromContractsWithCustomers": "total_revenue",
+    "ProfitLossAttributableToOwnersOfParent": "net_income",
+    "ProfitLoss": "net_income",
+    "ProfitLossFromOperatingActivities": "operating_income",
+    "CashFlowsFromUsedInOperatingActivities": "operating_cash_flow",
+    "Equity": "total_equity",
+    "EquityAttributableToOwnersOfParent": "total_equity",
 }
 
 
