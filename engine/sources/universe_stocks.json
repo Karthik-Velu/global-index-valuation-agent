@@ -1671,6 +1671,10 @@
       "country": "United States"
     },
     {
+      "ticker": "RJET",
+      "country": "United States"
+    },
+    {
       "ticker": "BAX",
       "country": "United States"
     },
@@ -1987,6 +1991,10 @@
       "country": "United States"
     },
     {
+      "ticker": "BF-A",
+      "country": "United States"
+    },
+    {
       "ticker": "MANH",
       "country": "United States"
     },
@@ -2300,10 +2308,6 @@
     },
     {
       "ticker": "SCCO",
-      "country": "United States"
-    },
-    {
-      "ticker": "BF-A",
       "country": "United States"
     },
     {
@@ -4076,10 +4080,6 @@
     },
     {
       "ticker": "ARLP",
-      "country": "United States"
-    },
-    {
-      "ticker": "CWEN",
       "country": "United States"
     }
   ],
