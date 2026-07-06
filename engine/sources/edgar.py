@@ -73,11 +73,12 @@ def _iter_facts(facts: dict, tagmap: dict[str, str]):
 # --- the real ingestion (writes to Postgres) -------------------------------
 
 def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
-                   sleep: float = 0.2) -> dict:
+                   sleep: float = 0.2, country_by_ticker: dict | None = None) -> dict:
     from .. import db
 
     tagmap = catalog.xbrl_tag_map()
     sector_by_ticker = sector_by_ticker or {}
+    country_by_ticker = country_by_ticker or {}
     stats = {"securities": 0, "metrics": 0, "filings": 0, "missing": [], "errors": []}
 
     # Dual-write to Tier B (Parquet/DuckDB) once the store exists — same rows, same
@@ -109,13 +110,19 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
         for attempt in (1, 2):
             try:
                 with db.connect() as conn, conn.cursor() as cur:
+                    # country comes from the committed universe seed (foreign
+                    # filers are 20-F/40-F ADRs — their EDGAR presence doesn't
+                    # make them US companies); unmapped tickers default to US.
+                    country = country_by_ticker.get(tk.upper()) or country_by_ticker.get(tk)
                     cur.execute(
                         """insert into securities (ticker, exchange, name, country, cik, kind, sector)
-                           values (%s,'', %s, 'United States', %s, 'stock', %s)
+                           values (%s,'', %s, coalesce(%s,'United States'), %s, 'stock', %s)
                            on conflict (ticker, exchange) do update set cik=excluded.cik, name=excluded.name,
-                             sector=coalesce(excluded.sector, securities.sector)
+                             sector=coalesce(excluded.sector, securities.sector),
+                             country=coalesce(%s, securities.country)
                            returning id""",
-                        (tk.upper(), facts.get("entityName"), str(cik), sector_by_ticker.get(tk)),
+                        (tk.upper(), facts.get("entityName"), country, str(cik),
+                         sector_by_ticker.get(tk), country),
                     )
                     sec_id = cur.fetchone()[0]
 
@@ -171,6 +178,32 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
             stats["tierb_error"] = writer.error
             print(f"   WARNING: Tier B dual-write failed: {writer.error}")
     return stats
+
+
+def recent_filer_ciks(days: int = 7) -> set[int]:
+    """CIKs that filed ANYTHING in the last `days` calendar days, from EDGAR's
+    public daily indexes (one small text file per business day). This is what
+    makes daily ingestion INCREMENTAL: only companies with fresh filings get
+    their companyfacts re-pulled, so runtime stays flat as the universe grows.
+    Weekends/holidays 404 and are skipped."""
+    import re
+    from datetime import date, timedelta
+
+    ciks: set[int] = set()
+    today = date.today()
+    for d in (today - timedelta(days=i) for i in range(days)):
+        q = (d.month - 1) // 3 + 1
+        url = (f"https://www.sec.gov/Archives/edgar/daily-index/{d.year}/QTR{q}/"
+               f"company.{d:%Y%m%d}.idx")
+        try:
+            r = requests.get(url, headers=_HEADERS, timeout=30)
+        except Exception:
+            continue
+        if r.status_code != 200:
+            continue
+        ciks.update(int(m) for m in re.findall(r"edgar/data/(\d+)/", r.text))
+        time.sleep(0.1)  # SEC fair-use
+    return ciks
 
 
 # --- lightweight adapter for the data-ingestion agent ----------------------

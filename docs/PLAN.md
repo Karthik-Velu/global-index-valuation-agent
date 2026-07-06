@@ -41,13 +41,22 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 
 ## Parallel tracks (don't block the critical path)  ⬜
-- ⬜ **Non-US fundamentals** — turn agent-found leads into adapters (FRED, ECB, UK Companies
-  House, EU ESEF, Canada SEDAR)
+- 🔜 **Global universe expansion (ADR-014)** — committed seed built: ~1,000 US (by
+  public float, `universescan expand-us`) + 198 curated SEC-filer stocks across the
+  top-10 markets of Europe/Asia/rest-of-world; IFRS core concepts mapped; incremental
+  daily ingestion (EDGAR daily index) + Sunday full sweep. **30-company validation
+  batch ingests now; the rest auto-joins after the Tier B cutover** (Supabase cap).
+- ⬜ **IFRS follow-ups from the validation batch** — (a) NVS + TLK resolve net_income
+  but not revenue: map their IFRS revenue-concept variants; (b) multi-currency 20-F
+  facts (e.g. IDR + USD units) share a PK row — prefer reporting currency or add unit
+  to the dedupe to stop cross-currency `timeseries_jump` warns
+- ⬜ **Non-US fundamentals (native adapters)** — close the documented seed gaps
+  (Saudi Arabia, Malaysia; thin: Germany, Sweden, HK, Indonesia, Thailand, UAE) via
+  ESEF, EDINET, SEDAR, UK Companies House
 - ⬜ **Sector-aware bank revenue** — compose GS/TFC/SYF revenue from net interest + noninterest income
 - ⬜ Re-ingest the 1 failed company (FDXF); close the **quality → re-ingest** loop
 - ⬜ **Promotion agent** — semantic memory → curated-playbook PRs (human-in-loop)
 - ⬜ `testable`-lesson re-verification; embeddings backfill (`ollama pull nomic-embed-text`)
-- ⬜ Expand universe toward the top ~1000 stocks (after Tier B; Postgres alone can't hold it)
 
 ## Housekeeping  🔁
 - ⬜ **Rotate `OLLAMA_API_KEY` + `GROQ_API_KEY`** (were pasted in chat during setup)

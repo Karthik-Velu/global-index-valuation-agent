@@ -85,6 +85,10 @@ actions cache seeded (`tierb-v1-…`, the daily pipeline restores by prefix).
 2. After ~1 clean week (Gate C): cut over — flip `edgar.ingest_tickers` to
    Tier-B-only, archive `pg_dump -t fundamental_metrics`, **truncate** (not drop) the
    table in Postgres → DB drops ~370 MB. Rollback = restore dump or re-export.
+   **The global universe expansion (ADR-014) un-gates itself at this moment**: the
+   committed seed (~1,000 US by public float + 198 stocks across the top-10 markets
+   of Europe/Asia/RoW) ingests in full on the next sweep; pre-cutover only its
+   30-company validation batch runs.
 3. Then the **critical path to a credible product**:
    - **Prices** — a license-clean EOD source (e.g. Tiingo) used *server-side only*, stored
      in Tier B; publish only derived metrics (P/E, returns), never raw prices. (We already
