@@ -1,0 +1,51 @@
+name: Tier B activate (Gate A)
+
+# One-shot, manual: full Postgres -> Parquet export, then the verify gates
+# (row counts, bidirectional set equality, AAPL net_income vintages,
+# no-look-ahead on a real restatement). The job FAILS if any gate fails —
+# nothing downstream trusts the store until this is green. On success the
+# store is saved to the actions cache (the daily pipeline restores it, which
+# begins the dual-write proving window) and uploaded as a durable artifact.
+# Postgres is only ever READ by this job.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Cache Tier B store
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-activate-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Export (Postgres -> Parquet, full)
+        run: python -m engine.tierbsync export
+      - name: Verify (Gate A — job fails if any gate fails)
+        run: python -m engine.tierbsync verify
+      - name: Compact + bundle
+        run: |
+          python -m engine.tierbsync compact
+          python -m engine.tierbsync bundle
+      - name: Upload store bundle + verify report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store
+          path: |
+            data/tierb-store.tar.gz
+            data/tierb/verify_report.json
+          if-no-files-found: ignore
+          retention-days: 90
