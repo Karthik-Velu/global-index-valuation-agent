@@ -47,6 +47,8 @@ rows, data-quality 99/100). Ollama Cloud + Groq keyed and in CI. **Next: build T
 
 ## Living context — keep these growing
 This project's memory is deliberately durable, in layers. **Maintain them as you work:**
+- **`docs/PLAN.md`** — the done-vs-pending checklist. Check items off as they land; it's the
+  source of truth for "where are we."
 - **`docs/JOURNAL.md`** — at the end of a work session, prepend a dated entry (what you
   built, what you learned, what's still open).
 - **`docs/DECISIONS.md`** — when you make a non-trivial architectural choice, prepend an
