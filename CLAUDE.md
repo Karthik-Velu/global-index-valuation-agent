@@ -45,6 +45,19 @@ Phase 1 data foundation **COMPLETE**: 501 large-caps ingested (1.45M point-in-ti
 rows, data-quality 99/100). Ollama Cloud + Groq keyed and in CI. **Next: build Tier B
 (Parquet/DuckDB) → prices → stock-level valuation → backtest.** Details in `docs/STATUS.md`.
 
+## Living context — keep these growing
+This project's memory is deliberately durable, in layers. **Maintain them as you work:**
+- **`docs/JOURNAL.md`** — at the end of a work session, prepend a dated entry (what you
+  built, what you learned, what's still open).
+- **`docs/DECISIONS.md`** — when you make a non-trivial architectural choice, prepend an
+  ADR (decision · context · why · rejected alternatives).
+- **`docs/STATUS.md`** — keep the "current state / next step" section current.
+- **Semantic memory** (Postgres `lessons`) — agents capture learnings automatically; the
+  pipeline consolidates them. Durable knowledge gets promoted into `engine/context/*.md`.
+- **Commit messages** — write the "why," not just the "what"; `git log` is a decision trail.
+
+Nothing important should live only in a chat — push it into these so it survives a new session.
+
 ## Guardrails / conventions
 - **Secrets never in the repo.** `.env` is gitignored. Env vars a session needs:
   `DATABASE_URL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `SEC_USER_AGENT`.
