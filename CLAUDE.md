@@ -66,6 +66,10 @@ Nothing important should live only in a chat — push it into these so it surviv
 ## Guardrails / conventions
 - **Secrets never in the repo.** `.env` is gitignored. Env vars a session needs:
   `DATABASE_URL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `SEC_USER_AGENT`.
+- **Merging:** once a Claude PR is green (tests + verify gates pass), merge it without
+  waiting for manual approval — standing user instruction, 2026-07-06. Destructive
+  data operations (e.g. truncating `fundamental_metrics` at cutover) still need an
+  explicit go-ahead.
 - **Licensing matters:** we redistribute only public-domain data (EDGAR). Yahoo is
   personal-use-only. Prefer public-domain / redistribution-OK sources.
 - Keep the deterministic path free and the LLM path optional; match existing code style.
