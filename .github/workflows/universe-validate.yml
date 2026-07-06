@@ -1,4 +1,4 @@
-# re-run 5: size proxy = max(revenue, assets/10) — June-FYE cos miss CY revenue frames
+# re-run 6: 9-frame float window (June-FYE floats are ~6 quarters stale) + canaries
 name: Universe expansion validate (ADR-011)
 
 # One-shot, deliberate: (1) generate stocks_us — top-N US filers ranked by

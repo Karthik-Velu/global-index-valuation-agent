@@ -45,12 +45,12 @@ def seed_stocks() -> dict[str, str]:
 
 
 def _recent_frames() -> list[str]:
-    """Instantaneous quarterly frame names, newest first (~2 years back)."""
+    """Instantaneous quarterly frame names, newest first (~3 years back)."""
     from datetime import date
     today = date.today()
     frames = []
     y, q = today.year, (today.month - 1) // 3 + 1
-    for _ in range(9):
+    for _ in range(12):
         q -= 1
         if q == 0:
             y, q = y - 1, 4
@@ -92,7 +92,11 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
             cik, val = int(r.get("cik", 0)), r.get("val")
             if cik and isinstance(val, (int, float)) and 0 < val < 1e13:
                 vals_by_cik.setdefault(cik, []).append(float(val))
-        if len(frames_used) >= 6:
+        # 9 frames, not 6: a June-FYE company's 10-K reports float as of the
+        # PRIOR Dec 31 (its fiscal Q2 end), so between its filings the newest
+        # available instant is ~6 quarters old — MSFT and PG silently fell out
+        # of a 6-frame window. Membership selection tolerates stale float.
+        if len(frames_used) >= 9:
             break
     used_frame = f"dei/EntityPublicFloat median over {frames_used}"
     by_cik = {cik: statistics.median(vals) for cik, vals in vals_by_cik.items()}
@@ -145,6 +149,11 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
     by_cik = checked
     print(f"   size-proxy cross-check: {len(by_cik):,} kept, "
           f"{n_descaled} de-scaled x1000, {n_dropped} dropped")
+    # Canaries: two mega caps whose June fiscal year-ends make them the first
+    # casualties of any frame-window/proxy regression (see runs 2-5).
+    for wcik, wname in ((789019, "MSFT"), (80424, "PG")):
+        print(f"   canary {wname}: appearances={vals_by_cik.get(wcik)} "
+              f"proxy={proxy_by_cik.get(wcik)} final={by_cik.get(wcik)}")
 
     # CIK -> ticker via SEC's own mapping; prefer the shortest ticker (primary
     # listing over share classes like BRK-B vs BRK-A ordering quirks).
