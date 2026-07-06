@@ -71,19 +71,21 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   index overhead). Conclusion: keep the ~15 MB relational state in Supabase free, move
   bulk time-series to Parquet/DuckDB.
 
-## Immediate next step: ACTIVATE Tier B (code is built — 2026-07-06)
-The Parquet/DuckDB layer is merged but dormant until the store exists. From a session
-with `DATABASE_URL` set (keys required — the cloud dev session had none):
-1. `python -m engine.tierbsync export` — full Postgres → Parquet export (~1.45M rows).
-2. `python -m engine.tierbsync verify` — Gate A: row counts, bidirectional set
-   equality, AAPL net_income vintages, no-look-ahead check. **Must pass.**
-3. From then on the daily pipeline dual-writes + reconciles automatically (its
-   `tierb` step) and quality/validate/recalibration read DuckDB (`quality_report.json`
-   shows `"metrics_engine": "tierb"`; score must stay 99/100 — Gate B).
-4. After ~1 clean week (Gate C): cut over — flip `edgar.ingest_tickers` to
+## Immediate next step: merge PR #1, then watch the proving window (2026-07-06)
+**Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
+full export of **1,469,371 rows**, and all verify gates green — exact row count,
+bidirectional set equality, AAPL's 240 net_income vintage rows identical, and
+no-look-ahead confirmed on a real restatement. The store is **6.6 MB** of zstd
+Parquet (vs 368 MB in Postgres — ~55×). Bundle uploaded as a 90-day artifact;
+actions cache seeded (`tierb-v1-…`, the daily pipeline restores by prefix).
+1. **Merge PR #1.** The next daily pipeline run restores the store from cache and
+   begins the dual-write proving window: EDGAR dual-writes, step 2b reconciles,
+   quality/validate/recalibration read DuckDB (`quality_report.json` shows
+   `"metrics_engine": "tierb"`; score must stay 99/100 — Gate B).
+2. After ~1 clean week (Gate C): cut over — flip `edgar.ingest_tickers` to
    Tier-B-only, archive `pg_dump -t fundamental_metrics`, **truncate** (not drop) the
    table in Postgres → DB drops ~370 MB. Rollback = restore dump or re-export.
-5. Then the **critical path to a credible product**:
+3. Then the **critical path to a credible product**:
    - **Prices** — a license-clean EOD source (e.g. Tiingo) used *server-side only*, stored
      in Tier B; publish only derived metrics (P/E, returns), never raw prices. (We already
      have shares-outstanding from EDGAR — only price is missing for P/E & market cap.)

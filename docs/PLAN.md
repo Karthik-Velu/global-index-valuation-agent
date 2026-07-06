@@ -28,9 +28,10 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   `engine/tierbsync.py` (export/verify/compact/bundle/pull); ingestion dual-writes,
   quality/validate/recalibration read DuckDB once the store exists; CI caches the store
   (ADR-013). `filings` stays in Postgres; only `fundamental_metrics` moves.
-- 🔜 **Tier B activation** — run `python -m engine.tierbsync export` + `verify` against
-  the real DB (Gate A), watch a ~1-week dual-write window (Gate C), then cut over:
-  flip EDGAR to Tier-B-only + truncate `fundamental_metrics` in Postgres  *(next task)*
+- 🔜 **Tier B activation** — ✅ Gate A PASSED in CI 2026-07-06 (1,469,371 rows exported,
+  all verify gates green, store = 6.6 MB zstd Parquet vs 368 MB in Postgres; cache +
+  artifact seeded). Remaining: merge PR #1 → ~1-week dual-write window (Gates B/C) →
+  cut over (EDGAR Tier-B-only + truncate `fundamental_metrics`)  *(next task)*
 - ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
   publish only derived metrics (P/E, returns)
 - ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)
