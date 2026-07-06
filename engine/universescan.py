@@ -73,28 +73,37 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
     seed = load_seed()
     n = n or int(seed.get("us_target", 1000))
 
-    rows: list[dict] = []
-    used_frame = None
+    # Public float is filed once a year (10-K cover), so one quarterly frame only
+    # holds a slice of the population — union the last ~6 quarters for everyone.
+    # Score each CIK by the MINIMUM across its appearances: EntityPublicFloat is
+    # self-tagged and scale errors (a $3B float filed as $3T) are common enough to
+    # corrupt a max/latest ranking; a one-off upward error cannot survive a min.
+    vals_by_cik: dict[int, list[float]] = {}
+    frames_used: list[str] = []
     for frame in _recent_frames():
         rows = _fetch_frame("dei", "EntityPublicFloat", "USD", frame)
-        if len(rows) > 2000:      # a real annual population, not a sparse quarter
-            used_frame = f"dei/EntityPublicFloat {frame}"
+        if not rows:
+            continue
+        frames_used.append(frame)
+        for r in rows:
+            cik, val = int(r.get("cik", 0)), r.get("val")
+            if cik and isinstance(val, (int, float)) and 0 < val < 1e13:
+                vals_by_cik.setdefault(cik, []).append(float(val))
+        if len(frames_used) >= 6:
             break
-    if not rows:
+    used_frame = f"dei/EntityPublicFloat min over {frames_used}"
+    by_cik = {cik: min(vals) for cik, vals in vals_by_cik.items()}
+    if len(by_cik) < 4000:  # not a full annual population — fall back to revenue
         for frame in (f"CY{y}" for y in range(2026, 2022, -1)):
             rows = _fetch_frame("us-gaap", "Revenues", "USD", frame)
-            if len(rows) > 2000:
+            if len(rows) > 4000:
                 used_frame = f"us-gaap/Revenues {frame}"
+                by_cik = {int(r["cik"]): float(r["val"]) for r in rows
+                          if r.get("cik") and isinstance(r.get("val"), (int, float))
+                          and 0 < r["val"] < 1e13}
                 break
-    if not rows:
+    if not by_cik:
         raise RuntimeError("no usable XBRL frame found (frames API unreachable?)")
-
-    # Best value per CIK (a CIK can appear once per frame, but be safe).
-    by_cik: dict[int, float] = {}
-    for r in rows:
-        cik, val = int(r.get("cik", 0)), r.get("val")
-        if cik and isinstance(val, (int, float)) and val > 0:
-            by_cik[cik] = max(by_cik.get(cik, 0.0), float(val))
 
     # CIK -> ticker via SEC's own mapping; prefer the shortest ticker (primary
     # listing over share classes like BRK-B vs BRK-A ordering quirks).
@@ -116,8 +125,9 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
         if len(out) >= n:
             break
 
-    print(f"== universescan expand-us ==\n   frame: {used_frame} ({len(rows):,} filers)"
-          f"\n   selected top {len(out)} US tickers by public float")
+    print(f"== universescan expand-us ==\n   frame: {used_frame} ({len(by_cik):,} filers)"
+          f"\n   selected top {len(out)} US tickers by public float"
+          f"\n   top 10: {', '.join(s['ticker'] for s in out[:10])}")
     if write:
         seed["stocks_us"] = out
         SEED_PATH.write_text(json.dumps(seed, indent=2) + "\n")
