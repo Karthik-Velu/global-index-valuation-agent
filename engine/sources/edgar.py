@@ -80,6 +80,14 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     sector_by_ticker = sector_by_ticker or {}
     stats = {"securities": 0, "metrics": 0, "filings": 0, "missing": [], "errors": []}
 
+    # Dual-write to Tier B (Parquet/DuckDB) once the store exists — same rows, same
+    # ON-CONFLICT-DO-NOTHING semantics (append_metrics anti-joins on the PK), so the
+    # daily full companyfacts re-feed only lands genuinely new vintages. Postgres
+    # stays the system of record until the explicit cutover; the writer captures
+    # Tier B trouble (surfaced in stats), never letting it break ingestion.
+    from .. import tierb
+    writer = tierb.MetricWriter() if tierb.enabled() else None
+
     for tk in tickers:
         cik = cik_for(tk)
         if not cik:
@@ -149,11 +157,19 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
                 stats["securities"] += 1
                 stats["metrics"] += len(metric_rows)
                 stats["filings"] += len(filing_rows)
+                if writer is not None:
+                    writer.add(v + ("xbrl",) for v in metric_rows.values())
                 break  # success
             except Exception as e:
                 if attempt == 2:
                     stats["errors"].append(f"{tk}: {str(e)[:80]}")
         time.sleep(sleep)  # SEC fair-use
+    if writer is not None:
+        writer.close()
+        stats["tierb_metrics"] = writer.added
+        if writer.error:
+            stats["tierb_error"] = writer.error
+            print(f"   WARNING: Tier B dual-write failed: {writer.error}")
     return stats
 
 

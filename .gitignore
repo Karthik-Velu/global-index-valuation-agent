@@ -12,6 +12,9 @@ data/*.json
 data/*.log
 data/cache/
 data/snapshots/
+# Tier B — bulk time-series Parquet store (rebuilt via `python -m engine.tierbsync pull`)
+data/tierb/
+data/tierb-store.tar.gz
 # NOTE: the dashboard's published snapshot (dashboard/dashboard_data.json) is
 # intentionally NOT ignored — it is the static data the hosted site serves.
 

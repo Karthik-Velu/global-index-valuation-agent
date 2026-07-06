@@ -53,9 +53,30 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         if tks:
             st = edgar.ingest_tickers(tks)
             steps["ingest"] = {k: st[k] for k in ("securities", "metrics", "filings")}
+            steps["ingest"].update({k: st[k] for k in ("tierb_metrics", "tierb_error")
+                                    if k in st})
             print(f"   ingest: {steps['ingest']}")
         else:
             steps["ingest"] = {"note": "no tracked securities with CIK yet"}
+
+    # 2b. Tier B reconcile — while both stores take writes, an incremental export
+    #     right after ingestion catches anything the dual-write missed, so the
+    #     Parquet store the checks below read is in lockstep with Postgres.
+    #     No-op until the store is initialized (engine.tierbsync export).
+    try:
+        from . import tierb, tierbsync
+        if tierb.enabled() and db.have_db():
+            inc = tierbsync.export(incremental=True)
+            steps["tierb"] = {"synced": inc["rows_exported"],
+                              "rows": inc["fundamental_metrics"],
+                              "postgres_rows": inc["postgres_rows"]}
+        else:
+            steps["tierb"] = {"note": "store not initialized (run engine.tierbsync export)"}
+    except Exception as e:
+        # Recorded, not fatal: the quality/validate jobs below guard themselves
+        # against a lagging store (they fall back to Postgres and warn).
+        steps["tierb"] = {"error": str(e)[:160]}
+        print(f"   WARNING: Tier B reconcile failed: {str(e)[:160]}")
 
     # 3. Tag securities (deterministic).
     steps["tagging"] = tagging.tag_securities()

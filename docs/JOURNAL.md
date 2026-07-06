@@ -8,6 +8,50 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-06 — Tier B built (Parquet + DuckDB), dormant until export
+
+**Built**
+- **`engine/tierb.py`** — the Tier-B access layer (mirror of `db.py`): in-memory DuckDB
+  over `data/tierb/` Parquet with a PK-dedupe view (base + delta), `append_metrics()`
+  (anti-join ≙ ON CONFLICT DO NOTHING), `delete_metric_code()` (atomic rewrite-and-swap),
+  and **`metrics_asof()`** — the no-look-ahead point-in-time API the backtest will use.
+- **`engine/tierbsync.py`** — export (full/incremental) / verify / compact / bundle /
+  pull. Verify = Gate A: row counts, bidirectional set equality, AAPL net_income
+  vintage identity, no-look-ahead behaviour on a real restatement.
+- **Call sites wired, data-gated:** everything switches on `tierb.have_tierb()` — until
+  the store exists, zero behaviour change. Once exported: EDGAR ingestion dual-writes,
+  the pipeline reconciles (incremental export step 2b), quality/validate/recalibration
+  read DuckDB (`quality_report.json` gains `"metrics_engine"`), suspect purges hit both
+  stores. CI: daily workflow caches `data/tierb`, weekly workflow compacts + uploads a
+  90-day bundle artifact.
+- ADR-013 records the design (psycopg streaming, filings stay in Postgres, gated cutover).
+
+**Learned / fixed**
+- The DuckDB postgres extension is a **runtime download** — it failed behind the cloud
+  session's egress policy (403). Switched to streaming via psycopg (already a dep):
+  more portable, no moving parts, and lets incremental sync pull only rows past the
+  `ingested_at` high-water mark (kind to Supabase free-tier egress).
+- Tested end-to-end against a scratch Postgres 16: export → verify (all gates) →
+  incremental (exact, idempotent) → compact → re-verify → bundle → pull; quality/
+  validate produce **identical issues and verdicts on both engines** (Gate B rehearsal,
+  every check exercised); dual-write adds identical row counts to both stores; the
+  full-export refusal guard blocks the post-cutover data-loss scenario.
+- `value` is a reserved-ish token in DuckDB — quote it as an alias.
+- An adversarial multi-angle review before merge caught real gaps: a falsy-zero skip
+  in the source-disagreement check (fixed in BOTH engines), an incremental-sync window
+  that could permanently orphan rows missed by a failed dual-write (now self-heals on
+  count drift), and silent Postgres fallbacks that could mask a broken store for the
+  whole proving window (now one `tierb.enabled()` gate + count-parity guards that warn
+  and fall back only when Tier B is genuinely behind).
+
+**Open / next**
+- **Activate**: run `tierbsync export` + `verify` with the real `DATABASE_URL` (this
+  session had no keys), confirm quality stays 99/100 on `metrics_engine: tierb`,
+  watch a ~1-week dual-write window, then cut over (pg_dump archive → Tier-B-only
+  writes → truncate `fundamental_metrics` → DB ~20 MB).
+- Then prices (Tiingo, into Tier B) → stock-level valuation → backtest.
+- Still open: rotate `OLLAMA_API_KEY`/`GROQ_API_KEY`; bank revenue composition; FDXF.
+
 ## 2026-06-27 — providers, waterfall, memory, full ingestion, cloud handoff
 
 **Built**
