@@ -1,4 +1,4 @@
-# re-run 3: revenue cross-check (consistent x1000 scale errors, revenue-less drop)
+# re-run 4: median across appearances (deflation errors dropped MSFT/PG under min)
 name: Universe expansion validate (ADR-011)
 
 # One-shot, deliberate: (1) generate stocks_us — top-N US filers ranked by

@@ -75,9 +75,12 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
 
     # Public float is filed once a year (10-K cover), so one quarterly frame only
     # holds a slice of the population — union the last ~6 quarters for everyone.
-    # Score each CIK by the MINIMUM across its appearances: EntityPublicFloat is
-    # self-tagged and scale errors (a $3B float filed as $3T) are common enough to
-    # corrupt a max/latest ranking; a one-off upward error cannot survive a min.
+    # Score each CIK by the MEDIAN across its appearances: EntityPublicFloat is
+    # self-tagged and scale errors run BOTH ways (a $3B float filed as $3T, and
+    # MSFT's dropped as ~$3M in one frame) — min/max each get poisoned by one bad
+    # tail; the median survives a single bad appearance, and the revenue
+    # cross-check below catches filers whose every appearance is inflated.
+    import statistics
     vals_by_cik: dict[int, list[float]] = {}
     frames_used: list[str] = []
     for frame in _recent_frames():
@@ -91,8 +94,8 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
                 vals_by_cik.setdefault(cik, []).append(float(val))
         if len(frames_used) >= 6:
             break
-    used_frame = f"dei/EntityPublicFloat min over {frames_used}"
-    by_cik = {cik: min(vals) for cik, vals in vals_by_cik.items()}
+    used_frame = f"dei/EntityPublicFloat median over {frames_used}"
+    by_cik = {cik: statistics.median(vals) for cik, vals in vals_by_cik.items()}
     if not by_cik:
         raise RuntimeError("no usable XBRL frame found (frames API unreachable?)")
 
