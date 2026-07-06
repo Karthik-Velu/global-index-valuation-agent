@@ -93,17 +93,42 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
             break
     used_frame = f"dei/EntityPublicFloat min over {frames_used}"
     by_cik = {cik: min(vals) for cik, vals in vals_by_cik.items()}
-    if len(by_cik) < 4000:  # not a full annual population — fall back to revenue
-        for frame in (f"CY{y}" for y in range(2026, 2022, -1)):
-            rows = _fetch_frame("us-gaap", "Revenues", "USD", frame)
-            if len(rows) > 4000:
-                used_frame = f"us-gaap/Revenues {frame}"
-                by_cik = {int(r["cik"]): float(r["val"]) for r in rows
-                          if r.get("cik") and isinstance(r.get("val"), (int, float))
-                          and 0 < r["val"] < 1e13}
-                break
     if not by_cik:
         raise RuntimeError("no usable XBRL frame found (frames API unreachable?)")
+
+    # Sanity layer: public float is self-tagged and some filers mis-scale it by
+    # x1000 CONSISTENTLY (same filer software every year), which min-damping
+    # can't catch — run 1 ranked $6B OLED above NVDA. Cross-check against
+    # revenue from the same public frames: no revenue tagged -> excluded (the
+    # value/growth engine can't score a revenue-less company anyway); float
+    # > 200x revenue -> thousands-scaled, divide by 1000; still implausible ->
+    # drop as garbage.
+    from datetime import date
+    rev_by_cik: dict[int, float] = {}
+    for concept in ("Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"):
+        for frame in (f"CY{y}" for y in range(date.today().year, date.today().year - 3, -1)):
+            rows = _fetch_frame("us-gaap", concept, "USD", frame)
+            if len(rows) > 1000:
+                for r in rows:
+                    cik, val = int(r.get("cik", 0)), r.get("val")
+                    if cik and isinstance(val, (int, float)) and val > 0:
+                        rev_by_cik[cik] = max(rev_by_cik.get(cik, 0.0), float(val))
+                break
+    checked: dict[int, float] = {}
+    n_descaled = n_dropped = 0
+    for cik, f in by_cik.items():
+        rev = rev_by_cik.get(cik)
+        if not rev:
+            continue
+        if f > 200 * rev:
+            f, n_descaled = f / 1000, n_descaled + 1
+            if f > 200 * rev:
+                n_dropped += 1
+                continue
+        checked[cik] = f
+    by_cik = checked
+    print(f"   revenue cross-check: {len(by_cik):,} kept, "
+          f"{n_descaled} de-scaled x1000, {n_dropped} dropped")
 
     # CIK -> ticker via SEC's own mapping; prefer the shortest ticker (primary
     # listing over share classes like BRK-B vs BRK-A ordering quirks).

@@ -46,6 +46,10 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   top-10 markets of Europe/Asia/rest-of-world; IFRS core concepts mapped; incremental
   daily ingestion (EDGAR daily index) + Sunday full sweep. **30-company validation
   batch ingests now; the rest auto-joins after the Tier B cutover** (Supabase cap).
+- ⬜ **IFRS follow-ups from the validation batch** — (a) NVS + TLK resolve net_income
+  but not revenue: map their IFRS revenue-concept variants; (b) multi-currency 20-F
+  facts (e.g. IDR + USD units) share a PK row — prefer reporting currency or add unit
+  to the dedupe to stop cross-currency `timeseries_jump` warns
 - ⬜ **Non-US fundamentals (native adapters)** — close the documented seed gaps
   (Saudi Arabia, Malaysia; thin: Germany, Sweden, HK, Indonesia, Thailand, UAE) via
   ESEF, EDINET, SEDAR, UK Companies House

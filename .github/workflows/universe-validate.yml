@@ -1,4 +1,4 @@
-# re-run 2: min-across-frames public-float ranking (scale-error damping)
+# re-run 3: revenue cross-check (consistent x1000 scale errors, revenue-less drop)
 name: Universe expansion validate (ADR-011)
 
 # One-shot, deliberate: (1) generate stocks_us — top-N US filers ranked by
