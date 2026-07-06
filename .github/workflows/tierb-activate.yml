@@ -8,8 +8,15 @@ name: Tier B activate (Gate A)
 # begins the dual-write proving window) and uploaded as a durable artifact.
 # Postgres is only ever READ by this job.
 
+# The manual UI/API dispatch needs actions:write; the cloud session's GitHub
+# integration doesn't have it, so pushing a change to THIS FILE on the feature
+# branch is the deliberate trigger (scoped by `paths` — normal pushes to the
+# branch do not re-run it).
 on:
   workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/tierb-activate.yml"]
 
 permissions:
   contents: read
