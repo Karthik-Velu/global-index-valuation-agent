@@ -26,16 +26,35 @@ _SMALL_MAX = 1000.0
 def validate_catalog() -> list[dict]:
     metrics = [m for m in catalog.load() if m.get("in_xbrl")]
     results = []
+    # Metric values come from Tier B (Parquet/DuckDB) once the store exists;
+    # verdict/sample writes stay on Postgres either way.
+    duck = None
+    try:
+        from .. import tierb
+        if tierb.have_tierb():
+            duck = tierb.connect()
+    except Exception:
+        duck = None
     with db.connect() as conn, conn.cursor() as cur:
+        if duck is not None:
+            cur.execute("select id, ticker from securities")
+            tierb.register_securities(duck, cur.fetchall())
         for m in metrics:
             code = m["metric_code"]
             unit = (m.get("unit") or "").lower()
-            cur.execute(
-                """select count(distinct security_id), count(*),
-                          percentile_cont(0.5) within group (order by abs(value))
-                   from fundamental_metrics
-                   where metric_code=%s and value is not null""", (code,))
-            ncomp, nval, med = cur.fetchone()
+            if duck is not None:
+                ncomp, nval, med = duck.execute(
+                    """select count(distinct security_id), count(*),
+                              quantile_cont(abs(value), 0.5)
+                       from fundamental_metrics
+                       where metric_code=? and value is not null""", [code]).fetchone()
+            else:
+                cur.execute(
+                    """select count(distinct security_id), count(*),
+                              percentile_cont(0.5) within group (order by abs(value))
+                       from fundamental_metrics
+                       where metric_code=%s and value is not null""", (code,))
+                ncomp, nval, med = cur.fetchone()
             resolves = (nval or 0) > 0
 
             if not resolves:
@@ -46,12 +65,20 @@ def validate_catalog() -> list[dict]:
             else:
                 verdict, note = "ok", ""
 
-            cur.execute(
-                """select s.ticker, fm.value, fm.period_end from fundamental_metrics fm
-                   join securities s on s.id=fm.security_id
-                   where fm.metric_code=%s and fm.value is not null
-                   order by fm.period_end desc limit 2""", (code,))
-            sample = [{"ticker": r[0], "value": r[1], "period": str(r[2])} for r in cur.fetchall()]
+            if duck is not None:
+                srows = duck.execute(
+                    """select s.ticker, fm.value, fm.period_end from fundamental_metrics fm
+                       join securities_live s on s.id=fm.security_id
+                       where fm.metric_code=? and fm.value is not null
+                       order by fm.period_end desc limit 2""", [code]).fetchall()
+            else:
+                cur.execute(
+                    """select s.ticker, fm.value, fm.period_end from fundamental_metrics fm
+                       join securities s on s.id=fm.security_id
+                       where fm.metric_code=%s and fm.value is not null
+                       order by fm.period_end desc limit 2""", (code,))
+                srows = cur.fetchall()
+            sample = [{"ticker": r[0], "value": r[1], "period": str(r[2])} for r in srows]
 
             cur.execute(
                 """insert into catalog_validation
@@ -89,6 +116,16 @@ def auto_fix_suspects(results: list[dict]) -> list[str]:
                 "values('catalog',%s,'demoted in_xbrl->computed; purged bad rows','suspect tag',true)",
                 (code,))
         conn.commit()
+
+    # Purge the same rows from Tier B (both stores get writes during the transition).
+    # A failure here leaves tierb-only rows that `tierbsync verify` will flag.
+    try:
+        from .. import tierb
+        if tierb.have_tierb():
+            for code in suspects:
+                tierb.delete_metric_code(code, source="xbrl")
+    except Exception as e:
+        print(f"   tierb purge failed (verify will catch the drift): {str(e)[:120]}")
 
     # Persist the correction back to the committed catalog seed.
     data = json.loads(catalog.CATALOG_PATH.read_text())

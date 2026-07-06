@@ -42,8 +42,17 @@ def run() -> dict:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select count(*) from securities")
         nsec = cur.fetchone()[0]
-        cur.execute("select count(*) from fundamental_metrics")
-        nrows = cur.fetchone()[0]
+        # Fundamental rows live in Tier B once the Parquet store exists.
+        nrows = None
+        try:
+            from . import tierb
+            if tierb.have_tierb():
+                nrows = tierb.counts()["fundamental_metrics"]
+        except Exception:
+            nrows = None
+        if nrows is None:
+            cur.execute("select count(*) from fundamental_metrics")
+            nrows = cur.fetchone()[0]
         cur.execute("select count(*) from taxonomy_changes where kind='catalog'")
         cat_total = cur.fetchone()[0]
 

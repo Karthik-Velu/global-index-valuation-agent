@@ -32,6 +32,30 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # Weekly Tier B maintenance: hydrate (cache, else re-export from Postgres),
+      # fold the week's delta files into base, and keep a durable 90-day bundle as
+      # an artifact. Non-fatal until the store is initialized — the dashboard
+      # refresh below must never be blocked by Tier B housekeeping.
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-weekly-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Compact + bundle Tier B store
+        run: |
+          python -m engine.tierbsync pull || echo "Tier B not initialized yet — skipping"
+          python -m engine.tierbsync compact || true
+          python -m engine.tierbsync bundle || true
+      - name: Upload Tier B bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store
+          path: data/tierb-store.tar.gz
+          if-no-files-found: ignore
+          retention-days: 90
+
       - name: Refresh data (engine runs deterministically; no API key needed)
         run: python -m engine.cli refresh --no-cache --no-llm
 

@@ -29,8 +29,9 @@ interactive dashboard on Vercel, not a report.
   Do **not** call a plain cron job an "agent."
 
 ## Architecture (one-liners; deep dives in `docs/`)
-- **Data** — Tier A: Supabase **Postgres** (relational state, source of truth). Tier B
-  (the next build): **Parquet + DuckDB** for bulk time-series. Stock fundamentals via SEC
+- **Data** — Tier A: Supabase **Postgres** (relational state, source of truth). Tier B:
+  **Parquet + DuckDB** for bulk time-series (`engine/tierb.py`; dormant until
+  `engine.tierbsync export` initializes the store). Stock fundamentals via SEC
   **EDGAR** (public domain), point-in-time with restatement vintages. Core XBRL concepts
   are pinned in `catalog._CANONICAL`. → `docs/DATA_INGESTION.md`
 - **LLM** — one entrypoint `engine/llm.py::call(role, …)`: a per-role **waterfall** across
@@ -40,10 +41,12 @@ interactive dashboard on Vercel, not a report.
   decay/point-in-time) → curated `engine/context/*.md`. → `docs/MEMORY.md`
 - Jobs vs agents → `docs/AGENTS.md` · roadmap → `docs/ROADMAP.md` · target design → `docs/ARCHITECTURE.md`
 
-## Current state (2026-06-27)
+## Current state (2026-07-06)
 Phase 1 data foundation **COMPLETE**: 501 large-caps ingested (1.45M point-in-time metric
-rows, data-quality 99/100). Ollama Cloud + Groq keyed and in CI. **Next: build Tier B
-(Parquet/DuckDB) → prices → stock-level valuation → backtest.** Details in `docs/STATUS.md`.
+rows, data-quality 99/100). Ollama Cloud + Groq keyed and in CI. Tier B (Parquet/DuckDB)
+is **built but dormant** — activate with `python -m engine.tierbsync export` + `verify`
+(needs `DATABASE_URL`). **Next: activate Tier B → prices → stock-level valuation →
+backtest.** Details in `docs/STATUS.md`.
 
 ## Living context — keep these growing
 This project's memory is deliberately durable, in layers. **Maintain them as you work:**

@@ -26,6 +26,17 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
+      # Tier B (Parquet) store persists across daily runs via the cache; the unique
+      # key + prefix restore-keys give a rolling latest-wins cache. Until the store
+      # is initialized (engine.tierbsync export) this restores nothing and the
+      # pipeline's Tier B step is a no-op.
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
       - name: Run data pipeline (with agents; they no-op gracefully if no key)
         run: python -m engine.datapipeline --agents
       - name: Commit catalog self-corrections if any
@@ -44,4 +55,5 @@ jobs:
             data/datapipeline_report.json
             data/quality_report.json
             data/recalibration_report.json
+            data/tierb/manifest.json
           retention-days: 30

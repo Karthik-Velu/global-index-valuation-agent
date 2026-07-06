@@ -23,8 +23,14 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
 - ✅ Cloud/mobile handoff: `CLAUDE.md`, `STATUS.md`, `DECISIONS.md`, `JOURNAL.md`, `PLAN.md`
 
 ## Phase 2 — Bottom-up valuation & the backtest  🔜 CRITICAL PATH
-- 🔜 **Tier B storage** — move `fundamental_metrics`/`filings` to **Parquet + DuckDB**
-  (local first, R2 later); relieves Postgres, home for prices  *(next task)*
+- ✅ **Tier B storage built** — `engine/tierb.py` (DuckDB/Parquet layer: PK-dedupe view,
+  `append_metrics`, `delete_metric_code`, point-in-time `metrics_asof`) +
+  `engine/tierbsync.py` (export/verify/compact/bundle/pull); ingestion dual-writes,
+  quality/validate/recalibration read DuckDB once the store exists; CI caches the store
+  (ADR-013). `filings` stays in Postgres; only `fundamental_metrics` moves.
+- 🔜 **Tier B activation** — run `python -m engine.tierbsync export` + `verify` against
+  the real DB (Gate A), watch a ~1-week dual-write window (Gate C), then cut over:
+  flip EDGAR to Tier-B-only + truncate `fundamental_metrics` in Postgres  *(next task)*
 - ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
   publish only derived metrics (P/E, returns)
 - ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)

@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-06-27.
+> Last updated: 2026-07-06.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -40,7 +40,10 @@ fundamental growth + GARP). Repo (private, MIT): `Karthik-Velu/global-index-valu
   Universe was a public large-cap US list (we redistribute only public-domain EDGAR data).
 - Concept mapping is pinned in `catalog._CANONICAL` (core line items can't be stolen by
   ratio/derived metrics — the bug that once left AAPL with no net_income).
-- **Tier B (Parquet/DuckDB for bulk time-series): NOT built yet — this is the next step.**
+- **Tier B (Parquet/DuckDB): BUILT, awaiting activation.** `engine/tierb.py` (access
+  layer, point-in-time `metrics_asof`) + `engine/tierbsync.py` (export/verify/compact/
+  bundle/pull). Everything is gated on the store existing — nothing changes until
+  `python -m engine.tierbsync export` runs against the real DB. See ADR-013.
 
 **LLM waterfall** (`engine/llm.py`, the only LLM entrypoint: `call(role, …)`)
 - Per-role chains, tier-1 = `ollamacloud:gpt-oss:120b`, fallback `groq:llama-3.3-70b-versatile`,
@@ -68,12 +71,19 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   index overhead). Conclusion: keep the ~15 MB relational state in Supabase free, move
   bulk time-series to Parquet/DuckDB.
 
-## Immediate next step: build Tier B (Parquet + DuckDB)
-1. **Move `fundamental_metrics` (and `filings`) to Parquet**, queried by DuckDB. Start with
-   **local Parquet files** ($0, no account); flip the same layer to Cloudflare R2 later
-   (R2 needs a card even on the free tier). This relieves Postgres AND is the right engine
-   for the backtest's analytical scans.
-2. Then the **critical path to a credible product**:
+## Immediate next step: ACTIVATE Tier B (code is built — 2026-07-06)
+The Parquet/DuckDB layer is merged but dormant until the store exists. From a session
+with `DATABASE_URL` set (keys required — the cloud dev session had none):
+1. `python -m engine.tierbsync export` — full Postgres → Parquet export (~1.45M rows).
+2. `python -m engine.tierbsync verify` — Gate A: row counts, bidirectional set
+   equality, AAPL net_income vintages, no-look-ahead check. **Must pass.**
+3. From then on the daily pipeline dual-writes + reconciles automatically (its
+   `tierb` step) and quality/validate/recalibration read DuckDB (`quality_report.json`
+   shows `"metrics_engine": "tierb"`; score must stay 99/100 — Gate B).
+4. After ~1 clean week (Gate C): cut over — flip `edgar.ingest_tickers` to
+   Tier-B-only, archive `pg_dump -t fundamental_metrics`, **truncate** (not drop) the
+   table in Postgres → DB drops ~370 MB. Rollback = restore dump or re-export.
+5. Then the **critical path to a credible product**:
    - **Prices** — a license-clean EOD source (e.g. Tiingo) used *server-side only*, stored
      in Tier B; publish only derived metrics (P/E, returns), never raw prices. (We already
      have shares-outstanding from EDGAR — only price is missing for P/E & market cap.)

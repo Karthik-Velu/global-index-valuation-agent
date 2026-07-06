@@ -80,6 +80,27 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     sector_by_ticker = sector_by_ticker or {}
     stats = {"securities": 0, "metrics": 0, "filings": 0, "missing": [], "errors": []}
 
+    # Dual-write to Tier B (Parquet/DuckDB) once the store exists — same rows, same
+    # ON-CONFLICT-DO-NOTHING semantics (append_metrics anti-joins on the PK), so the
+    # daily full companyfacts re-feed only lands genuinely new vintages. Postgres
+    # stays the system of record until the explicit cutover; Tier B trouble is
+    # reported, never allowed to break ingestion.
+    try:
+        from .. import tierb
+        tierb_on = tierb.have_tierb()
+    except Exception:
+        tierb_on = False
+    tierb_buf: list[tuple] = []
+
+    def _tierb_flush():
+        if not tierb_buf:
+            return
+        try:
+            stats["tierb_metrics"] = stats.get("tierb_metrics", 0) + tierb.append_metrics(tierb_buf)
+        except Exception as e:
+            stats["tierb_error"] = str(e)[:160]
+        tierb_buf.clear()
+
     for tk in tickers:
         cik = cik_for(tk)
         if not cik:
@@ -149,11 +170,17 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
                 stats["securities"] += 1
                 stats["metrics"] += len(metric_rows)
                 stats["filings"] += len(filing_rows)
+                if tierb_on:
+                    tierb_buf.extend(v + ("xbrl",) for v in metric_rows.values())
+                    if len(tierb_buf) >= 100_000:   # bounded memory, few delta files
+                        _tierb_flush()
                 break  # success
             except Exception as e:
                 if attempt == 2:
                     stats["errors"].append(f"{tk}: {str(e)[:80]}")
         time.sleep(sleep)  # SEC fair-use
+    if tierb_on:
+        _tierb_flush()
     return stats
 
 

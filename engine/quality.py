@@ -46,6 +46,9 @@ def _units() -> dict[str, str]:
 
 
 def _checks(cur) -> list[dict]:
+    """All checks against Postgres — the pre-Tier-B path. Once the Parquet store
+    exists, run() uses _checks_tierb instead; keep the two in lockstep until the
+    cutover retires this one (Gate B compares their outputs)."""
     issues: list[dict] = []
 
     # 1. Securities with zero fundamentals (coverage gap).
@@ -135,10 +138,110 @@ def _checks(cur) -> list[dict]:
     return issues
 
 
+def _checks_tierb(duck, cur) -> list[dict]:
+    """The fundamental_metrics checks against Tier B (DuckDB over Parquet); only
+    staleness (5) stays on Postgres, where `filings` remains the system of record.
+    Same checks, same thresholds as _checks — the dialect is the only difference."""
+    issues: list[dict] = []
+
+    # 1. Securities with zero fundamentals (coverage gap).
+    for (tk,) in duck.execute(
+            """select s.ticker from securities_live s
+               left join fundamental_metrics fm on fm.security_id=s.id
+               group by s.id, s.ticker having count(fm.security_id)=0""").fetchall():
+        issues.append({"check_name": "no_fundamentals", "severity": "error", "scope": "security",
+                       "entity": tk, "detail": "security has zero fundamental metrics"})
+
+    # 2. Value sanity: should-be-non-negative currency metrics that are negative.
+    for tk, mc, v, pe in duck.execute(
+            """select s.ticker, fm.metric_code, fm.value, fm.period_end
+               from fundamental_metrics fm join securities_live s on s.id=fm.security_id
+               where fm.value < 0
+                 and fm.metric_code in (select unnest(?::varchar[]))""",
+            [list(_CURRENCY_NONNEG)]).fetchall():
+        issues.append({"check_name": "negative_value", "severity": "warn", "scope": "metric",
+                       "entity": tk, "metric_code": mc, "value": v,
+                       "detail": f"negative {mc} at {pe}"})
+
+    # 3. Time-series jumps (units errors) — latest vintage per period, FY-only,
+    #    true year-apart comparisons; same logic as the Postgres twin.
+    rows = duck.execute(
+        """select security_id, ticker, metric_code, period_end, value from (
+             select distinct on (fm.security_id, fm.metric_code, fm.period_end)
+                    fm.security_id, s.ticker, fm.metric_code, fm.period_end, fm.value
+             from fundamental_metrics fm join securities_live s on s.id=fm.security_id
+             where fm.fiscal_period='FY' and fm.source='xbrl' and fm.value is not null
+               and fm.metric_code in (select unnest(?::varchar[]))
+             order by fm.security_id, fm.metric_code, fm.period_end, fm.filed_date desc
+           ) t order by security_id, metric_code, period_end""",
+        [list(_JUMP_CORE)]).fetchall()
+    for (sid, mc), grp in groupby(rows, key=lambda r: (r[0], r[2])):
+        g = list(grp)
+        for a, b in zip(g, g[1:]):
+            gap = (b[3] - a[3]).days if a[3] and b[3] else 0
+            if not (250 <= gap <= 450):
+                continue
+            va, vb = a[4], b[4]
+            if va and vb and va > 1e5 and vb > 1e5:
+                jump = max(vb / va, va / vb)
+                if jump > 100:
+                    issues.append({"check_name": "timeseries_jump", "severity": "warn",
+                                   "scope": "metric", "entity": b[1], "metric_code": mc, "value": vb,
+                                   "detail": f"{mc} moved {vb / va:.0f}x {a[3]}→{b[3]} (likely units error)"})
+
+    # 4. Completeness: every security should have a revenue-like metric and net income.
+    for tk, rev, ni in duck.execute(
+            """select s.ticker,
+                 sum(case when fm.metric_code in (select unnest(?::varchar[])) then 1 else 0 end) rev,
+                 sum(case when fm.metric_code = 'net_income' then 1 else 0 end) ni
+               from securities_live s left join fundamental_metrics fm on fm.security_id=s.id
+               group by s.id, s.ticker""", [REVENUE_CODES]).fetchall():
+        if not rev:
+            issues.append({"check_name": "missing_revenue", "severity": "warn", "scope": "security",
+                           "entity": tk, "detail": "no revenue metric resolved"})
+        if not ni:
+            issues.append({"check_name": "missing_net_income", "severity": "warn", "scope": "security",
+                           "entity": tk, "detail": "no net_income resolved"})
+
+    # 5. Staleness — filings live in Postgres.
+    cur.execute("""select s.ticker, max(f.filed_date) from securities s
+                   join filings f on f.security_id=s.id group by s.ticker""")
+    for tk, mx in cur.fetchall():
+        if mx and (date.today() - mx).days > 460:
+            issues.append({"check_name": "stale_filings", "severity": "warn", "scope": "security",
+                           "entity": tk, "detail": f"latest filing {mx} is >15 months old"})
+
+    # 6. Cross-source disagreement: same metric/period from 2+ sources differing >5%.
+    for tk, mc, pe, lo, hi, nsrc in duck.execute(
+            """select s.ticker, fm.metric_code, fm.period_end,
+                      min(fm.value), max(fm.value), count(distinct fm.source)
+               from fundamental_metrics fm join securities_live s on s.id=fm.security_id
+               where fm.value is not null
+               group by s.ticker, fm.metric_code, fm.period_end
+               having count(distinct fm.source) > 1""").fetchall():
+        if lo and abs(hi - lo) / max(abs(lo), 1) > 0.05:
+            issues.append({"check_name": "source_disagreement", "severity": "warn", "scope": "metric",
+                           "entity": tk, "metric_code": mc,
+                           "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
+    return issues
+
+
 def run() -> dict:
     print("== Data-Quality Agent ==")
+    duck = None
+    try:
+        from . import tierb
+        if tierb.have_tierb():
+            duck = tierb.connect()
+    except Exception:
+        duck = None
     with db.connect() as conn, conn.cursor() as cur:
-        issues = _checks(cur)
+        if duck is not None:
+            cur.execute("select id, ticker from securities")
+            tierb.register_securities(duck, cur.fetchall())
+            issues = _checks_tierb(duck, cur)
+        else:
+            issues = _checks(cur)
         # Rewrite the open set (resolved issues stop reappearing); keep history of resolved.
         cur.execute("delete from data_quality_issues where status='open'")
         for i in issues:
@@ -160,6 +263,7 @@ def run() -> dict:
     weighted = by_sev.get("warn", 0) + 4 * by_sev.get("error", 0)
     score = round(max(0, 100 - 100 * min(1.0, weighted / (2 * n_sec))))
     report = {"asof": date.today().isoformat(), "generated_at": datetime.now(timezone.utc).isoformat(),
+              "metrics_engine": "tierb" if duck is not None else "postgres",
               "data_quality_score": score, "n_issues": len(issues),
               "by_severity": dict(by_sev), "by_check": dict(by_check),
               "issues": issues[:200]}

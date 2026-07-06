@@ -9,6 +9,35 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-013 · Tier B design: psycopg streaming, filings stay in Postgres, gated cutover
+- **Context:** Implementing ADR-012 (`engine/tierb.py` + `engine/tierbsync.py`). Three
+  sub-decisions shaped the build.
+- **Choice 1 — Postgres reaches DuckDB via psycopg, not the DuckDB postgres extension.**
+  Extensions are a runtime download that can fail in locked-down environments (it did,
+  in the cloud dev session); psycopg is already a dependency, and at ~1.5M rows
+  streaming into a DuckDB temp table is plenty fast. Incremental sync pulls only rows
+  past the store's `ingested_at` high-water mark (cheap on Supabase free-tier egress);
+  a primary-key anti-join keeps it exact regardless.
+- **Choice 2 — only `fundamental_metrics` moves.** `filings` (31k rows, identity PK,
+  FK + accession-conflict semantics) stays in Postgres as system of record and is
+  mirrored read-only into Parquet. Cutover blast radius = exactly one table.
+- **Choice 3 — activation is data-gated, not code-gated.** Every caller switches on
+  `tierb.have_tierb()` (does the store exist?), so merging the code changes nothing
+  until `python -m engine.tierbsync export` runs; from then on ingestion dual-writes
+  and readers use DuckDB. Full export refuses to run if Postgres holds fewer rows than
+  the store (the post-cutover state) — a rebuild then would destroy data. Postgres
+  remains authoritative until an explicit cutover after `verify` gates + a dual-write
+  proving window.
+- **Layout:** hive-partitioned by `year(period_end)` + small `delta/` appends,
+  zstd Parquet; restatement vintages stay distinct rows keyed by `filed_date` (same PK
+  as migration 0003); the dedupe view = ON CONFLICT DO NOTHING. `metrics_asof()` is
+  the no-look-ahead point-in-time API the backtest will use.
+- **Rejected:** DuckDB postgres extension (runtime download); moving `filings` too
+  (needless blast radius); steady-state dual-write (defeats the storage goal);
+  committing Parquet to the repo (size/churn — CI uses actions/cache + weekly bundle
+  artifact instead).
+- 2026-07-06
+
 ### ADR-012 · Two-tier storage: Postgres + Parquet/DuckDB (not a bigger DB)
 - **Context:** DB hit 387 MB (95% in `fundamental_metrics`) at 501 stocks — near Supabase's
   500 MB free cap; 1,000 stocks + prices would overflow it.
