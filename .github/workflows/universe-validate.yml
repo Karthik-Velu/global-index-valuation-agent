@@ -1,4 +1,4 @@
-# re-run 4: median across appearances (deflation errors dropped MSFT/PG under min)
+# re-run 5: size proxy = max(revenue, assets/10) — June-FYE cos miss CY revenue frames
 name: Universe expansion validate (ADR-011)
 
 # One-shot, deliberate: (1) generate stocks_us — top-N US filers ranked by

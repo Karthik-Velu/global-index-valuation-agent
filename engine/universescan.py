@@ -100,14 +100,18 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
         raise RuntimeError("no usable XBRL frame found (frames API unreachable?)")
 
     # Sanity layer: public float is self-tagged and some filers mis-scale it by
-    # x1000 CONSISTENTLY (same filer software every year), which min-damping
-    # can't catch — run 1 ranked $6B OLED above NVDA. Cross-check against
-    # revenue from the same public frames: no revenue tagged -> excluded (the
-    # value/growth engine can't score a revenue-less company anyway); float
-    # > 200x revenue -> thousands-scaled, divide by 1000; still implausible ->
-    # drop as garbage.
+    # x1000 CONSISTENTLY (same filer software every year), which median-damping
+    # can't catch — run 1 ranked $6B OLED above NVDA. Cross-check against an
+    # independent size proxy: max(annual revenue, total assets / 10).
+    #   * revenue comes from calendar-year duration frames — but June-FYE
+    #     companies (MSFT, PG) never align to a CY frame, so
+    #   * assets come from INSTANT frames (every filer has quarter-end balance
+    #     sheets whatever its fiscal calendar), and assets/10 keeps the test
+    #     meaningful for banks, whose assets dwarf their float.
+    # float > 200x proxy -> thousands-scaled, divide by 1000; still implausible
+    # or no proxy at all -> drop as garbage.
     from datetime import date
-    rev_by_cik: dict[int, float] = {}
+    proxy_by_cik: dict[int, float] = {}
     for concept in ("Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"):
         for frame in (f"CY{y}" for y in range(date.today().year, date.today().year - 3, -1)):
             rows = _fetch_frame("us-gaap", concept, "USD", frame)
@@ -115,22 +119,31 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
                 for r in rows:
                     cik, val = int(r.get("cik", 0)), r.get("val")
                     if cik and isinstance(val, (int, float)) and val > 0:
-                        rev_by_cik[cik] = max(rev_by_cik.get(cik, 0.0), float(val))
+                        proxy_by_cik[cik] = max(proxy_by_cik.get(cik, 0.0), float(val))
                 break
+    assets_by_cik: dict[int, list[float]] = {}
+    for frame in _recent_frames()[:5]:
+        for r in _fetch_frame("us-gaap", "Assets", "USD", frame):
+            cik, val = int(r.get("cik", 0)), r.get("val")
+            if cik and isinstance(val, (int, float)) and val > 0:
+                assets_by_cik.setdefault(cik, []).append(float(val))
+    for cik, vals in assets_by_cik.items():
+        proxy_by_cik[cik] = max(proxy_by_cik.get(cik, 0.0), statistics.median(vals) / 10)
+
     checked: dict[int, float] = {}
     n_descaled = n_dropped = 0
     for cik, f in by_cik.items():
-        rev = rev_by_cik.get(cik)
-        if not rev:
+        proxy = proxy_by_cik.get(cik)
+        if not proxy:
             continue
-        if f > 200 * rev:
+        if f > 200 * proxy:
             f, n_descaled = f / 1000, n_descaled + 1
-            if f > 200 * rev:
+            if f > 200 * proxy:
                 n_dropped += 1
                 continue
         checked[cik] = f
     by_cik = checked
-    print(f"   revenue cross-check: {len(by_cik):,} kept, "
+    print(f"   size-proxy cross-check: {len(by_cik):,} kept, "
           f"{n_descaled} de-scaled x1000, {n_dropped} dropped")
 
     # CIK -> ticker via SEC's own mapping; prefer the shortest ticker (primary
