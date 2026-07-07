@@ -294,8 +294,35 @@ def cutover() -> dict:
     print(f"   superset gate: postgres {pg_n:,} rows, tierb {tb_n:,}, "
           f"missing from tierb: {only_pg}")
     if only_pg:
-        raise RuntimeError(f"{only_pg} Postgres rows are MISSING from Tier B — "
-                           "refusing to truncate; run export --incremental first")
+        # Distinguish genuinely MISSING rows (PK absent from the store — data
+        # loss, refuse) from same-PK VARIANTS (PK present, non-key values
+        # differ). Variants happen because both stores dedupe first-write-wins
+        # per PK but received their writes in different orders: Tier B's base
+        # keeps the earlier point-in-time capture, a Postgres refill holds the
+        # later refetch (in-place EDGAR revisions, multi-unit fact ordering).
+        # Keeping Tier B's earlier capture IS the point-in-time semantics;
+        # Postgres's variant is archived inside the store so the bundle
+        # carries it — nothing is discarded.
+        key = ", ".join(tierb.FM_KEY)
+        pk_missing = con.execute(f"""select count(*) from (
+            select {key} from _pg
+            anti join fundamental_metrics using ({key}))""").fetchone()[0]
+        if pk_missing:
+            raise RuntimeError(f"{pk_missing} Postgres rows are MISSING from Tier B "
+                               "(PK not in store) — refusing to truncate; run "
+                               "export --incremental first")
+        vdir = tierb.root() / "pg_variants"
+        vdir.mkdir(parents=True, exist_ok=True)
+        con.execute(f"""create or replace temp table _variants as
+            select {FM_DATA_COLS} from _pg
+            except select {FM_DATA_COLS} from fundamental_metrics""")
+        con.execute(f"copy _variants to '{tierb._sql_path(vdir / 'variants.parquet')}' "
+                    "(format parquet, compression zstd)")
+        top = con.execute("""select metric_code, unit, count(*) as n from _variants
+                             group by 1, 2 order by n desc limit 8""").fetchall()
+        print(f"   {only_pg} same-PK variants (0 missing PKs) archived to "
+              f"{vdir / 'variants.parquet'}")
+        print("   variant breakdown: " + ", ".join(f"{m}[{u}]×{n}" for m, u, n in top))
     bundle()
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select pg_size_pretty(pg_total_relation_size('fundamental_metrics'))")

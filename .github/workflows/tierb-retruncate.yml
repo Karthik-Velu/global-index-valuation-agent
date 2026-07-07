@@ -54,10 +54,11 @@ jobs:
       # partial runs re-ingest on the next monthly sweep (PK-deduped).
       - name: Hydrate if the cache missed
         run: python -m engine.tierbsync pull
-      # Run 1's superset gate caught 4,691 Postgres-only rows (companies whose
-      # PG writes landed in a partial run but errored during the final
-      # backfill's re-ingest, so their Tier B twin never happened). This
-      # appends exactly those rows to the store (PK anti-join) before the gate.
+      # Appends any Postgres rows whose PK the store lacks (anti-join; no-op
+      # when there are none). Runs 1-2 proved the 4,691 gate hits are NOT
+      # missing PKs but same-PK variants (both stores keep first-write-wins
+      # per PK, written in different orders) — cutover now archives those
+      # inside the store and proceeds; genuinely missing PKs still refuse.
       - name: Sync Postgres-only rows into Tier B (non-destructive append)
         run: python -m engine.tierbsync export --incremental
       - name: Re-truncate (superset-gated cutover — refuses if any Postgres row is missing from Tier B)
