@@ -9423,10 +9423,6 @@
       "country": "United States"
     },
     {
-      "ticker": "NNDM",
-      "country": "United States"
-    },
-    {
       "ticker": "GEVO",
       "country": "United States"
     },
@@ -10080,6 +10076,10 @@
     },
     {
       "ticker": "CAPR",
+      "country": "United States"
+    },
+    {
+      "ticker": "ETHW",
       "country": "United States"
     }
   ],
@@ -10913,6 +10913,10 @@
       "country": "China"
     },
     {
+      "ticker": "CNF",
+      "country": "China"
+    },
+    {
       "ticker": "BZUN",
       "country": "China"
     },
@@ -10926,6 +10930,10 @@
     },
     {
       "ticker": "CMCM",
+      "country": "China"
+    },
+    {
+      "ticker": "YB",
       "country": "China"
     },
     {
@@ -10965,11 +10973,15 @@
       "country": "China"
     },
     {
-      "ticker": "FLX",
+      "ticker": "CCG",
       "country": "China"
     },
     {
       "ticker": "NA",
+      "country": "China"
+    },
+    {
+      "ticker": "FLX",
       "country": "China"
     },
     {
@@ -11001,11 +11013,11 @@
       "country": "China"
     },
     {
-      "ticker": "FEDU",
+      "ticker": "CNEY",
       "country": "China"
     },
     {
-      "ticker": "CNEY",
+      "ticker": "FEDU",
       "country": "China"
     },
     {
@@ -11197,7 +11209,15 @@
       "country": "Switzerland"
     },
     {
+      "ticker": "TRVG",
+      "country": "Germany"
+    },
+    {
       "ticker": "MWC",
+      "country": "Japan"
+    },
+    {
+      "ticker": "LRE",
       "country": "Japan"
     }
   ]
