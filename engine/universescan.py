@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -36,11 +37,14 @@ def load_seed() -> dict:
 
 
 def seed_stocks() -> dict[str, str]:
-    """ticker -> country for the whole committed universe (foreign + US)."""
+    """ticker -> country for the whole committed universe (curated foreign +
+    auto-discovered foreign + generated US). Curated entries win on conflict."""
     seed = load_seed()
-    out = {s["ticker"].upper(): s["country"] for s in seed.get("stocks_foreign", [])}
-    out.update({s["ticker"].upper(): s.get("country", "United States")
-                for s in seed.get("stocks_us", [])})
+    out = {s["ticker"].upper(): s.get("country", "United States")
+           for s in seed.get("stocks_us", [])}
+    out.update({s["ticker"].upper(): s["country"]
+                for s in seed.get("stocks_foreign_auto", [])})
+    out.update({s["ticker"].upper(): s["country"] for s in seed.get("stocks_foreign", [])})
     return out
 
 
@@ -164,7 +168,8 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
         if c not in by_cik_ticker or len(tk) < len(by_cik_ticker[c]):
             by_cik_ticker[c] = tk
 
-    foreign = {s["ticker"].upper() for s in seed.get("stocks_foreign", [])}
+    foreign = {s["ticker"].upper() for s in seed.get("stocks_foreign", [])} | \
+              {s["ticker"].upper() for s in seed.get("stocks_foreign_auto", [])}
     ranked = sorted(by_cik.items(), key=lambda kv: kv[1], reverse=True)
     out: list[dict] = []
     for cik, val in ranked:
@@ -180,6 +185,149 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
           f"\n   top 10: {', '.join(s['ticker'] for s in out[:10])}")
     if write:
         seed["stocks_us"] = out
+        SEED_PATH.write_text(json.dumps(seed, indent=2) + "\n")
+        print(f"   wrote {SEED_PATH}")
+    return out
+
+
+# Coarse USD conversion for the reporting currencies of the 30 target markets.
+# ONLY used to apply the min-assets floor and order across markets in discovery —
+# never for analytics (real FX arrives with the prices dataset). Being ~20% off
+# changes nothing: within a market everyone shares a currency.
+_FX_USD = {
+    "USD": 1.0, "EUR": 1.1, "GBP": 1.3, "CHF": 1.15, "SEK": 0.095, "DKK": 0.15,
+    "JPY": 0.0065, "CNY": 0.14, "HKD": 0.13, "TWD": 0.031, "KRW": 0.00072,
+    "INR": 0.012, "SGD": 0.75, "IDR": 0.000061, "THB": 0.028, "MYR": 0.21,
+    "CAD": 0.73, "AUD": 0.66, "BRL": 0.18, "MXN": 0.054, "ZAR": 0.055,
+    "ILS": 0.27, "SAR": 0.27, "AED": 0.27, "CLP": 0.0011, "ARS": 0.001,
+}
+
+# EDGAR country descriptions -> the market names used by engine/universe.py,
+# for the 30 target markets (ADR-014). Anything else stays index-only.
+_COUNTRY_MAP = {
+    "UNITED KINGDOM": "United Kingdom", "FRANCE": "France", "SWITZERLAND": "Switzerland",
+    "GERMANY": "Germany", "NETHERLANDS": "Netherlands", "SWEDEN": "Sweden",
+    "DENMARK": "Denmark", "ITALY": "Italy", "SPAIN": "Spain", "BELGIUM": "Belgium",
+    "JAPAN": "Japan", "CHINA": "China", "HONG KONG": "Hong Kong", "INDIA": "India",
+    "TAIWAN": "Taiwan", "TAIWAN, PROVINCE OF CHINA": "Taiwan",
+    "KOREA, REPUBLIC OF": "South Korea", "SOUTH KOREA": "South Korea",
+    "SINGAPORE": "Singapore", "INDONESIA": "Indonesia", "THAILAND": "Thailand",
+    "MALAYSIA": "Malaysia", "CANADA": "Canada", "AUSTRALIA": "Australia",
+    "BRAZIL": "Brazil", "SAUDI ARABIA": "Saudi Arabia", "MEXICO": "Mexico",
+    "SOUTH AFRICA": "South Africa", "ISRAEL": "Israel",
+    "UNITED ARAB EMIRATES": "United Arab Emirates", "CHILE": "Chile",
+    "ARGENTINA": "Argentina",
+}
+
+
+def _foreign_filer_ciks(quarters: int = 6) -> set[int]:
+    """CIKs that filed a 20-F or 40-F recently (EDGAR quarterly form indexes) —
+    the exact definition of a foreign private issuer with ingestible XBRL."""
+    from datetime import date
+    ciks: set[int] = set()
+    y, q = date.today().year, (date.today().month - 1) // 3 + 1
+    for _ in range(quarters):
+        url = f"https://www.sec.gov/Archives/edgar/full-index/{y}/QTR{q}/form.idx"
+        try:
+            r = requests.get(url, headers=_HEADERS, timeout=60)
+            if r.status_code == 200:
+                for line in r.text.splitlines():
+                    if line.startswith(("20-F ", "20-F/A", "40-F ", "40-F/A")):
+                        parts = line.split()
+                        for p in parts:
+                            if p.isdigit() and len(p) >= 4:
+                                ciks.add(int(p))
+                                break
+        except Exception:
+            pass
+        q -= 1
+        if q == 0:
+            y, q = y - 1, 4
+        time.sleep(0.1)
+    return ciks
+
+
+def _classify_country(cik: int) -> str | None:
+    """Market name for a CIK from its EDGAR submissions record. Business address
+    wins over incorporation (a Cayman-incorporated company operating from
+    Shanghai belongs to the China market)."""
+    r = requests.get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json",
+                     headers=_HEADERS, timeout=30)
+    if r.status_code != 200:
+        return None
+    sub = r.json()
+    biz = (sub.get("addresses", {}).get("business", {}) or {})
+    for raw in (biz.get("stateOrCountryDescription"),
+                sub.get("stateOfIncorporationDescription")):
+        if raw and str(raw).strip().upper() in _COUNTRY_MAP:
+            return _COUNTRY_MAP[str(raw).strip().upper()]
+    return None
+
+
+def discover_foreign(write: bool = True) -> list[dict]:
+    """Deterministic discovery of ALL ingestible foreign stocks for the 30 target
+    markets: 20-F/40-F filers, sized by median Assets (us-gaap + ifrs-full instant
+    frames), min-assets screened, country-classified, capped per market. Replaces
+    hand-curation as coverage — the curated list remains as an override."""
+    from .sources import edgar
+
+    seed = load_seed()
+    cap = int(seed.get("per_market_cap", 1000))
+    min_assets = float(seed.get("min_assets_usd", 1e8))
+
+    filers = _foreign_filer_ciks()
+    print(f"== universescan discover-foreign ==\n   {len(filers):,} 20-F/40-F filer CIKs")
+
+    # INCLUSION is decided by "files 20-F/40-F and has a US-listed ticker" — the
+    # investable ADR set. Frames-based sizing turned out to be SPARSE for IFRS
+    # filers (runs 1-2 kept only the USD/us-gaap cohort), so size is best-effort:
+    # it ORDERS candidates within a market and excludes only companies that are
+    # affirmatively sized BELOW the floor; unsized companies are kept.
+    assets: dict[int, list[float]] = {}
+    for tax in ("us-gaap", "ifrs-full"):
+        for ccy, fx in _FX_USD.items():
+            for frame in _recent_frames()[:5]:
+                for r in _fetch_frame(tax, "Assets", ccy, frame):
+                    cik, val = int(r.get("cik", 0)), r.get("val")
+                    if cik in filers and isinstance(val, (int, float)) and val > 0:
+                        assets.setdefault(cik, []).append(float(val) * fx)
+    import statistics
+    sized = {cik: statistics.median(v) for cik, v in assets.items()}
+    print(f"   sizing available for {len(sized):,} (best-effort, ordering only)")
+
+    tickers = edgar._tickers()
+    by_cik_ticker: dict[int, str] = {}
+    for tk, info in tickers.items():
+        c = info["cik"]
+        if c not in by_cik_ticker or len(tk) < len(by_cik_ticker[c]):
+            by_cik_ticker[c] = tk
+
+    curated = {s["ticker"].upper() for s in seed.get("stocks_foreign", [])}
+    candidates = [c for c in filers if c in by_cik_ticker
+                  and by_cik_ticker[c] not in curated
+                  and sized.get(c, min_assets) >= min_assets]
+    candidates.sort(key=lambda c: sized.get(c, 0.0), reverse=True)
+    print(f"   {len(candidates):,} ticker-mapped candidates to classify")
+
+    per_market: dict[str, list[dict]] = {}
+    n_classified = 0
+    for cik in candidates:
+        try:
+            market = _classify_country(cik)
+        except Exception:
+            market = None
+        n_classified += 1
+        time.sleep(0.12)  # SEC fair-use
+        if not market or len(per_market.setdefault(market, [])) >= cap:
+            continue
+        per_market[market].append({"ticker": by_cik_ticker[cik], "country": market})
+    out = [s for stocks in per_market.values() for s in stocks]
+    print(f"   classified {n_classified:,} -> {len(out):,} stocks across "
+          f"{len(per_market)} markets:")
+    for m in sorted(per_market, key=lambda m: -len(per_market[m])):
+        print(f"     {m:<22} {len(per_market[m]):>4}")
+    if write:
+        seed["stocks_foreign_auto"] = out
         SEED_PATH.write_text(json.dumps(seed, indent=2) + "\n")
         print(f"   wrote {SEED_PATH}")
     return out
@@ -250,11 +398,16 @@ if __name__ == "__main__":
     e = sub.add_parser("expand-us", help="rank US filers by public float -> stocks_us")
     e.add_argument("--n", type=int, default=None, help="override us_target")
     e.add_argument("--dry-run", action="store_true", help="don't write the seed file")
+    d = sub.add_parser("discover-foreign",
+                       help="discover all 20-F/40-F filers -> stocks_foreign_auto")
+    d.add_argument("--dry-run", action="store_true", help="don't write the seed file")
     sub.add_parser("validate", help="ingest the validation batch + coverage report")
     sub.add_parser("coverage", help="per-market coverage report")
     a = p.parse_args()
     if a.cmd == "expand-us":
         expand_us(n=a.n, write=not a.dry_run)
+    elif a.cmd == "discover-foreign":
+        discover_foreign(write=not a.dry_run)
     elif a.cmd == "validate":
         validate()
     elif a.cmd == "coverage":

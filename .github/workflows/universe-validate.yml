@@ -1,4 +1,4 @@
-# re-run 6: 9-frame float window (June-FYE floats are ~6 quarters stale) + canaries
+# re-run 7: multi-currency foreign discovery (USD-only frames dropped ~90% of FPIs)
 name: Universe expansion validate (ADR-011)
 
 # One-shot, deliberate: (1) generate stocks_us — top-N US filers ranked by
@@ -42,6 +42,8 @@ jobs:
             tierb-v1-
       - name: Generate stocks_us (top-N by public float)
         run: python -m engine.universescan expand-us
+      - name: Discover foreign filers (20-F/40-F, multi-currency assets)
+        run: python -m engine.universescan discover-foreign
       - name: Commit the generated US universe to this branch
         run: |
           git config user.name "github-actions[bot]"

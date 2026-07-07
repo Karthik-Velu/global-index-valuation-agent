@@ -1,0 +1,70 @@
+name: Universe backfill (post-cutover)
+
+# Resumes the full-universe backfill that the cutover run lost to a runner
+# shutdown (ingestion is PK-deduped and idempotent — a re-run only fills the
+# gaps). Regenerates the universe first so the fixed foreign discovery
+# (inclusion by 20-F/40-F + ticker, sizing as ordering only) takes effect.
+# Trigger: push to THIS FILE on the feature branch.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/universe-backfill.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-backfill-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Regenerate universe (US top-2500 + foreign discovery)
+        run: |
+          python -m engine.universescan expand-us
+          python -m engine.universescan discover-foreign
+      - name: Commit the regenerated universe
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add engine/sources/universe_stocks.json
+          if git diff --staged --quiet; then echo "No universe changes."; else
+            git commit -m "data(universe): full foreign discovery (inclusion by filer+ticker) [skip ci]"; git push; fi
+      - name: Full backfill ingest (multi-hour, idempotent)
+        run: python -m engine.datapipeline --full
+      - name: Coverage report
+        if: always()
+        run: python -m engine.universescan coverage
+      - name: Compact + bundle the scaled store
+        if: always()
+        run: |
+          python -m engine.tierbsync compact
+          python -m engine.tierbsync bundle
+      - name: Upload scaled store + reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store-scaled
+          path: |
+            data/tierb-store.tar.gz
+            data/quality_report.json
+            data/datapipeline_report.json
+            engine/sources/universe_stocks.json
+          if-no-files-found: ignore
+          retention-days: 90

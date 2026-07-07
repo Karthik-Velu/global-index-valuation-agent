@@ -116,6 +116,30 @@ UNIVERSE: list[Index] = [
     _ix("sec_biotech", "Biotech", "XBI", "United States", "North America", "Developed", "Sector"),
     _ix("sec_banks", "US Regional Banks", "KBE", "United States", "North America", "Developed", "Sector"),
     _ix("sec_goldminers", "Gold Miners", "GDX", "Global", "Global", "Developed", "Sector"),
+    # -- Global sectors (iShares Global — the investable cross-border signal) --
+    _ix("gsec_tech", "Global Technology", "IXN", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_health", "Global Health Care", "IXJ", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_energy", "Global Energy", "IXC", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_fin", "Global Financials", "IXG", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_staples", "Global Consumer Staples", "KXI", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_discr", "Global Consumer Discretionary", "RXI", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_mat", "Global Materials", "MXI", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_indu", "Global Industrials", "EXI", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_util", "Global Utilities", "JXI", "Global", "Global", "Global", "Sector"),
+    _ix("gsec_comm", "Global Communication", "IXP", "Global", "Global", "Global", "Sector"),
+    # -- US industries (liquid, investable slices below the GICS sectors) --
+    _ix("ind_software", "US Software", "IGV", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_regbanks", "US Regional Banks (KRE)", "KRE", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_homebuild", "US Homebuilders", "ITB", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_oilexp", "US Oil & Gas E&P", "XOP", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_oilsvc", "Oil Services", "OIH", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_retail", "US Retail", "XRT", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_insurance", "US Insurance", "KIE", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_airlines", "Airlines", "JETS", "Global", "Global", "Developed", "Sector"),
+    _ix("ind_solar", "Solar", "TAN", "Global", "Global", "Global", "Sector"),
+    _ix("ind_defense", "US Aerospace & Defense", "ITA", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_transport", "US Transports", "IYT", "United States", "North America", "Developed", "Sector"),
+    _ix("ind_metals", "US Metals & Mining", "XME", "United States", "North America", "Developed", "Sector"),
 
     # ===================== STYLES / FACTORS =====================
     _ix("sty_value", "US Value", "IVE", "United States", "North America", "Developed", "Style"),
@@ -124,6 +148,16 @@ UNIVERSE: list[Index] = [
     _ix("sty_momentum", "US Momentum", "MTUM", "United States", "North America", "Developed", "Style"),
     _ix("sty_quality", "US Quality", "QUAL", "United States", "North America", "Developed", "Style"),
     _ix("sty_minvol", "US Min Volatility", "USMV", "United States", "North America", "Developed", "Style"),
+    _ix("sty_valuefactor", "US Value Factor", "VLUE", "United States", "North America", "Developed", "Style"),
+    _ix("sty_divquality", "US Dividend Quality", "SCHD", "United States", "North America", "Developed", "Style"),
+    _ix("sty_divgrowth", "US Dividend Growth", "VIG", "United States", "North America", "Developed", "Style"),
+    _ix("sty_fcfyield", "US Free-Cash-Flow Yield", "COWZ", "United States", "North America", "Developed", "Style"),
+    _ix("sty_moat", "US Wide Moat", "MOAT", "United States", "North America", "Developed", "Style"),
+    _ix("sty_intl_value", "Intl Developed Value", "EFV", "Global", "Global", "Developed", "Style"),
+    _ix("sty_intl_growth", "Intl Developed Growth", "EFG", "Global", "Global", "Developed", "Style"),
+    _ix("sty_intl_quality", "Intl Quality", "IQLT", "Global", "Global", "Developed", "Style"),
+    _ix("sty_intl_highdiv", "Intl High Dividend", "IDV", "Global", "Global", "Developed", "Style"),
+    _ix("sty_em_highdiv", "EM High Dividend", "DEM", "Global", "Global", "Emerging", "Style"),
 
     # ===================== REGIONS =====================
     _ix("reg_eurozone", "Eurozone (EMU)", "EZU", "Regional", "Europe", "Developed", "Region"),
@@ -134,6 +168,10 @@ UNIVERSE: list[Index] = [
     _ix("reg_latam", "Latin America", "ILF", "Regional", "Latin America", "Emerging", "Region"),
     _ix("reg_africa", "Africa", "AFK", "Regional", "Africa/MEA", "Frontier", "Region"),
     _ix("reg_gcc", "Gulf / Middle East", "GULF", "Regional", "Africa/MEA", "Emerging", "Region"),
+    _ix("reg_asia50", "Asia 50 (mega caps)", "AIA", "Regional", "Asia-Pacific", "Emerging", "Region"),
+    _ix("reg_em_small", "EM Small Cap", "EEMS", "Regional", "Global", "Emerging", "Region"),
+    _ix("reg_europe_small", "Europe Small Cap", "IEUS", "Regional", "Europe", "Developed", "Region"),
+    _ix("reg_eafe_small", "Developed ex-US Small Cap", "SCZ", "Regional", "Global", "Developed", "Region"),
 
     # ===================== BROAD BENCHMARKS =====================
     _ix("broad_world", "World (ACWI)", "ACWI", "Global", "Global", "Global", "Broad"),
@@ -142,6 +180,9 @@ UNIVERSE: list[Index] = [
     _ix("broad_em", "Emerging Markets", "IEMG", "Global", "Global", "Emerging", "Broad"),
     _ix("broad_em_vwo", "Emerging Markets (FTSE)", "VWO", "Global", "Global", "Emerging", "Broad"),
     _ix("broad_frontier", "Frontier Markets", "FM", "Global", "Global", "Frontier", "Broad"),
+    _ix("broad_total_world", "Total World (VT)", "VT", "Global", "Global", "Global", "Broad"),
+    _ix("broad_acwi_exus", "World ex-US (ACWX)", "ACWX", "Global", "Global", "Global", "Broad"),
+    _ix("broad_msci_world", "MSCI World (developed)", "URTH", "Global", "Global", "Developed", "Broad"),
 ]
 
 BY_KEY = {ix.key: ix for ix in UNIVERSE}

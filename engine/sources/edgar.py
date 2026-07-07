@@ -81,13 +81,28 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     country_by_ticker = country_by_ticker or {}
     stats = {"securities": 0, "metrics": 0, "filings": 0, "missing": [], "errors": []}
 
-    # Dual-write to Tier B (Parquet/DuckDB) once the store exists — same rows, same
+    # Tier B (Parquet/DuckDB) writes, once the store exists — same rows, same
     # ON-CONFLICT-DO-NOTHING semantics (append_metrics anti-joins on the PK), so the
-    # daily full companyfacts re-feed only lands genuinely new vintages. Postgres
-    # stays the system of record until the explicit cutover; the writer captures
-    # Tier B trouble (surfaced in stats), never letting it break ingestion.
+    # daily full companyfacts re-feed only lands genuinely new vintages. The writer
+    # captures Tier B trouble (surfaced in stats), never letting it break ingestion.
+    #
+    # The CUTOVER is data-detected, not code-flagged: while Postgres still holds
+    # fundamental_metrics rows we DUAL-write (transition); once the table has been
+    # truncated (`engine.tierbsync cutover`), metric rows go to Tier B ONLY and
+    # Postgres keeps just the small relational state (ADR-015). securities and
+    # filings stay in Postgres either way.
     from .. import tierb
     writer = tierb.MetricWriter() if tierb.enabled() else None
+    pg_metrics = True
+    if writer is not None:
+        try:
+            with db.connect() as conn, conn.cursor() as cur:
+                cur.execute("select exists (select 1 from fundamental_metrics)")
+                pg_metrics = cur.fetchone()[0]
+        except Exception:
+            pg_metrics = True
+        if not pg_metrics:
+            stats["tierb_only"] = True
 
     for tk in tickers:
         cik = cik_for(tk)
@@ -143,7 +158,7 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
                         if accn and accn not in filing_rows:
                             filing_rows[accn] = (sec_id, form, end, fp, filed, accn, audited)
 
-                    if metric_rows:
+                    if metric_rows and pg_metrics:
                         cur.executemany(
                             """insert into fundamental_metrics
                                (security_id,period_end,fiscal_period,metric_code,value,unit,

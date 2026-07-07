@@ -5,14 +5,16 @@ name: Data pipeline (job)
 # ingestion (not as separate crons). Needs repo secret DATABASE_URL; SEC_USER_AGENT
 # recommended. LLM "agents" are separate and infrequent (see docs/AGENTS.md).
 
-# Ingestion is INCREMENTAL on weekdays/Saturday (only companies that filed in the
-# last few days, via EDGAR's daily index — keeps runtime flat as the universe
-# grows) with a full re-feed sweep on Sundays (PK-dedup makes it a cheap no-op
-# for unchanged data; it is the safety net for anything the index missed).
+# Ingestion is INCREMENTAL daily (only companies that filed in the last few
+# days, via EDGAR's daily index — keeps runtime flat as the universe grows)
+# with a full re-feed sweep on the FIRST Sunday of each month (PK-dedup makes
+# it a cheap no-op for unchanged data; it is the safety net for anything the
+# daily index missed). At 3,000+ companies a full sweep is multi-hour, so
+# monthly keeps the Actions budget sane.
 on:
   schedule:
     - cron: "0 6 * * 1-6"   # Mon-Sat 06:00 UTC — incremental
-    - cron: "0 4 * * 0"     # Sunday 04:00 UTC — full sweep
+    - cron: "0 4 * * 0"     # Sundays 04:00 UTC — full sweep on the 1st Sunday only
   workflow_dispatch:
     inputs:
       full:
@@ -47,8 +49,24 @@ jobs:
           key: tierb-v1-${{ github.run_id }}
           restore-keys: |
             tierb-v1-
+      - name: Refresh universe (monthly full sweep only)
+        run: |
+          if { [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; } || [ "${{ inputs.full }}" = "true" ]; then
+            python -m engine.universescan expand-us
+            python -m engine.universescan discover-foreign
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add engine/sources/universe_stocks.json
+            git diff --staged --quiet || { git commit -m "data(universe): monthly refresh (universescan) [skip ci]"; git push; }
+          else
+            echo "incremental day — universe refresh skipped"
+          fi
       - name: Run data pipeline (with agents; they no-op gracefully if no key)
-        run: python -m engine.datapipeline --agents ${{ (github.event.schedule == '0 4 * * 0' || inputs.full == true) && '--full' || '' }}
+        run: |
+          FULL=""
+          if [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; then FULL="--full"; fi
+          if [ "${{ inputs.full }}" = "true" ]; then FULL="--full"; fi
+          python -m engine.datapipeline --agents $FULL
       - name: Commit catalog self-corrections if any
         run: |
           git config user.name "github-actions[bot]"

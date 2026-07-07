@@ -1,0 +1,87 @@
+name: Tier B cutover + universe backfill (ADR-015)
+
+# THE one-shot switch, explicitly user-approved 2026-07-06 ("immediate cutover"):
+#   1. verify Tier B against Postgres one final time (job fails if any gate fails)
+#   2. bundle the verified store as the rollback archive (uploaded below)
+#   3. TRUNCATE fundamental_metrics — ingestion self-detects the empty table and
+#      writes metrics to Tier B only; the ADR-014 expansion gate opens
+#   4. regenerate the universe: US top-2500 by public float + auto-discovery of
+#      ALL 20-F/40-F foreign filers (assets-ranked, per-market caps)
+#   5. full backfill ingest of the whole universe (multi-hour), then quality +
+#      per-market coverage, compact, and a fresh bundle
+#
+# Trigger: push to THIS FILE on the feature branch (the session's GitHub
+# integration lacks actions:write for API dispatch).
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/tierb-cutover.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  cutover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-cutover-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate store if cache missed (pre-truncate this still works)
+        run: python -m engine.tierbsync pull
+      - name: CUTOVER — verify, archive, truncate (destructive, user-approved)
+        run: python -m engine.tierbsync cutover
+      - name: Upload rollback archive (pre-backfill store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store-pre-cutover
+          path: data/tierb-store.tar.gz
+          retention-days: 90
+      - name: Regenerate US universe (top-2500 by public float)
+        run: python -m engine.universescan expand-us
+      - name: Discover all foreign filers (20-F/40-F, assets-ranked)
+        run: python -m engine.universescan discover-foreign
+      - name: Commit the regenerated universe to this branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add engine/sources/universe_stocks.json
+          if git diff --staged --quiet; then echo "No universe changes."; else
+            git commit -m "data(universe): US top-2500 + auto-discovered foreign filers [skip ci]"; git push; fi
+      - name: Full backfill ingest (whole universe — multi-hour)
+        run: python -m engine.datapipeline --full
+      - name: Coverage report
+        if: always()
+        run: python -m engine.universescan coverage
+      - name: Compact + bundle the scaled store
+        if: always()
+        run: |
+          python -m engine.tierbsync compact
+          python -m engine.tierbsync bundle
+      - name: Upload scaled store + reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store-scaled
+          path: |
+            data/tierb-store.tar.gz
+            data/quality_report.json
+            data/datapipeline_report.json
+            engine/sources/universe_stocks.json
+          if-no-files-found: ignore
+          retention-days: 90
