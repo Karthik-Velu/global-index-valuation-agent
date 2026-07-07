@@ -1,0 +1,71 @@
+name: Tier B re-truncate (repair the 2026-07-07 Postgres refill)
+
+# One-shot REPAIR of the already-approved cutover (ADR-015): the post-cutover
+# backfill accidentally REFILLED Postgres fundamental_metrics to ~3.5M rows —
+# a CI cache miss dropped the Tier B store mid-sequence, so one run wrote
+# metrics to Postgres and the next saw a non-empty table and resumed the
+# pre-cutover dual-write path. Tier B (3,527,837 rows) is a verified superset
+# of the refill, so the repair is:
+#   1. restore the newest store from the Actions cache (pull if it missed)
+#   2. `tierbsync cutover` — its SUPERSET gate proves every Postgres row exists
+#      in Tier B, bundles the store, then re-truncates fundamental_metrics
+#   3. publish the bundle as a GitHub RELEASE asset — a durable hydration
+#      source for `tierbsync pull` that survives cache eviction (the root
+#      cause), until the store moves to R2
+# Code fixes shipping with this: edgar aborts loudly when the store is missing
+# and Postgres is empty (no more silent refill), and cutover's gate is now
+# superset (not equality) so partial-run leftovers can't block a repair.
+# Trigger: MANUAL ONLY (workflow_dispatch). Truncating the refilled table is a
+# destructive data operation, and the standing convention (CLAUDE.md) requires
+# an explicit per-operation go-ahead — merging this file is NOT that approval.
+# Fire it from the Actions tab once approved (the superset gate still guards
+# the run itself).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  retruncate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (newest cache wins)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-retruncate-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      # If the cache missed, pull re-exports from the refilled Postgres — that
+      # subset still satisfies the superset gate; the few tierb-only rows from
+      # partial runs re-ingest on the next monthly sweep (PK-deduped).
+      - name: Hydrate if the cache missed
+        run: python -m engine.tierbsync pull
+      - name: Re-truncate (superset-gated cutover — refuses if any Postgres row is missing from Tier B)
+        run: python -m engine.tierbsync cutover
+      - name: Publish bundle as release asset (durable post-cutover hydration)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view tierb-store >/dev/null 2>&1 || \
+            gh release create tierb-store --latest --title "Tier B store bundle" \
+              --notes "Rolling Parquet bundle of the Tier B metric store, refreshed by CI (monthly full sweep). Used by \`engine.tierbsync pull\` to hydrate fresh environments post-cutover."
+          gh release upload tierb-store data/tierb-store.tar.gz --clobber
+      - name: Upload bundle artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store-retruncate
+          path: data/tierb-store.tar.gz
+          if-no-files-found: ignore
+          retention-days: 90

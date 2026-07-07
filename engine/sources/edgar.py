@@ -98,15 +98,22 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     from .. import tierb
     writer = tierb.MetricWriter() if tierb.enabled() else None
     pg_metrics = True
-    if writer is not None:
-        try:
-            with db.connect() as conn, conn.cursor() as cur:
-                cur.execute("select exists (select 1 from fundamental_metrics)")
-                pg_metrics = cur.fetchone()[0]
-        except Exception:
-            pg_metrics = True
-        if not pg_metrics:
-            stats["tierb_only"] = True
+    try:
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute("select exists (select 1 from fundamental_metrics)")
+            pg_metrics = cur.fetchone()[0]
+    except Exception:
+        pg_metrics = True
+    if writer is None and not pg_metrics:
+        # Post-cutover (empty Postgres table) with NO Tier B store: writing
+        # would silently re-inflate Postgres — exactly what refilled the DB to
+        # 3.5M rows on 2026-07-07 when a CI cache miss dropped the store.
+        # Refuse loudly; hydrate first.
+        raise RuntimeError(
+            "Tier B store missing and fundamental_metrics is empty (post-cutover) "
+            "— run `python -m engine.tierbsync pull` before ingesting.")
+    if writer is not None and not pg_metrics:
+        stats["tierb_only"] = True
 
     for i, tk in enumerate(tickers, 1):
         if i % 250 == 0:

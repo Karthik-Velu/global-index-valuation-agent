@@ -32,6 +32,10 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   archive → truncate; Tier-B-only ingestion self-detected; universe regenerated to
   **2,983 companies / 26+ markets** (US 2,500 + foreign 483); index universe 132
   ETF proxies; monthly full sweep + universe refresh; daily health check trigger.
+- ✅ **Post-cutover durability** — store bundle published as a GitHub release asset
+  (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
+  store is missing post-cutover (the 2026-07-07 refill incident can't recur).
+  R2 remains the eventual home.
 - ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
   publish only derived metrics (P/E, returns)
 - ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)

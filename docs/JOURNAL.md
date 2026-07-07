@@ -8,6 +8,31 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-07 (later) — the refill incident: Postgres grew back to 3.5M rows
+
+The post-cutover backfill quietly REFILLED `fundamental_metrics` (~900 MB, over the
+Supabase cap). Chain: a CI cache miss dropped the Tier B store → `tierb.enabled()`
+false → ingestion had no writer, and the "is Postgres empty?" check defaulted to
+dual-write → ~444k rows landed in the truncated table → the NEXT run saw a
+non-empty table, concluded "pre-cutover", and dual-wrote all 3.07M. Tier B itself
+was fine (3,527,837 rows — a verified superset of the refill).
+
+**Fixes** (all tested against scratch PG):
+- `edgar.ingest_tickers` now ABORTS loudly when the store is missing AND Postgres
+  is empty — the post-cutover cache-miss case must hydrate (`tierbsync pull`),
+  never silently re-inflate Postgres.
+- `tierbsync cutover` gate is now **superset** (every PG row ∈ Tier B), not full
+  equality — Tier B legitimately holds more after partial runs, and equality
+  would have blocked the repair.
+- `tierb-retruncate.yml` one-shot: restore newest store → superset-gated cutover
+  → publish the bundle as a **GitHub release asset** (`tierb-store` tag). The
+  daily pipeline refreshes that asset on the monthly sweep — `tierbsync pull`
+  now has a hydration source that survives cache eviction (the root cause).
+
+Lesson: a data-detected mode switch (empty table = post-cutover) needs BOTH sides
+guarded — the detector was fine, but the fallback when its co-input (the store)
+vanished re-created the old mode. Fail loudly when state inputs disappear.
+
 ## 2026-07-07 — cutover executed; universe 501 → 2,983; the OOM saga
 
 **Cutover (07:06 UTC):** all verify gates passed against production, store bundled
