@@ -190,6 +190,18 @@ def expand_us(n: int | None = None, write: bool = True) -> list[dict]:
     return out
 
 
+# Coarse USD conversion for the reporting currencies of the 30 target markets.
+# ONLY used to apply the min-assets floor and order across markets in discovery —
+# never for analytics (real FX arrives with the prices dataset). Being ~20% off
+# changes nothing: within a market everyone shares a currency.
+_FX_USD = {
+    "USD": 1.0, "EUR": 1.1, "GBP": 1.3, "CHF": 1.15, "SEK": 0.095, "DKK": 0.15,
+    "JPY": 0.0065, "CNY": 0.14, "HKD": 0.13, "TWD": 0.031, "KRW": 0.00072,
+    "INR": 0.012, "SGD": 0.75, "IDR": 0.000061, "THB": 0.028, "MYR": 0.21,
+    "CAD": 0.73, "AUD": 0.66, "BRL": 0.18, "MXN": 0.054, "ZAR": 0.055,
+    "ILS": 0.27, "SAR": 0.27, "AED": 0.27, "CLP": 0.0011, "ARS": 0.001,
+}
+
 # EDGAR country descriptions -> the market names used by engine/universe.py,
 # for the 30 target markets (ADR-014). Anything else stays index-only.
 _COUNTRY_MAP = {
@@ -266,13 +278,19 @@ def discover_foreign(write: bool = True) -> list[dict]:
     filers = _foreign_filer_ciks()
     print(f"== universescan discover-foreign ==\n   {len(filers):,} 20-F/40-F filer CIKs")
 
+    # Foreign filers report Assets in their LOCAL currency — a USD-only frame
+    # query silently dropped ~90% of them (run 1 found only the USD-reporting
+    # cohort). Query the major reporting currencies and convert with COARSE
+    # static rates: precision is irrelevant here — ranking happens WITHIN a
+    # market (same currency) and the rate only feeds the $100M floor.
     assets: dict[int, list[float]] = {}
     for tax in ("us-gaap", "ifrs-full"):
-        for frame in _recent_frames()[:5]:
-            for r in _fetch_frame(tax, "Assets", "USD", frame):
-                cik, val = int(r.get("cik", 0)), r.get("val")
-                if cik in filers and isinstance(val, (int, float)) and val > 0:
-                    assets.setdefault(cik, []).append(float(val))
+        for ccy, fx in _FX_USD.items():
+            for frame in _recent_frames()[:5]:
+                for r in _fetch_frame(tax, "Assets", ccy, frame):
+                    cik, val = int(r.get("cik", 0)), r.get("val")
+                    if cik in filers and isinstance(val, (int, float)) and val > 0:
+                        assets.setdefault(cik, []).append(float(val) * fx)
     import statistics
     sized = {cik: statistics.median(v) for cik, v in assets.items()}
     sized = {c: a for c, a in sized.items() if a >= min_assets}
