@@ -8,6 +8,30 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-07 — cutover executed; universe 501 → 2,983; the OOM saga
+
+**Cutover (07:06 UTC):** all verify gates passed against production, store bundled
+(90-day artifact), `fundamental_metrics` truncated. Postgres ~20 MB (ops/dashboard
+only); Tier B is the sole metric store. Ingestion self-detects via the empty table.
+
+**Universe:** US top-2,500 (public float, median-over-9-frames + size-proxy
+cross-check) + foreign discovery finalized at **inclusion = files 20-F/40-F + has a
+US ticker** (285 auto + 198 curated across 26+ markets: China 63, Israel 59, UK 49…).
+Two discovery iterations were needed: USD-only frames kept just the USD-reporting
+cohort (80), and even multi-currency frames proved SPARSE for IFRS filers — frames
+sizing is ordering-only now.
+
+**The OOM saga:** backfill runners died twice at ~40 min with "runner received a
+shutdown signal". Root cause: `edgar._facts_cache` retains every companyfacts JSON
+(1–10 MB each) — fine at 501 companies, OOM at ~700 of 3,300. Fix: `cache=False` in
+bulk ingest (the cache serves only the adapter's repeated samples) + progress lines.
+Lesson: module-level caches that survive a 500-item workload are still time bombs at
+6× scale; and "runner shutdown signal" in Actions is the OOM signature, not infra flake.
+
+**Still open:** transient quality collapse (0/100, no_fundamentals errors) until the
+backfill completes — securities rows persisted from killed runs while their metric
+rows died with the runner. Self-heals on the next successful sweep.
+
 ## 2026-07-06 (evening) — storage inversion + real scale (ADR-015)
 
 **User direction:** much more than 1,200 companies; Postgres only for dashboard-facing

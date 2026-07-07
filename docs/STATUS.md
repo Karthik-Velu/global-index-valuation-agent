@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-06.
+> Last updated: 2026-07-07.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -71,12 +71,24 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   index overhead). Conclusion: keep the ~15 MB relational state in Supabase free, move
   bulk time-series to Parquet/DuckDB.
 
-## Immediate next step: cutover + scale-up executing (2026-07-06, ADR-015)
-**User approved immediate cutover.** The `tierb-cutover.yml` one-shot workflow:
-verify gates → bundle archive → truncate `fundamental_metrics` (Postgres becomes the
-thin dashboard/ops layer) → regenerate universe (US top-2,500 + all discoverable
-20-F/40-F foreign filers, ≤1,000/market) → multi-hour full backfill → quality +
-per-market coverage. After it: **prices → stock-level valuation → backtest.**
+## Current state: CUTOVER DONE, universe scaled (2026-07-07, ADR-015)
+- **Cutover executed 2026-07-07 07:06 UTC** — all verify gates passed (1,469,371
+  rows), store bundled as the rollback artifact, `fundamental_metrics` truncated.
+  Tier B (Parquet/DuckDB) is the SOLE metric store; ingestion self-detects it
+  (`tierb_only` in ingest stats). Postgres = thin dashboard/ops layer (~20 MB).
+- **Universe: 2,983 companies across 26+ markets** — US top-2,500 by cross-checked
+  public float + 285 auto-discovered foreign (20-F/40-F + US ticker) + 198 curated.
+  Committed in `engine/sources/universe_stocks.json`; self-refreshes monthly.
+- **Index universe: 132 ETF proxies** (global sectors, US industries, factor styles).
+- **Automation:** daily incremental ingest 06:00 UTC (EDGAR daily index), monthly
+  full sweep + universe refresh (1st Sunday), daily health check 07:15 UTC.
+- Backfill note: two CI runners died mid-ingest before the `_facts_cache` OOM fix
+  (see JOURNAL 2026-07-07); ingestion is PK-deduped/idempotent, so re-runs resume.
+
+## Immediate next step
+**Prices** (license-clean EOD, e.g. Tiingo, into Tier B as `data/tierb/prices/`) →
+**stock-level valuation** across the 2,983 → **walk-forward backtest** on
+`tierb.metrics_asof()` → surface bottom-up in the dashboard.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
