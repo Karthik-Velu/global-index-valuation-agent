@@ -5,6 +5,7 @@ name: Universe backfill (post-cutover)
 # gaps). Regenerates the universe first so the fixed foreign discovery
 # (inclusion by 20-F/40-F + ticker, sizing as ordering only) takes effect.
 # Trigger: push to THIS FILE on the feature branch.
+# attempt 3: companyfacts cache disabled in bulk ingest (OOM at ~700 companies)
 
 on:
   workflow_dispatch: {}

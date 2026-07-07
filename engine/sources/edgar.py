@@ -47,14 +47,18 @@ def cik_for(ticker: str) -> int | None:
     return info["cik"] if info else None
 
 
-def _companyfacts(cik: int) -> dict | None:
+def _companyfacts(cik: int, cache: bool = True) -> dict | None:
+    """cache=False for bulk ingestion: caching every companyfacts JSON (1-10 MB
+    each) OOM-killed the CI runner ~700 companies into the 3,000-company
+    backfill. The cache serves the adapter's repeated small samples only."""
     if cik in _facts_cache:
         return _facts_cache[cik]
     r = requests.get(_FACTS_URL.format(cik=cik), headers=_HEADERS, timeout=30)
     if r.status_code != 200:
         return None
     data = r.json()
-    _facts_cache[cik] = data
+    if cache:
+        _facts_cache[cik] = data
     return data
 
 
@@ -104,13 +108,17 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
         if not pg_metrics:
             stats["tierb_only"] = True
 
-    for tk in tickers:
+    for i, tk in enumerate(tickers, 1):
+        if i % 250 == 0:
+            print(f"   ingest progress: {i}/{len(tickers)} companies", flush=True)
         cik = cik_for(tk)
         if not cik:
             stats["missing"].append(tk)
             continue
         try:
-            facts = _companyfacts(cik)  # slow network — done OUTSIDE any DB connection
+            # slow network — done OUTSIDE any DB connection; cache=False keeps
+            # memory flat across thousands of companies
+            facts = _companyfacts(cik, cache=False)
         except Exception as e:
             stats["errors"].append(f"{tk}: {str(e)[:80]}")
             continue
