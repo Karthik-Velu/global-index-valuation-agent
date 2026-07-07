@@ -9,6 +9,36 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-015 · Storage inversion + universe scale: Tier B primary, thin Postgres
+- **Context:** User direction 2026-07-06: "much more than 1,200 companies", rethink
+  the design so Postgres holds only dashboard-facing state. At scale (23M+ metric
+  rows) Postgres could never follow anyway (~6 GB row-store vs ~150 MB Parquet).
+- **Choice 1 — immediate cutover (user-approved destructive step).** Verify → bundle
+  archive → truncate `fundamental_metrics`. Ingestion SELF-DETECTS the empty table
+  and writes metrics Tier-B-only from then on — no config flag; the truncate is the
+  switch. The ADR-014 expansion gate opens at the same moment.
+- **Choice 2 — Postgres stays, but thin (~20–50 MB):** securities registry, filings,
+  catalog/ledgers, quality issues, semantic memory (pgvector), user feedback (ACID +
+  future RLS). Everything ANALYTICAL — fundamentals, prices, backtest panels — lives
+  in Parquet/DuckDB. Rejected: dropping Postgres entirely (memory + feedback +
+  multi-user need a transactional DB; it's free at this size).
+- **Choice 3 — universe targets:** US top-2,500 by cross-checked public float;
+  foreign via `discover-foreign` — ALL 20-F/40-F filers (the exact FPI definition,
+  from EDGAR's form indexes), assets-ranked (us-gaap + ifrs-full instant frames),
+  business-address country classification (Cayman-inc Chinese cos land in China),
+  ≥$100M assets, capped 1,000/market. Availability is the real limiter: only
+  Canada/China/Israel reach hundreds via SEC filings; most markets yield 10–60
+  until native adapters (ESEF/EDINET/SEDAR) close the gaps. Non-target markets
+  stay index-only.
+- **Choice 4 — signal stays investable:** ETF proxies are the priority surface
+  (universe expanded 94 → 132: global sectors, US industries, factor styles,
+  regional). Constituent-built BASKETS come in Phase 2 only where no investable
+  ETF exists for a segment the rankings surface — they need prices first.
+- **Choice 5 — CI cadence:** daily incremental (~flat as universe grows); full
+  sweep monthly (first Sunday) instead of weekly — a 3,000+ company sweep is
+  multi-hour.
+- 2026-07-06
+
 ### ADR-014 · Global stock universe: committed seed, EDGAR-first, gated expansion
 - **Context:** Expand from 501 US large-caps to ~1,000 US + the top-10 markets of
   Europe, Asia, and the rest of the world. The old universe lived only in the DB

@@ -8,6 +8,31 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-06 (evening) — storage inversion + real scale (ADR-015)
+
+**User direction:** much more than 1,200 companies; Postgres only for dashboard-facing
+state; ETF proxies stay the priority signal (baskets later where no ETF exists).
+
+**Built**
+- **Immediate cutover (user-approved):** `tierbsync cutover` — verify gates must pass,
+  bundle archived, then `truncate fundamental_metrics`. Ingestion **self-detects** the
+  empty table and writes metrics Tier-B-only (the truncate IS the switch; no flag).
+- **`discover-foreign`** (universescan): all 20-F/40-F filers from EDGAR's form
+  indexes (the exact FPI definition), assets-ranked via us-gaap + ifrs-full instant
+  frames, business-address country classification (Cayman-inc → China solved),
+  ≥$100M assets, ≤1,000/market for the 30 target markets. Curated list becomes an
+  override. `us_target` → 2,500.
+- **Index universe 94 → 132:** global sectors (IXN/IXJ/…), US industries (IGV/KRE/
+  ITB/…), factor styles incl. international (VLUE/SCHD/COWZ/EFV/IQLT/…), regions.
+- **`tierb-cutover.yml`** one-shot: verify → archive → truncate → expand-us →
+  discover-foreign → full backfill (multi-hour) → coverage + quality → compact/bundle.
+- Full sweep cadence weekly → **monthly** (first Sunday); dailies stay incremental.
+
+**Learned**
+- The dual-write window and the scale-up are mutually exclusive: 23M rows ≈ 6 GB in
+  Postgres vs ~150 MB in Parquet — the cutover had to come first, and the 6 live
+  validation runs earlier today stood in for the proving window.
+
 ## 2026-07-06 (later) — global universe expansion built, gated on cutover
 
 **Built** (ADR-014)

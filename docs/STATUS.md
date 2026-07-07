@@ -71,7 +71,14 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   index overhead). Conclusion: keep the ~15 MB relational state in Supabase free, move
   bulk time-series to Parquet/DuckDB.
 
-## Immediate next step: merge PR #1, then watch the proving window (2026-07-06)
+## Immediate next step: cutover + scale-up executing (2026-07-06, ADR-015)
+**User approved immediate cutover.** The `tierb-cutover.yml` one-shot workflow:
+verify gates → bundle archive → truncate `fundamental_metrics` (Postgres becomes the
+thin dashboard/ops layer) → regenerate universe (US top-2,500 + all discoverable
+20-F/40-F foreign filers, ≤1,000/market) → multi-hour full backfill → quality +
+per-market coverage. After it: **prices → stock-level valuation → backtest.**
+
+## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
 full export of **1,469,371 rows**, and all verify gates green — exact row count,
 bidirectional set equality, AAPL's 240 net_income vintage rows identical, and

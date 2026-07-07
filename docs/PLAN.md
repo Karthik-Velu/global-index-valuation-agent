@@ -28,10 +28,11 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   `engine/tierbsync.py` (export/verify/compact/bundle/pull); ingestion dual-writes,
   quality/validate/recalibration read DuckDB once the store exists; CI caches the store
   (ADR-013). `filings` stays in Postgres; only `fundamental_metrics` moves.
-- 🔜 **Tier B activation** — ✅ Gate A PASSED in CI 2026-07-06 (1,469,371 rows exported,
-  all verify gates green, store = 6.6 MB zstd Parquet vs 368 MB in Postgres; cache +
-  artifact seeded). Remaining: merge PR #1 → ~1-week dual-write window (Gates B/C) →
-  cut over (EDGAR Tier-B-only + truncate `fundamental_metrics`)  *(next task)*
+- 🔜 **Tier B CUTOVER + scale-up (ADR-015)** — Gate A passed; user approved immediate
+  cutover 2026-07-06. One-shot CI workflow: verify → archive → truncate → regenerate
+  universe (US top-2,500 + auto-discovered 20-F/40-F foreign, ≤1,000/market) → full
+  backfill → coverage + quality. Ingestion self-detects the cutover (Tier-B-only
+  writes); full sweep cadence becomes monthly.  *(executing)*
 - ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
   publish only derived metrics (P/E, returns)
 - ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)
@@ -41,11 +42,13 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 
 ## Parallel tracks (don't block the critical path)  ⬜
-- 🔜 **Global universe expansion (ADR-014)** — committed seed built: ~1,000 US (by
-  public float, `universescan expand-us`) + 198 curated SEC-filer stocks across the
-  top-10 markets of Europe/Asia/rest-of-world; IFRS core concepts mapped; incremental
-  daily ingestion (EDGAR daily index) + Sunday full sweep. **30-company validation
-  batch ingests now; the rest auto-joins after the Tier B cutover** (Supabase cap).
+- ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
+  US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F
+  filers, assets-ranked, country-classified, ≤1,000/market) + 198 curated overrides;
+  IFRS core concepts mapped; incremental daily ingestion + monthly full sweep.
+- ⬜ **Constituent baskets (Phase 2)** — where the rankings surface a segment with
+  no investable ETF, build a small basket from the underlying stocks (needs prices;
+  ETF proxies stay the primary, actionable signal).
 - ⬜ **IFRS follow-ups from the validation batch** — (a) NVS + TLK resolve net_income
   but not revenue: map their IFRS revenue-concept variants; (b) multi-currency 20-F
   facts (e.g. IDR + USD units) share a PK row — prefer reporting currency or add unit

@@ -270,6 +270,33 @@ def _extract_bundle(archive: Path) -> None:
             shutil.move(str(item), str(dest))
 
 
+def cutover() -> dict:
+    """THE destructive switch (ADR-013/015, explicitly user-approved 2026-07-06):
+    verify Tier B against Postgres one final time, bundle the store as the
+    archive, then TRUNCATE fundamental_metrics — from that moment ingestion
+    self-detects the empty table and writes metric rows to Tier B only, and the
+    universe expansion gate (ADR-014) opens automatically. Refuses to run unless
+    every verify gate passes. Rollback: `python -m engine.tierbsync export` is
+    impossible post-truncate, so restore = COPY the verified Parquet back (or the
+    bundle artifact)."""
+    print("== Tier-B CUTOVER ==")
+    report = verify()
+    if not report["pass"]:
+        raise RuntimeError("verify gates FAILED — refusing to cut over")
+    bundle()
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute("select pg_size_pretty(pg_total_relation_size('fundamental_metrics'))")
+        before = cur.fetchone()[0]
+        cur.execute("truncate fundamental_metrics")
+        conn.commit()
+        cur.execute("select pg_size_pretty(pg_database_size(current_database()))")
+        db_size = cur.fetchone()[0]
+    n = tierb.counts()["fundamental_metrics"]
+    print(f"   truncated fundamental_metrics (was {before}); database now {db_size}")
+    print(f"   Tier B is the sole metric store: {n:,} rows")
+    return {"truncated": before, "database_size": db_size, "tierb_rows": n}
+
+
 def pull() -> dict:
     """Hydrate a fresh environment, best source first: already-present store ->
     Postgres re-export (pre-cutover) -> GitHub release asset. (R2 becomes the top
@@ -316,6 +343,7 @@ if __name__ == "__main__":
     sub.add_parser("compact", help="fold delta files into base")
     sub.add_parser("bundle", help="tar the store for artifact/release upload")
     sub.add_parser("pull", help="hydrate a fresh environment")
+    sub.add_parser("cutover", help="verify, archive, then TRUNCATE Postgres metrics (destructive)")
     a = p.parse_args()
     if a.cmd == "export":
         export(incremental=a.incremental)
@@ -330,3 +358,5 @@ if __name__ == "__main__":
         bundle()
     elif a.cmd == "pull":
         pull()
+    elif a.cmd == "cutover":
+        cutover()
