@@ -278,11 +278,11 @@ def discover_foreign(write: bool = True) -> list[dict]:
     filers = _foreign_filer_ciks()
     print(f"== universescan discover-foreign ==\n   {len(filers):,} 20-F/40-F filer CIKs")
 
-    # Foreign filers report Assets in their LOCAL currency — a USD-only frame
-    # query silently dropped ~90% of them (run 1 found only the USD-reporting
-    # cohort). Query the major reporting currencies and convert with COARSE
-    # static rates: precision is irrelevant here — ranking happens WITHIN a
-    # market (same currency) and the rate only feeds the $100M floor.
+    # INCLUSION is decided by "files 20-F/40-F and has a US-listed ticker" — the
+    # investable ADR set. Frames-based sizing turned out to be SPARSE for IFRS
+    # filers (runs 1-2 kept only the USD/us-gaap cohort), so size is best-effort:
+    # it ORDERS candidates within a market and excludes only companies that are
+    # affirmatively sized BELOW the floor; unsized companies are kept.
     assets: dict[int, list[float]] = {}
     for tax in ("us-gaap", "ifrs-full"):
         for ccy, fx in _FX_USD.items():
@@ -293,8 +293,7 @@ def discover_foreign(write: bool = True) -> list[dict]:
                         assets.setdefault(cik, []).append(float(val) * fx)
     import statistics
     sized = {cik: statistics.median(v) for cik, v in assets.items()}
-    sized = {c: a for c, a in sized.items() if a >= min_assets}
-    print(f"   {len(sized):,} pass the ${min_assets / 1e6:.0f}M assets screen")
+    print(f"   sizing available for {len(sized):,} (best-effort, ordering only)")
 
     tickers = edgar._tickers()
     by_cik_ticker: dict[int, str] = {}
@@ -304,18 +303,24 @@ def discover_foreign(write: bool = True) -> list[dict]:
             by_cik_ticker[c] = tk
 
     curated = {s["ticker"].upper() for s in seed.get("stocks_foreign", [])}
+    candidates = [c for c in filers if c in by_cik_ticker
+                  and by_cik_ticker[c] not in curated
+                  and sized.get(c, min_assets) >= min_assets]
+    candidates.sort(key=lambda c: sized.get(c, 0.0), reverse=True)
+    print(f"   {len(candidates):,} ticker-mapped candidates to classify")
+
     per_market: dict[str, list[dict]] = {}
     n_classified = 0
-    for cik, a in sorted(sized.items(), key=lambda kv: kv[1], reverse=True):
-        tk = by_cik_ticker.get(cik)
-        if not tk or tk in curated:
-            continue
-        market = _classify_country(cik)
+    for cik in candidates:
+        try:
+            market = _classify_country(cik)
+        except Exception:
+            market = None
         n_classified += 1
         time.sleep(0.12)  # SEC fair-use
         if not market or len(per_market.setdefault(market, [])) >= cap:
             continue
-        per_market[market].append({"ticker": tk, "country": market})
+        per_market[market].append({"ticker": by_cik_ticker[cik], "country": market})
     out = [s for stocks in per_market.values() for s in stocks]
     print(f"   classified {n_classified:,} -> {len(out):,} stocks across "
           f"{len(per_market)} markets:")
