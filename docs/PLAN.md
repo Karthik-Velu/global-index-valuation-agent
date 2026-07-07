@@ -28,11 +28,14 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   `engine/tierbsync.py` (export/verify/compact/bundle/pull); ingestion dual-writes,
   quality/validate/recalibration read DuckDB once the store exists; CI caches the store
   (ADR-013). `filings` stays in Postgres; only `fundamental_metrics` moves.
-- 🔜 **Tier B CUTOVER + scale-up (ADR-015)** — Gate A passed; user approved immediate
-  cutover 2026-07-06. One-shot CI workflow: verify → archive → truncate → regenerate
-  universe (US top-2,500 + auto-discovered 20-F/40-F foreign, ≤1,000/market) → full
-  backfill → coverage + quality. Ingestion self-detects the cutover (Tier-B-only
-  writes); full sweep cadence becomes monthly.  *(executing)*
+- ✅ **Tier B CUTOVER + scale-up (ADR-015)** — executed 2026-07-07: verify gates →
+  archive → truncate; Tier-B-only ingestion self-detected; universe regenerated to
+  **2,983 companies / 26+ markets** (US 2,500 + foreign 483); index universe 132
+  ETF proxies; monthly full sweep + universe refresh; daily health check trigger.
+- ✅ **Post-cutover durability** — store bundle published as a GitHub release asset
+  (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
+  store is missing post-cutover (the 2026-07-07 refill incident can't recur).
+  R2 remains the eventual home.
 - ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
   publish only derived metrics (P/E, returns)
 - ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)

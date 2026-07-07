@@ -8,6 +8,55 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-07 (later) — the refill incident: Postgres grew back to 3.5M rows
+
+The post-cutover backfill quietly REFILLED `fundamental_metrics` (~900 MB, over the
+Supabase cap). Chain: a CI cache miss dropped the Tier B store → `tierb.enabled()`
+false → ingestion had no writer, and the "is Postgres empty?" check defaulted to
+dual-write → ~444k rows landed in the truncated table → the NEXT run saw a
+non-empty table, concluded "pre-cutover", and dual-wrote all 3.07M. Tier B itself
+was fine (3,527,837 rows — a verified superset of the refill).
+
+**Fixes** (all tested against scratch PG):
+- `edgar.ingest_tickers` now ABORTS loudly when the store is missing AND Postgres
+  is empty — the post-cutover cache-miss case must hydrate (`tierbsync pull`),
+  never silently re-inflate Postgres.
+- `tierbsync cutover` gate is now **superset** (every PG row ∈ Tier B), not full
+  equality — Tier B legitimately holds more after partial runs, and equality
+  would have blocked the repair.
+- `tierb-retruncate.yml` one-shot: restore newest store → superset-gated cutover
+  → publish the bundle as a **GitHub release asset** (`tierb-store` tag). The
+  daily pipeline refreshes that asset on the monthly sweep — `tierbsync pull`
+  now has a hydration source that survives cache eviction (the root cause).
+
+Lesson: a data-detected mode switch (empty table = post-cutover) needs BOTH sides
+guarded — the detector was fine, but the fallback when its co-input (the store)
+vanished re-created the old mode. Fail loudly when state inputs disappear.
+
+## 2026-07-07 — cutover executed; universe 501 → 2,983; the OOM saga
+
+**Cutover (07:06 UTC):** all verify gates passed against production, store bundled
+(90-day artifact), `fundamental_metrics` truncated. Postgres ~20 MB (ops/dashboard
+only); Tier B is the sole metric store. Ingestion self-detects via the empty table.
+
+**Universe:** US top-2,500 (public float, median-over-9-frames + size-proxy
+cross-check) + foreign discovery finalized at **inclusion = files 20-F/40-F + has a
+US ticker** (285 auto + 198 curated across 26+ markets: China 63, Israel 59, UK 49…).
+Two discovery iterations were needed: USD-only frames kept just the USD-reporting
+cohort (80), and even multi-currency frames proved SPARSE for IFRS filers — frames
+sizing is ordering-only now.
+
+**The OOM saga:** backfill runners died twice at ~40 min with "runner received a
+shutdown signal". Root cause: `edgar._facts_cache` retains every companyfacts JSON
+(1–10 MB each) — fine at 501 companies, OOM at ~700 of 3,300. Fix: `cache=False` in
+bulk ingest (the cache serves only the adapter's repeated samples) + progress lines.
+Lesson: module-level caches that survive a 500-item workload are still time bombs at
+6× scale; and "runner shutdown signal" in Actions is the OOM signature, not infra flake.
+
+**Still open:** transient quality collapse (0/100, no_fundamentals errors) until the
+backfill completes — securities rows persisted from killed runs while their metric
+rows died with the runner. Self-heals on the next successful sweep.
+
 ## 2026-07-06 (evening) — storage inversion + real scale (ADR-015)
 
 **User direction:** much more than 1,200 companies; Postgres only for dashboard-facing

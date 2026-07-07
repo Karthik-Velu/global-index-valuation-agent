@@ -280,9 +280,22 @@ def cutover() -> dict:
     impossible post-truncate, so restore = COPY the verified Parquet back (or the
     bundle artifact)."""
     print("== Tier-B CUTOVER ==")
-    report = verify()
-    if not report["pass"]:
-        raise RuntimeError("verify gates FAILED — refusing to cut over")
+    # The truncation-safety invariant is a SUPERSET check: every Postgres row
+    # must exist in Tier B. Tier B legitimately holds MORE after partial CI
+    # runs (their Postgres writes died with the runner), so full set-equality
+    # would wrongly block a re-truncate repair.
+    con = tierb.connect()
+    _stream_pg(con, f"select {FM_COLS} from fundamental_metrics")
+    only_pg = con.execute(f"""select count(*) from (
+        select {FM_DATA_COLS} from _pg
+        except select {FM_DATA_COLS} from fundamental_metrics)""").fetchone()[0]
+    pg_n = con.execute("select count(*) from _pg").fetchone()[0]
+    tb_n = con.execute("select count(*) from fundamental_metrics").fetchone()[0]
+    print(f"   superset gate: postgres {pg_n:,} rows, tierb {tb_n:,}, "
+          f"missing from tierb: {only_pg}")
+    if only_pg:
+        raise RuntimeError(f"{only_pg} Postgres rows are MISSING from Tier B — "
+                           "refusing to truncate; run export --incremental first")
     bundle()
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select pg_size_pretty(pg_total_relation_size('fundamental_metrics'))")
