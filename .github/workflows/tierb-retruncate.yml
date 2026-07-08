@@ -15,6 +15,9 @@ name: Tier B re-truncate (repair the 2026-07-07 Postgres refill)
 # Code fixes shipping with this: edgar aborts loudly when the store is missing
 # and Postgres is empty (no more silent refill), and cutover's gate is now
 # superset (not equality) so partial-run leftovers can't block a repair.
+# Run 3 hung to the job timeout on a dead pooler socket mid-stream (no TCP
+# keepalives) — db.connect now sets keepalives so a dropped peer raises in
+# ~2 min and the retry proceeds instead of hanging.
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch). Truncating the refilled
 # table is a destructive data operation; the user gave the explicit go-ahead
