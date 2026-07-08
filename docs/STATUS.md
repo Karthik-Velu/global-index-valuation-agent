@@ -84,12 +84,14 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   full sweep + universe refresh (1st Sunday), daily health check 07:15 UTC.
 - Backfill note: two CI runners died mid-ingest before the `_facts_cache` OOM fix
   (see JOURNAL 2026-07-07); ingestion is PK-deduped/idempotent, so re-runs resume.
-- **Refill incident (repaired):** a cache miss during the backfill silently refilled
-  Postgres to 3.5M rows; fixed with a loud abort in ingestion (missing store + empty
-  PG), a superset-gated re-truncate, and a **release-asset bundle** (`tierb-store`
-  tag, refreshed monthly) as the durable hydration source for `tierbsync pull`.
-  Backfill result: **Tier B = 3,527,837 rows / 20.1 MB** across 2,9xx companies;
-  quality 93/100 (known follow-ups in PLAN.md).
+- **Refill incident (REPAIRED 2026-07-08):** a cache miss during the backfill silently
+  refilled Postgres to 3.5M rows (909 MB); re-truncated after a PK-level superset gate
+  (4,691 same-PK variants archived in the bundle — June point-in-time capture kept).
+  Fixes shipped: loud abort in ingestion (missing store + empty PG), variant-aware
+  cutover gate, TCP keepalives on all PG connections, and the **`tierb-store` release
+  asset** (refreshed monthly) as the durable hydration source for `tierbsync pull`.
+  End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
+  ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
 ## Immediate next step
 **Prices** (license-clean EOD, e.g. Tiingo, into Tier B as `data/tierb/prices/`) →

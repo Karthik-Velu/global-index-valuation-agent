@@ -33,6 +33,16 @@ def connect():
     kwargs = {}
     if "sslmode=" not in url:
         kwargs["sslmode"] = "require"
+    # TCP keepalives: when the pooler silently drops the server side mid-stream,
+    # a keepalive-less client blocks FOREVER on the dead socket (a 3.5M-row
+    # tierbsync stream hung a CI job to its 60-min timeout on 2026-07-07).
+    # With these, the dead peer is detected in ~2 min and the call raises —
+    # loud failure + retry beats a silent hang.
+    kwargs.setdefault("connect_timeout", 30)
+    kwargs.setdefault("keepalives", 1)
+    kwargs.setdefault("keepalives_idle", 30)
+    kwargs.setdefault("keepalives_interval", 15)
+    kwargs.setdefault("keepalives_count", 6)
     return psycopg.connect(url, **kwargs)
 
 
