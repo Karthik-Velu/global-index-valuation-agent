@@ -1,0 +1,71 @@
+name: Price ingestion — validation batch (Stooq)
+
+# FIRST real-network test of the Stooq EOD adapter (engine/sources/prices.py) —
+# untestable from the dev sandbox (outbound network unavailable there), so this
+# is the fail-fast check before committing to an hours-long full backfill: fetch
+# the existing 30-ticker validation_batch (already trusted for the EDGAR 20-F/40-F
+# path — same US-tickered names work here) and confirm the CSV endpoint, symbol
+# format (TICKER.US), and parsing actually work against the real Stooq service.
+#
+# Trigger: push to THIS FILE on the feature branch (the session's GitHub
+# integration lacks actions:write for API dispatch).
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/price-validate.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-price-validate-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+      - name: Ingest prices for the 30-ticker validation batch
+        run: |
+          python -c "
+          import json
+          from engine.sources import universescan, prices
+          batch = universescan.load_seed().get('validation_batch', [])
+          print(f'validating against {len(batch)} tickers: {batch}')
+          result = prices.bulk_ingest(tickers=batch, full=True, sleep=0.3)
+          print(json.dumps(result, indent=2, default=str))
+          written, missing, errors = result['written'], result['missing'], result['errors']
+          if written == 0:
+              raise SystemExit(f'FAIL: 0 rows written for {len(batch)} known-good tickers — '
+                               f'the Stooq adapter is broken (missing={missing[:10]}, errors={errors[:5]})')
+          if len(missing) > len(batch) * 0.5:
+              raise SystemExit(f'FAIL: {len(missing)}/{len(batch)} tickers had no data — '
+                               f'symbol format or endpoint likely wrong (missing={missing[:10]})')
+          print(f'PASS: {written} rows written, {len(missing)} missing, {len(errors)} errors — '
+               'the adapter works against the real Stooq service')
+          "
+      - name: Upload the small validation store (for inspection)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-validate-store
+          path: data/tierb
+          retention-days: 14
+          if-no-files-found: warn

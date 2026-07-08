@@ -8,6 +8,62 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-08 (later) — prices, stock valuation, and the backtest harness built (ADR-016)
+
+**User direction:** "let's get to backtesting" — the critical path item since Phase 1
+completed. Built all three pieces in one session: prices, stock-level scoring, and
+the walk-forward backtest.
+
+**Built**
+- **Prices in Tier B** — a second Parquet dataset (`security_id, date` PK, no
+  restatement vintage). Generalized `tierb.py`'s base/delta write helpers to take a
+  dataset dir + partition expression instead of duplicating them (the module's own
+  docstring already anticipated "prices next"). `engine/sources/prices.py`: Stooq
+  (free, keyless — every security already trades under a US ticker, so one adapter
+  covers the whole universe with the uniform `TICKER.US` symbol format), daily
+  incremental (anti-join append) + full/split-safe refresh (delete a ticker's
+  history, then re-fetch — bounded memory throughout, never holds the whole store
+  in Python, same discipline as the EDGAR OOM fix).
+- **Stock-level valuation** (`engine/stockvaluation.py`) — point-in-time pe/pb/ps/
+  pcf from `tierb.metrics_asof` + prices, trailing YoY growth (FY-only for flow
+  metrics so a raw quarterly figure can't masquerade as annual; latest-available for
+  balance-sheet snapshots), momentum/mean-reversion from price history. Hands off to
+  the SAME `engine.metrics.compute()` the index product uses — one scoring formula,
+  not two to keep in sync — peer-grouped by sector instead of country/style.
+- **The backtest** (`engine/backtest.py`) — monthly walk-forward, no look-ahead
+  (`metrics_asof(t)` + prices ≤ t), fixed-horizon (1/3/6/12m) forward returns via a
+  bounded as-of price match, rank-IC + hit-rate + decile spread per signal, an
+  IC-population guard and a t-stat significance gate. Persists to the `backtest_runs`
+  table that's existed since ADR-005/migration 0005 — recalibration.py already reads
+  it, so the trigger activates the moment a real run lands.
+- CI: `price-validate.yml` (30 known-good tickers — the first REAL network test of
+  the Stooq adapter, since the dev sandbox has no outbound access at all right now)
+  gates `price-backfill.yml` (full-universe, multi-hour) before it fires;
+  `backtest.yml` runs once price history exists. Daily pipeline gained a price
+  step (step 2c) — cheap incremental, rides the monthly full-sweep flag for splits.
+
+**Learned**
+- `pandas.Series.add(other, fill_value=0.0)` rescues a genuinely-NaN VALUE in one
+  operand (not just index-alignment gaps) — confirmed before trusting it: a stock
+  with one missing valuation factor (e.g. no P/E because it's unprofitable) gets
+  neutral-0 for that factor, not a NaN-poisoned whole score. This is what let
+  `stockvaluation.py` reuse `metrics.compute()` unchanged at much sparser stock-level
+  breadth than the index-level aggregates it was written for.
+- The dev sandbox's outbound network went down mid-session (confirmed via the agent
+  proxy status — even `sec.gov`, reachable all session until then, started 403ing).
+  Everything price/backtest-related was built and verified with SYNTHETIC data
+  instead — including an end-to-end test with an ENGINEERED signal (fundamental
+  growth → forward price drift) that the backtest harness correctly recovered
+  (mean rank-IC 0.8–0.95) and correctly refused to call "significant" despite huge
+  t-stats when too few rebalance periods existed. Real-network validation is
+  necessarily a CI-only next step (`price-validate.yml`), same as the Stooq/EDGAR
+  URL-format uncertainties earlier in the project were resolved by iterating in CI.
+
+**Open / next:** run `price-validate.yml`, then the full backfill, then the first
+real backtest. Known, documented gaps: no survivorship control, no transaction
+costs, no benchmark Sharpe, latest-FY (not TTM) multiples, no per-stock forward
+growth, no dividend yield — all in PLAN.md.
+
 ## 2026-07-08 — refill repaired: Postgres 909 MB → 29 MB; two more failure modes closed
 
 The re-truncate landed on run 4. The gate's journey taught two lessons:
