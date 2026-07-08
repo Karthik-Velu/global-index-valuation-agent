@@ -347,8 +347,20 @@ def pull() -> dict:
         print(f"   store already present ({st['fundamental_metrics']:,} rows) — nothing to do")
         return {"source": "existing", **st}
     if db.have_db():
-        export()
-        return {"source": "postgres", **tierb.stats()}
+        # Re-export only while Postgres still HOLDS the metrics (pre-cutover).
+        # Post-cutover the table is empty — "exporting" it would fabricate an
+        # empty store that ingestion then trusts; fall through to the release
+        # asset instead (the 2026-07-08 daily on main hit exactly this: caches
+        # are branch-scoped, so main missed every feature-branch cache).
+        try:
+            pg_has_rows = _pg_scalar("select exists (select 1 from fundamental_metrics)")
+        except Exception:
+            pg_has_rows = False
+        if pg_has_rows:
+            export()
+            return {"source": "postgres", **tierb.stats()}
+        print("   postgres reachable but fundamental_metrics is empty (post-cutover)"
+              " — trying the release asset")
     tok, repo = os.getenv("GITHUB_TOKEN", ""), os.getenv("GITHUB_REPOSITORY", "")
     if tok and repo:
         import requests
