@@ -8,6 +8,30 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-08 — refill repaired: Postgres 909 MB → 29 MB; two more failure modes closed
+
+The re-truncate landed on run 4. The gate's journey taught two lessons:
+
+- **Runs 1–2:** the superset gate refused — 4,691 "Postgres-only" rows that
+  `export --incremental` could not close ("0 new rows"). They were **same-PK
+  variants**, not missing data: both stores keep one row per PK
+  (first-write-wins), but Tier B's base holds the June point-in-time capture
+  while the refill held July's refetch (net_income ×2,153,
+  cash_and_investments ×2,075, total_revenue ×292 … — in-place EDGAR
+  revisions between fetches). Keeping the earlier capture IS the
+  point-in-time semantics. `cutover` now separates the two cases: missing
+  PKs still refuse; variants are archived to `<store>/pg_variants/` (carried
+  by the bundle — nothing discarded) and the truncate proceeds.
+- **Run 3:** hung 60 minutes on a dead pooler socket mid-stream —
+  `pg_stat_activity` showed NO runner connection while the client blocked
+  forever. `db.connect()` now sets TCP keepalives (+30s connect_timeout):
+  dead peers raise in ~2 min instead of silently burning a job timeout.
+
+End state: `fundamental_metrics` empty (32 kB), **database 29 MB** (was 909);
+Tier B sole store at **3,527,837 rows / 21.3 MB**; bundle published as the
+`tierb-store` release asset (durable hydration for `tierbsync pull`,
+refreshed monthly by the pipeline).
+
 ## 2026-07-07 (later) — the refill incident: Postgres grew back to 3.5M rows
 
 The post-cutover backfill quietly REFILLED `fundamental_metrics` (~900 MB, over the
