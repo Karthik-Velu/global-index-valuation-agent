@@ -46,7 +46,8 @@ jobs:
         run: |
           python -c "
           import json
-          from engine.sources import universescan, prices
+          from engine import universescan
+          from engine.sources import prices
           batch = universescan.load_seed().get('validation_batch', [])
           print(f'validating against {len(batch)} tickers: {batch}')
           result = prices.bulk_ingest(tickers=batch, full=True, sleep=0.3)
