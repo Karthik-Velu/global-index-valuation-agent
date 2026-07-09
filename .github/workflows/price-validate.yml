@@ -43,6 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m engine.tierbsync pull
       - name: Ingest prices for the 30-ticker validation batch
+        env:
+          PRICES_DEBUG: "1"
         run: |
           python -c "
           import json

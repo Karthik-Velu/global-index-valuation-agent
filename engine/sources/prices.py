@@ -18,6 +18,7 @@ carries); internal, non-redistributed use is the safe lane until verified.
 from __future__ import annotations
 
 import io
+import os
 import time
 from datetime import date, timedelta
 
@@ -28,6 +29,11 @@ _HEADERS = {"User-Agent": "Mozilla/5.0"}  # Stooq's daily-bars endpoint 403s a b
 _DAILY_URL = "https://stooq.com/q/d/l/?s={sym}&i=d"
 
 _COLS = ("date", "open", "high", "low", "close", "volume")
+
+# Set PRICES_DEBUG=1 to print raw status/headers/body-head for every call — the
+# only way to see what Stooq actually returned when running in CI (the only
+# network-reachable environment; the dev sandbox can't hit external hosts at all).
+_DEBUG = os.getenv("PRICES_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
 
 def _symbol(ticker: str) -> str:
@@ -44,8 +50,14 @@ def fetch_ticker_prices(ticker: str, start: date | None = None) -> pd.DataFrame 
         url += f"&d1={start:%Y%m%d}&d2={date.today():%Y%m%d}"
     try:
         r = requests.get(url, headers=_HEADERS, timeout=30)
-    except Exception:
+    except Exception as e:
+        if _DEBUG:
+            print(f"   [prices debug] {ticker}: GET {url} raised {e!r}")
         return None
+    if _DEBUG:
+        print(f"   [prices debug] {ticker}: GET {url} -> {r.status_code}, "
+              f"len={len(r.text)}, content-type={r.headers.get('content-type')!r}, "
+              f"body[:200]={r.text[:200]!r}")
     if r.status_code != 200 or not r.text:
         return None
     text = r.text.strip()
@@ -55,10 +67,15 @@ def fetch_ticker_prices(ticker: str, start: date | None = None) -> pd.DataFrame 
         return None
     try:
         df = pd.read_csv(io.StringIO(text))
-    except Exception:
+    except Exception as e:
+        if _DEBUG:
+            print(f"   [prices debug] {ticker}: CSV parse failed: {e!r}")
         return None
     df.columns = [c.strip().lower() for c in df.columns]
     if df.empty or "close" not in df.columns or "date" not in df.columns:
+        if _DEBUG:
+            print(f"   [prices debug] {ticker}: parsed but missing close/date — "
+                  f"columns={list(df.columns)}")
         return None
     df = df[[c for c in _COLS if c in df.columns]].copy()
     for c in ("open", "high", "low", "close", "volume"):
