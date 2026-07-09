@@ -93,30 +93,35 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
   ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
-## Current state: prices → stock valuation → backtest BUILT (2026-07-08, ADR-016)
-- **Prices:** `engine/sources/prices.py` (Stooq, free/keyless, server-side only) +
-  a second Tier B dataset (`engine/tierb.py`: base/delta, PK security_id+date,
-  split-safe full refresh via delete+re-fetch). Wired into the daily pipeline.
-  **Not yet run against the real network** — the dev sandbox has no outbound
-  access; `price-validate.yml` (30 known-good tickers) must pass before
-  `price-backfill.yml` (whole universe) fires.
+## Current state: prices BLOCKED on source choice; valuation + backtest BUILT (2026-07-09)
+- **Prices — Stooq is bot-walled from CI (2026-07-09 finding).** `price-validate.yml`
+  (30 known-good tickers) got an identical anti-bot JavaScript-challenge page back
+  for all 30 requests (HTTP 200, "verify your browser") — confirmed via
+  `PRICES_DEBUG=1`, not a URL/parsing bug. This blocks Stooq's per-ticker CSV
+  endpoint from GitHub Actions' IPs entirely; not something to route around.
+  **Needs a source decision from the user** (a keyed free-tier source like Tiingo —
+  the pre-blessed fallback — vs. another keyless option) before backfill can proceed.
+  `engine/tierb.py`'s prices dataset and `engine/sources/prices.py`'s ingestion
+  logic (incremental/full/split-safe refresh) are source-agnostic at the storage
+  layer — only `fetch_ticker_prices()`'s HTTP call needs to change for a new source.
 - **Stock-level valuation:** `engine/stockvaluation.py` — point-in-time pe/pb/ps/
   pcf/growth/momentum per security, reusing `engine.metrics.compute()` (the SAME
-  scoring formula as the index product), peer-grouped by sector.
+  scoring formula as the index product), peer-grouped by sector. Built + merged.
 - **Backtest:** `engine/backtest.py` — monthly walk-forward, no look-ahead,
   fixed-horizon rank-IC/hit-rate/significance, persists to `backtest_runs`.
   Verified end-to-end against an engineered synthetic signal (recovered mean
-  rank-IC 0.8–0.95). Needs real price history before `backtest.yml` can run for real.
+  rank-IC 0.8–0.95). Built + merged. Needs real price history to run for real.
 - All new code is synthetic-data tested (point-in-time correctness, split
   handling, negative-earnings guard, cross-sectional ranking, signal recovery)
-  but **UNVALIDATED against real market data** until the CI backfill completes.
+  and merged to main (PR #8) — safe/inert without prices (gated on `tierb.enabled()`).
 
 ## Immediate next step
-1. Push `price-validate.yml` → confirm the Stooq adapter works against the real
-   network (untestable locally).
-2. Fire `price-backfill.yml` (full-universe daily history, multi-hour).
-3. Fire `backtest.yml` → the first REAL backtest result.
-4. Surface bottom-up (which stocks within a cheap/growing market) in the dashboard.
+1. **User decision needed:** price source — Tiingo (free tier, needs an API key
+   the user provisions) vs. another keyless alternative.
+2. Swap `fetch_ticker_prices()` to the chosen source; re-run `price-validate.yml`.
+3. Fire `price-backfill.yml` (full-universe daily history, multi-hour) once validated.
+4. Fire `backtest.yml` → the first REAL backtest result.
+5. Surface bottom-up (which stocks within a cheap/growing market) in the dashboard.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
