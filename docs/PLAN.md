@@ -36,13 +36,34 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
   store is missing post-cutover (the 2026-07-07 refill incident can't recur).
   R2 remains the eventual home.
-- ⬜ **Prices** — license-clean EOD source (e.g. Tiingo), server-side only, stored in Tier B;
-  publish only derived metrics (P/E, returns)
-- ⬜ **Stock-level valuation** — apply value/growth/GARP scoring to the 501 (needs prices)
-- ⬜ **Backtest** — record stock predictions → grade vs realized returns → tune the model
-  *(turns rankings from "experimental" → validated)*
-- ⬜ Activate the **recalibration** trigger (goes live once the first backtest exists)
+- 🔜 **Prices (ADR-016)** — Stooq (free, keyless, server-side only), a second Tier B
+  dataset (`engine/tierb.py` prices base/delta, PK security_id+date), adapter
+  `engine/sources/prices.py` (daily incremental + full/split-safe refresh via
+  delete+re-fetch), wired into the daily pipeline. Built + synthetic-tested;
+  **`price-validate.yml` (30-ticker real-network check) must pass before the full
+  backfill (`price-backfill.yml`) fires** — untestable from the dev sandbox.
+- ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
+  pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
+  formula, index + stock share it), peer-grouped by sector. Verified: point-in-time
+  correctness, negative-earnings guard, cross-sectional ranking.
+- ✅ **Backtest (initial, historical)** — `engine/backtest.py`: monthly walk-forward,
+  no look-ahead, fixed-horizon (1/3/6/12m) rank-IC/hit-rate/decile-spread per signal,
+  IC-population + significance gates, persists to Postgres `backtest_runs`. Verified
+  end-to-end against an ENGINEERED synthetic signal (recovered mean rank-IC
+  0.8–0.95). **Needs real price history (price-backfill.yml) before it can run for
+  real** — `backtest.yml` fires once that lands.
+- ⬜ Activate the **recalibration** trigger (goes live once the first REAL backtest
+  run completes — the harness exists now, ADR-016; recalibration.py already reads
+  `backtest_runs`)
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
+- ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
+  control (universe = current SEC filers only — a delisted-before-ingestion company
+  is invisible to the whole backtest), transaction costs, benchmark-relative Sharpe
+  (needs an index-level price series over the same window), TTM (trailing-twelve-
+  month) multiples instead of latest-FY-only (up to ~12mo stale for calendar-quarter
+  reporters), forward (analyst-estimate) growth at stock level, per-share dividend
+  data (EDGAR tag not yet in the catalog — dividend_yield is 0.0 for every stock),
+  continuous/live prediction-ledger grading (vs. today's historical-only harness).
 
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:

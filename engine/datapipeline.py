@@ -126,6 +126,28 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         steps["tierb"] = {"error": str(e)[:160]}
         print(f"   WARNING: Tier B reconcile failed: {str(e)[:160]}")
 
+    # 2c. Prices (Tier B only — bulk daily OHLCV has no Postgres home, ADR-016).
+    #     Incremental daily (cheap: only trading days after each ticker's stored
+    #     max date); a full re-feed rides the SAME monthly-sweep flag as the
+    #     fundamentals full sweep, since re-basing a split needs the whole series
+    #     re-fetched (prices.bulk_ingest(full=True) purges + re-fetches per ticker).
+    try:
+        from . import tierb
+        from .sources import prices as prices_source
+        if tierb.enabled():
+            pst = prices_source.bulk_ingest(full=full_ingest)
+            steps["prices"] = {k: v for k, v in pst.items() if k != "errors"}
+            if pst.get("errors"):
+                steps["prices"]["n_errors"] = len(pst["errors"])
+            print(f"   prices: {steps['prices']}")
+        else:
+            steps["prices"] = {"note": "Tier B not initialized — prices have no Postgres home"}
+    except Exception as e:
+        # Recorded, not fatal: a price-source hiccup must never break the ingestion
+        # of record (fundamentals) or the checks that follow.
+        steps["prices"] = {"error": str(e)[:160]}
+        print(f"   WARNING: price ingestion failed: {str(e)[:160]}")
+
     # 3. Tag securities (deterministic).
     steps["tagging"] = tagging.tag_securities()
 

@@ -21,6 +21,12 @@ on:
         description: "full re-feed of the whole universe"
         type: boolean
         default: false
+  # Editing this file on the dev branch fires one verification run there —
+  # useful because pipeline changes can't be API-dispatched from sessions
+  # (no actions:write) and scheduled runs only exercise main.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/data-pipeline.yml"]
 
 permissions:
   contents: write
@@ -49,6 +55,15 @@ jobs:
           key: tierb-v1-${{ github.run_id }}
           restore-keys: |
             tierb-v1-
+      # Actions caches are BRANCH-scoped: main can't see caches saved by
+      # feature-branch runs, so the first post-cutover daily on main aborted
+      # (store missing + Postgres empty, 2026-07-08). On a miss, pull
+      # hydrates from the tierb-store release asset; with the store present
+      # it's a fast no-op.
+      - name: Hydrate Tier B if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
       - name: Refresh universe (monthly full sweep only)
         run: |
           if { [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; } || [ "${{ inputs.full }}" = "true" ]; then

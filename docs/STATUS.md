@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-07.
+> Last updated: 2026-07-08.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -93,10 +93,30 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
   ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
+## Current state: prices → stock valuation → backtest BUILT (2026-07-08, ADR-016)
+- **Prices:** `engine/sources/prices.py` (Stooq, free/keyless, server-side only) +
+  a second Tier B dataset (`engine/tierb.py`: base/delta, PK security_id+date,
+  split-safe full refresh via delete+re-fetch). Wired into the daily pipeline.
+  **Not yet run against the real network** — the dev sandbox has no outbound
+  access; `price-validate.yml` (30 known-good tickers) must pass before
+  `price-backfill.yml` (whole universe) fires.
+- **Stock-level valuation:** `engine/stockvaluation.py` — point-in-time pe/pb/ps/
+  pcf/growth/momentum per security, reusing `engine.metrics.compute()` (the SAME
+  scoring formula as the index product), peer-grouped by sector.
+- **Backtest:** `engine/backtest.py` — monthly walk-forward, no look-ahead,
+  fixed-horizon rank-IC/hit-rate/significance, persists to `backtest_runs`.
+  Verified end-to-end against an engineered synthetic signal (recovered mean
+  rank-IC 0.8–0.95). Needs real price history before `backtest.yml` can run for real.
+- All new code is synthetic-data tested (point-in-time correctness, split
+  handling, negative-earnings guard, cross-sectional ranking, signal recovery)
+  but **UNVALIDATED against real market data** until the CI backfill completes.
+
 ## Immediate next step
-**Prices** (license-clean EOD, e.g. Tiingo, into Tier B as `data/tierb/prices/`) →
-**stock-level valuation** across the 2,983 → **walk-forward backtest** on
-`tierb.metrics_asof()` → surface bottom-up in the dashboard.
+1. Push `price-validate.yml` → confirm the Stooq adapter works against the real
+   network (untestable locally).
+2. Fire `price-backfill.yml` (full-universe daily history, multi-hour).
+3. Fire `backtest.yml` → the first REAL backtest result.
+4. Surface bottom-up (which stocks within a cheap/growing market) in the dashboard.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
@@ -142,4 +162,6 @@ python -m engine.datapipeline --agents            # full data pipeline + agents
 python -m engine.quality                          # data-quality score
 python -m engine.memory                           # memory stats / promotions
 python -m engine.modelrouting                     # model reliability scorecard
+python -m engine.sources.prices ingest --full     # full-history price backfill (Stooq)
+python -m engine.backtest run                     # walk-forward stock backtest
 ```

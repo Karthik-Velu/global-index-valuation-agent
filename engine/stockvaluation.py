@@ -1,0 +1,188 @@
+"""Stock-level valuation — the bottom-up counterpart to `engine/metrics.py`.
+
+Prepares one row per security (point-in-time fundamentals from Tier B +
+point-in-time prices from Tier B) in exactly the schema `engine.metrics.compute()`
+expects, then hands off to that SAME scoring function — value/growth/momentum/
+mean-reversion/opportunity/GARP math is defined ONCE and shared by index-level and
+stock-level scoring. Peer group ("kind") is sector, so a stock's cheapness is judged
+against its own sector, not the whole market.
+
+Point-in-time discipline: fundamentals come from `tierb.metrics_asof(asof, ...)` —
+only vintages FILED on or before `asof` — and prices are read only up to `asof`.
+This is what lets the SAME function serve both "today's live scoreboard" and the
+walk-forward backtest (engine/backtest.py), which calls it once per historical
+rebalance date with no look-ahead.
+
+Known v1 simplifications (documented, not silent):
+  * Valuation multiples use the latest ANNUAL (FY) revenue/net_income/operating
+    cash flow as of `asof` — not a trailing-twelve-month roll of quarters. Can be
+    up to ~12 months stale relative to price for calendar-quarter reporters.
+  * No dividend data (EDGAR's per-share dividend tag isn't in the catalog yet) —
+    dividend_yield is 0.0 for every stock, same graceful-degradation shape
+    metrics.py already uses for markets with no growth data.
+  * No forward (analyst-estimate) growth — fwd_growth is NaN; growth_raw is
+    trailing YoY revenue/earnings only.
+"""
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from . import metrics, tierb
+
+# Point-in-time FLOW metrics (income-statement / cash-flow — a period total, must
+# stay FY-only or a raw quarterly figure would badly understate a P/E-style ratio).
+FLOW_CODES = ("total_revenue", "net_income", "operating_cash_flow")
+# Point-in-time INSTANT metrics (balance-sheet / share-count snapshots — freshest
+# available value is correct regardless of which filing reported it).
+INSTANT_CODES = ("total_equity", "shares_outstanding")
+ALL_CODES = FLOW_CODES + INSTANT_CODES
+
+
+def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    """Pivot to security_id x metric_code, taking the nth-most-recent period_end
+    per (security_id, metric_code) — n=0 latest, n=1 one period back (for YoY)."""
+    if df.empty:
+        return pd.DataFrame()
+    sub = df.sort_values(["security_id", "metric_code", "period_end"])
+    grouped = sub.groupby(["security_id", "metric_code"], sort=False)
+    picked = grouped.tail(1) if n == 0 else grouped.nth(-1 - n)
+    if picked.empty:
+        return pd.DataFrame()
+    return picked.pivot(index="security_id", columns="metric_code", values="value")
+
+
+def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
+    """One row per security_id: latest pe/pb/ps/pcf inputs + trailing YoY growth,
+    all knowable as of `asof` (tierb.metrics_asof — no look-ahead)."""
+    empty_cols = ["security_id"] + list(ALL_CODES) + ["rev_growth", "earnings_growth"]
+    rows = tierb.metrics_asof(asof, metric_codes=list(ALL_CODES),
+                              security_ids=security_ids, source="xbrl")
+    if not rows:
+        return pd.DataFrame(columns=empty_cols)
+    fm = pd.DataFrame(rows, columns=tierb.FM_COLUMNS)
+    fm["period_end"] = pd.to_datetime(fm["period_end"])
+    fm["value"] = pd.to_numeric(fm["value"], errors="coerce")
+
+    flow = fm[fm["metric_code"].isin(FLOW_CODES) & (fm["fiscal_period"] == "FY")]
+    instant = fm[fm["metric_code"].isin(INSTANT_CODES)]
+    latest_flow, prior_flow = _nth_per_security(flow, 0), _nth_per_security(flow, 1)
+    latest_instant = _nth_per_security(instant, 0)
+    if latest_flow.empty and latest_instant.empty:
+        return pd.DataFrame(columns=empty_cols)
+
+    idx = pd.Index(sorted(set(latest_flow.index) | set(latest_instant.index)), name="security_id")
+    out = pd.DataFrame(index=idx)
+    for c in ALL_CODES:
+        src = latest_flow if c in FLOW_CODES else latest_instant
+        out[c] = src[c].reindex(idx) if c in src.columns else np.nan
+
+    def _yoy(code):
+        if code not in latest_flow.columns or code not in prior_flow.columns:
+            return pd.Series(np.nan, index=idx)
+        latest_v, prior_v = latest_flow[code].reindex(idx), prior_flow[code].reindex(idx)
+        return (latest_v / prior_v.abs() - 1.0).where(prior_v.notna() & (prior_v != 0))
+
+    out["rev_growth"] = _yoy("total_revenue")
+    out["earnings_growth"] = _yoy("net_income")
+    return out.reset_index()
+
+
+def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> pd.DataFrame:
+    """One row per security_id: latest close as of `asof` + momentum/mean-reversion
+    inputs from the trailing `lookback_days` of Tier B prices (date <= asof only)."""
+    cols = ["security_id", "price", "ret_3m", "ret_6m", "ret_12m",
+            "ma200_ratio", "pct_52w_range", "drawdown_52w"]
+    if not security_ids or not tierb.have_prices():
+        return pd.DataFrame(columns=cols)
+    con = tierb.connect()
+    df = con.execute(
+        "select security_id, date, close from prices "
+        "where date <= ? and date >= ?::date - to_days(?) "
+        "and security_id in (select unnest(?::bigint[])) order by security_id, date",
+        [asof, asof, lookback_days, security_ids]).df()
+    if df.empty:
+        return pd.DataFrame(columns=cols)
+    df["date"] = pd.to_datetime(df["date"])
+
+    def _ret_at(g: pd.DataFrame, price: float, last_date, calendar_days: int):
+        prior = g[g["date"] <= last_date - pd.Timedelta(days=calendar_days)]
+        return (price / prior["close"].iloc[-1] - 1.0) if not prior.empty else np.nan
+
+    out = []
+    for sid, g in df.groupby("security_id", sort=False):
+        price = float(g["close"].iloc[-1])
+        last_date = g["date"].iloc[-1]
+        window = g.tail(260)  # ~1 trading year if fully populated
+        hi, lo = float(window["close"].max()), float(window["close"].min())
+        ma200 = g["close"].tail(200).mean()
+        out.append({
+            "security_id": sid, "price": price,
+            "ret_3m": _ret_at(g, price, last_date, 91),
+            "ret_6m": _ret_at(g, price, last_date, 182),
+            "ret_12m": _ret_at(g, price, last_date, 365),
+            "ma200_ratio": (price / ma200 - 1.0) if ma200 else np.nan,
+            "pct_52w_range": (price - lo) / (hi - lo) if hi > lo else 0.5,
+            "drawdown_52w": (price / hi - 1.0) if hi else np.nan,
+        })
+    return pd.DataFrame(out, columns=cols)
+
+
+def _universe(security_ids: list[int] | None) -> pd.DataFrame:
+    """(security_id, ticker, name, sector, country) for the stock universe."""
+    from . import db
+
+    q = "select id, ticker, name, sector, country from securities where kind='stock'"
+    params: list = []
+    if security_ids:
+        q += " and id in (select unnest(%s::bigint[]))"
+        params.append(security_ids)
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(q, params)
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=["security_id", "ticker", "name", "sector", "country"])
+
+
+def score_frame(asof, security_ids: list[int] | None = None) -> pd.DataFrame:
+    """The bottom-up scoreboard as of `asof` — one row per stock, scored with the
+    SAME value/growth/momentum/opportunity math as the index-level product,
+    peer-grouped by sector. Point-in-time throughout: safe to call for today or
+    for any past rebalance date (the walk-forward backtest does exactly that)."""
+    uni = _universe(security_ids)
+    if uni.empty:
+        return uni
+    ids = uni["security_id"].tolist()
+
+    fund = _fundamentals_frame(asof, ids)
+    price = _price_features(asof, ids)
+
+    df = uni.merge(fund, on="security_id", how="left").merge(price, on="security_id", how="left")
+
+    df["market_cap"] = df["price"] * df["shares_outstanding"]
+    df["pe"] = (df["market_cap"] / df["net_income"]).where(df["net_income"] > 0)
+    df["pb"] = (df["market_cap"] / df["total_equity"]).where(df["total_equity"] > 0)
+    df["ps"] = (df["market_cap"] / df["total_revenue"]).where(df["total_revenue"] > 0)
+    df["pcf"] = (df["market_cap"] / df["operating_cash_flow"]).where(df["operating_cash_flow"] > 0)
+    df["dividend_yield"] = 0.0   # no per-share dividend data yet (see module docstring)
+    df["fwd_growth"] = np.nan    # no analyst-estimate source at stock level yet
+    df["growth_cov"] = 1.0
+
+    # Peer group for cross-sectional ranking: sector, falling back to a single
+    # bucket for anything unclassified (same graceful-degradation spirit as the
+    # index-level "neutral 50" fill for markets with no growth data).
+    df["kind"] = df["sector"].fillna("Unclassified").replace("", "Unclassified")
+    df["key"] = df["ticker"]
+    df["symbol"] = df["ticker"]
+
+    return metrics.compute(df)
+
+
+if __name__ == "__main__":
+    import json
+    from datetime import date
+
+    out = score_frame(date.today().isoformat())
+    print(f"scored {len(out)} stocks as of {date.today().isoformat()}")
+    if not out.empty:
+        cols = ["symbol", "kind", "opportunity_score", "value_score", "growth_score", "garp"]
+        print(out[cols].head(20).to_string(index=False))

@@ -226,19 +226,32 @@ def verify() -> dict:
 
 
 def compact() -> dict:
-    """Fold delta files into the partitioned base (dedupe applied via the view)."""
+    """Fold delta files into the partitioned base (dedupe applied via the view),
+    for both datasets — fundamental_metrics and prices."""
     print("== Tier-B compact ==")
-    if not tierb.have_tierb():
-        print("   nothing to compact (no store)")
-        return {"compacted": 0}
-    n_delta = len(list((tierb.root() / "fundamental_metrics" / "delta").glob("*.parquet")))
-    con = tierb.connect()
-    con.execute("create temp table _all as select * from fundamental_metrics")
-    n = con.execute("select count(*) from _all").fetchone()[0]
-    tierb._swap_in(tierb._write_base(con, "_all"))
+    result = {"compacted": 0}
+    if tierb.have_tierb():
+        n_delta = len(list((tierb.root() / "fundamental_metrics" / "delta").glob("*.parquet")))
+        con = tierb.connect()
+        con.execute("create temp table _all as select * from fundamental_metrics")
+        n = con.execute("select count(*) from _all").fetchone()[0]
+        tierb._swap_in(tierb._write_base(con, "_all"))
+        print(f"   fundamental_metrics: compacted {n_delta} delta files into base ({n:,} rows)")
+        result = {"compacted": n_delta, "rows": n}
+    else:
+        print("   fundamental_metrics: nothing to compact (no store)")
+    if tierb.have_prices():
+        n_delta_p = len(list((tierb.root() / "prices" / "delta").glob("*.parquet")))
+        con = tierb.connect()
+        con.execute("create temp table _all_p as select * from prices")
+        n_p = con.execute("select count(*) from _all_p").fetchone()[0]
+        tierb._swap_in(tierb._write_base(con, "_all_p", tierb._price_dir(), "year(date)"), tierb._price_dir())
+        print(f"   prices: compacted {n_delta_p} delta files into base ({n_p:,} rows)")
+        result.update({"prices_compacted": n_delta_p, "prices_rows": n_p})
+    else:
+        print("   prices: nothing to compact (no store)")
     tierb._write_manifest()
-    print(f"   compacted {n_delta} delta files into base ({n:,} rows)")
-    return {"compacted": n_delta, "rows": n}
+    return result
 
 
 def bundle() -> Path:
@@ -347,8 +360,20 @@ def pull() -> dict:
         print(f"   store already present ({st['fundamental_metrics']:,} rows) — nothing to do")
         return {"source": "existing", **st}
     if db.have_db():
-        export()
-        return {"source": "postgres", **tierb.stats()}
+        # Re-export only while Postgres still HOLDS the metrics (pre-cutover).
+        # Post-cutover the table is empty — "exporting" it would fabricate an
+        # empty store that ingestion then trusts; fall through to the release
+        # asset instead (the 2026-07-08 daily on main hit exactly this: caches
+        # are branch-scoped, so main missed every feature-branch cache).
+        try:
+            pg_has_rows = _pg_scalar("select exists (select 1 from fundamental_metrics)")
+        except Exception:
+            pg_has_rows = False
+        if pg_has_rows:
+            export()
+            return {"source": "postgres", **tierb.stats()}
+        print("   postgres reachable but fundamental_metrics is empty (post-cutover)"
+              " — trying the release asset")
     tok, repo = os.getenv("GITHUB_TOKEN", ""), os.getenv("GITHUB_REPOSITORY", "")
     if tok and repo:
         import requests

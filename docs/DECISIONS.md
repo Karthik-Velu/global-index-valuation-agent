@@ -9,6 +9,66 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-016 · Prices → stock valuation → walk-forward backtest (Pillar 2, Phase 2)
+- **Context:** user direction 2026-07-08: "let's get to backtesting" — the critical
+  path blocked on prices (no P/E, no forward returns) since Phase 1 completed.
+- **Choice 1 — prices live in Tier B, never Postgres.** A second Parquet dataset
+  alongside `fundamental_metrics`: `PRICE_KEY = (security_id, date)`, no restatement
+  vintage (a trading day's print is final). `tierb.py`'s base/delta write helpers
+  (`_write_base`/`_write_delta`/`_swap_in`) were generalized to take a dataset dir +
+  partition expression (backward-compatible defaults) instead of duplicating ~150
+  lines for a second dataset — the module's own docstring already anticipated this
+  ("fundamental_metrics today, prices next").
+- **Choice 2 — Stooq, not Yahoo/Tiingo/a paid source.** Free, keyless, and every
+  security in our universe already trades under a US ticker (that's the precondition
+  EDGAR auto-discovery imposed) — so Stooq's uniform `TICKER.US` daily-bars endpoint
+  covers the whole universe with zero per-exchange logic. License is UNKNOWN/
+  unverified for redistribution (same caveat the existing lightweight `stooq.py`
+  probe adapter already carries) — acceptable because prices are SERVER-SIDE ONLY,
+  same posture already used for Yahoo-sourced index-proxy holdings: never
+  republished raw, only derived signals (P/E, returns, scores) leave the engine.
+  Rejected: Tiingo/paid sources (breaks the $0 requirement at this stage); Yahoo
+  (already ruled out — personal-use-only, and yfinance is explicitly the thing
+  ARCHITECTURE.md's Phase 0 wants OFF).
+- **Choice 3 — splits handled by delete+re-fetch, not perpetual full-store
+  rewrites.** Daily incremental appends (anti-join, cheap, bounded) are the primary
+  path. A stock split re-bases a source's ENTIRE historical series, which an
+  anti-join append can't retroactively fix — so `tierb.delete_price_securities()`
+  purges a ticker's history first, then a normal bounded append re-populates it
+  (`prices.bulk_ingest(full=True)`, invoked on the same monthly-sweep cadence as the
+  fundamentals full re-feed). Never holds the whole store in Python memory — same
+  discipline as the EDGAR OOM fix (JOURNAL 2026-07-07).
+- **Choice 4 — stock scoring REUSES `engine/metrics.py`, not a parallel
+  implementation.** `stockvaluation.py` is a data-preparation layer only: pulls
+  point-in-time fundamentals (`tierb.metrics_asof`) + prices, computes raw pe/pb/
+  ps/pcf/growth/momentum inputs, then hands off to the SAME `metrics.compute()`
+  that scores indices — one value/growth/GARP formula, shared. Peer group is
+  sector (`kind` column) instead of country/style. Verified pandas'
+  `Series.add(..., fill_value=0.0)` treats a single missing factor (e.g. no P/E for
+  an unprofitable company) as neutral, not NaN-poisoning — the existing code
+  already degrades gracefully at stock-level breadth, no changes needed.
+- **Choice 5 — backtest evaluates historical point-in-time scores, not a live
+  ledger.** Per ROADMAP.md's "Initial (historical, walk-forward, point-in-time)"
+  spec: monthly rebalance dates, `stockvaluation.score_frame(t)` (no look-ahead —
+  `metrics_asof(t)` + prices ≤ t), fixed-horizon (1/3/6/12m) forward returns via a
+  bounded as-of price match, rank-IC + hit-rate + decile spread per signal, an
+  IC-population guard (≥20 names) and a simple t-stat significance gate (|t|≥2,
+  ≥12 periods). Verified end-to-end with an ENGINEERED synthetic relationship
+  (growth → forward drift) — the harness recovered mean rank-IC 0.8–0.95 and
+  correctly refused "significant" with too few periods despite huge t-stats.
+  Known, documented gaps: no survivorship control (universe = current SEC filers
+  only), no transaction costs, no benchmark-relative Sharpe — deferred, not solved.
+  Live/continuous prediction-ledger grading (ROADMAP's "Continuous" backtest) is a
+  separate, later follow-up — this ADR covers the initial historical harness only.
+- **Rejected: DuckDB ASOF JOIN for point-in-time price lookups at scale.** Correct
+  and idiomatic, but the per-rebalance-date Python loop calling `score_frame()`
+  repeatedly is simpler to write correctly and fast enough at current universe
+  size (dozens of rebalance dates × ~2,900 securities); revisit if the backtest
+  window grows enough to make per-call overhead the bottleneck.
+- 2026-07-08
+
+---
+
 ### ADR-015 · Storage inversion + universe scale: Tier B primary, thin Postgres
 - **Context:** User direction 2026-07-06: "much more than 1,200 companies", rethink
   the design so Postgres holds only dashboard-facing state. At scale (23M+ metric
