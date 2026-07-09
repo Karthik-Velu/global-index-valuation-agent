@@ -1,0 +1,68 @@
+name: Stock backtest — walk-forward (Pillar 2)
+
+# Runs the walk-forward point-in-time backtest (engine/backtest.py): scores the
+# stock universe at each historical monthly rebalance date using ONLY data
+# knowable as of that date, measures forward returns at fixed horizons, and
+# aggregates rank-IC/hit-rate/significance per signal. Writes a summary row to
+# Postgres `backtest_runs` (small, additive — not destructive) and a detailed
+# report to data/backtest_report.json.
+#
+# Fires only after price-backfill.yml has landed enough price history — the
+# auto-detected window needs both prices and fundamentals in Tier B.
+# Trigger: push to THIS FILE on the feature branch (the session's GitHub
+# integration lacks actions:write for API dispatch).
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "backtest window start (ISO date, blank = auto-detect)"
+        type: string
+        default: ""
+      end:
+        description: "backtest window end (ISO date, blank = auto-detect)"
+        type: string
+        default: ""
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/backtest.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-backtest-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+      - name: Run the walk-forward backtest
+        run: |
+          python -m engine.backtest run \
+            ${{ inputs.start != '' && format('--start {0}', inputs.start) || '' }} \
+            ${{ inputs.end != '' && format('--end {0}', inputs.end) || '' }}
+      - name: Upload backtest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-report
+          path: data/backtest_report.json
+          if-no-files-found: warn
+          retention-days: 90

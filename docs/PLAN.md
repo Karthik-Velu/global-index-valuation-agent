@@ -36,12 +36,18 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
   store is missing post-cutover (the 2026-07-07 refill incident can't recur).
   R2 remains the eventual home.
-- 🔜 **Prices (ADR-016)** — Stooq (free, keyless, server-side only), a second Tier B
-  dataset (`engine/tierb.py` prices base/delta, PK security_id+date), adapter
-  `engine/sources/prices.py` (daily incremental + full/split-safe refresh via
-  delete+re-fetch), wired into the daily pipeline. Built + synthetic-tested;
-  **`price-validate.yml` (30-ticker real-network check) must pass before the full
-  backfill (`price-backfill.yml`) fires** — untestable from the dev sandbox.
+- ⛔ **Prices (ADR-016) — PAUSED on source choice (2026-07-09).** Storage is built:
+  a second Tier B dataset (`engine/tierb.py` prices base/delta, PK security_id+date)
+  and a source-agnostic ingestion layer (`engine/sources/prices.py`: incremental +
+  full/split-safe refresh via delete+re-fetch). The Stooq adapter itself is DEAD —
+  both its per-ticker CSV API and its bulk archive download are gated behind
+  anti-bot measures (a JS challenge and a CAPTCHA respectively) that block headless
+  CI entirely; confirmed via `PRICES_DEBUG=1` against the real network, not a guess.
+  **Next session: pick a source with the user** (Tiingo free tier — needs an
+  API key they provision — was the standing recommendation) and swap only
+  `fetch_ticker_prices()`'s HTTP call; storage/ingestion logic doesn't change.
+  `price-validate.yml` / `price-backfill.yml` stay as the same fail-fast-then-scale
+  pattern once a working source is wired in.
 - ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
   pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
   formula, index + stock share it), peer-grouped by sector. Verified: point-in-time
