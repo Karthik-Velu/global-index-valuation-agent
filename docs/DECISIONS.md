@@ -9,6 +9,43 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-017 · Massive (ex-Polygon.io) replaces Stooq as the price source
+- **Context:** ADR-016 chose Stooq (free, keyless). Empirically DEAD from CI
+  (JOURNAL 2026-07-09): its per-ticker CSV API serves a JS anti-bot challenge and
+  its bulk archive requires a CAPTCHA — both confirmed, neither circumventable
+  legitimately. Meanwhile the user set the end-state directive (2026-07-10,
+  CLAUDE.md): judge every source decision against the FULL agent build-out, not
+  just today's batch needs.
+- **Choice: Massive** (Polygon.io rebrand, 2025-10-30; `api.massive.com`, Bearer
+  auth, env convention `MASSIVE_API_KEY`). Decisive factors, in order:
+  1. **Grouped-daily endpoint** (`/v2/aggs/grouped/locale/us/market/stocks/{date}`):
+     the whole US market in ONE call per trading day — the 5-req/min free tier
+     yields 1 call/day operation and a ~105-min 2-year backfill. Ingestion becomes
+     DATE-driven; a resumable cursor lives in `<store>/prices_meta.json` (advances
+     past holidays, which a min(date) high-water mark never would).
+  2. **End-state data**: same key/vendor later serves corp actions
+     (`/v3/reference/splits`, `/v3/reference/dividends` → real dividend_yield),
+     ticker news (Analyst agent), fundamentals-from-filings (a second source for
+     the quality job's cross-source disagreement check), WebSockets (P4 alerts),
+     and an **official MCP server** — a ready-made tool for the Quality-Triage and
+     Analyst agents to query the source directly.
+  3. Our whole universe is US-tickered by construction (EDGAR discovery requires
+     it), so US-market coverage == full coverage, ETF proxies included (asserted
+     at validation, not assumed — not verbatim-documented).
+- **Tier economics:** free = 2y history/EOD (enough for a real 1m/3m-horizon
+  backtest; thin at 12m) → Starter $29/mo (5y) is the cheapest meaningful upgrade,
+  decided only after free-tier results are seen.
+- **Licensing posture:** raw-data redistribution explicitly requires a business
+  plan — we never republish raw bars (standing rule). The DERIVED-data clause of
+  their market-data terms could not be machine-read (bot-walled PDF) —
+  **flagged for human review before stock-level derived metrics go public.**
+- **Rejected:** Tiingo (free tier's unique-symbols/month cap can't cover 2,983
+  tickers; no bulk endpoint; no adjacent news/corp-actions/MCP for the agents);
+  Snowflake Public Data (needs paid compute + terms restrict off-platform export;
+  kept as a one-shot cross-validation idea); EODHD/Marketstack free tiers
+  (20 calls/day / 100 calls/month — orders of magnitude short).
+- 2026-07-14
+
 ### ADR-016 · Prices → stock valuation → walk-forward backtest (Pillar 2, Phase 2)
 - **Context:** user direction 2026-07-08: "let's get to backtesting" — the critical
   path blocked on prices (no P/E, no forward returns) since Phase 1 completed.

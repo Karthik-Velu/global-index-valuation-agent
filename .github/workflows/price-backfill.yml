@@ -1,16 +1,15 @@
-name: Price backfill — full stock universe (Stooq)
+name: Price backfill — full history (Massive)
 
-# Full-history daily OHLCV backfill for every 'stock' security (~2,983 tickers) —
-# fires only after price-validate.yml has confirmed the Stooq adapter works
-# against the real network. Multi-hour: each ticker is a full-history CSV fetch
-# (potentially decades of daily bars), chunked/buffered throughout (PriceWriter
-# flushes every 200k rows — memory stays flat regardless of universe size, same
-# discipline as the EDGAR bulk-ingest OOM fix).
+# Full-history daily OHLCV rebuild via Massive's grouped-daily endpoint: ONE
+# call per trading day covers the entire universe (stocks + ETF proxies), so a
+# 2-year free-tier backfill is ~504 calls ≈ 105 min paced at 4.6 req/min.
+# RESUMABLE: the adapter persists a cursor in <store>/prices_meta.json after
+# every processed day — if the job stops (timeout, --max-minutes, rate-limit
+# abort), re-firing continues from the cursor instead of restarting.
 #
+# Fires only after price-validate.yml has passed against the real service.
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
-# integration lacks actions:write for API dispatch). Deliberately NOT bundled
-# into the same commit as price-validate.yml — fired only after inspecting that
-# run's result.
+# integration lacks actions:write for API dispatch).
 
 on:
   workflow_dispatch: {}
@@ -27,7 +26,14 @@ jobs:
     timeout-minutes: 350
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
     steps:
+      - name: Check MASSIVE_API_KEY secret exists
+        run: |
+          if [ -z "$MASSIVE_API_KEY" ]; then
+            echo "::error::MASSIVE_API_KEY secret is missing — add it under repo Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with: { ref: "${{ github.ref_name }}" }
       - uses: actions/setup-python@v5
@@ -44,8 +50,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m engine.tierbsync pull
-      - name: Full-history backfill (whole stock universe)
-        run: python -m engine.sources.prices ingest --full --sleep 0.15
+      - name: Full-history price backfill (grouped-daily, paced, resumable)
+        run: python -m engine.sources.prices ingest --full --max-minutes 300
       - name: Compact + bundle the store
         if: always()
         run: |
@@ -67,6 +73,5 @@ jobs:
           name: tierb-store-price-backfill
           path: |
             data/tierb-store.tar.gz
-            data/datapipeline_report.json
           if-no-files-found: ignore
           retention-days: 90

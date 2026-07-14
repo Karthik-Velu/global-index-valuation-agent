@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-08.
+> Last updated: 2026-07-14.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -93,35 +93,30 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
   ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
-## Current state: prices BLOCKED on source choice; valuation + backtest BUILT (2026-07-09)
-- **Prices — Stooq is bot-walled from CI (2026-07-09 finding).** `price-validate.yml`
-  (30 known-good tickers) got an identical anti-bot JavaScript-challenge page back
-  for all 30 requests (HTTP 200, "verify your browser") — confirmed via
-  `PRICES_DEBUG=1`, not a URL/parsing bug. This blocks Stooq's per-ticker CSV
-  endpoint from GitHub Actions' IPs entirely; not something to route around.
-  **Needs a source decision from the user** (a keyed free-tier source like Tiingo —
-  the pre-blessed fallback — vs. another keyless option) before backfill can proceed.
-  `engine/tierb.py`'s prices dataset and `engine/sources/prices.py`'s ingestion
-  logic (incremental/full/split-safe refresh) are source-agnostic at the storage
-  layer — only `fetch_ticker_prices()`'s HTTP call needs to change for a new source.
-- **Stock-level valuation:** `engine/stockvaluation.py` — point-in-time pe/pb/ps/
-  pcf/growth/momentum per security, reusing `engine.metrics.compute()` (the SAME
-  scoring formula as the index product), peer-grouped by sector. Built + merged.
-- **Backtest:** `engine/backtest.py` — monthly walk-forward, no look-ahead,
-  fixed-horizon rank-IC/hit-rate/significance, persists to `backtest_runs`.
-  Verified end-to-end against an engineered synthetic signal (recovered mean
-  rank-IC 0.8–0.95). Built + merged. Needs real price history to run for real.
-- All new code is synthetic-data tested (point-in-time correctness, split
-  handling, negative-earnings guard, cross-sectional ranking, signal recovery)
-  and merged to main (PR #8) — safe/inert without prices (gated on `tierb.enabled()`).
+## Current state: Massive adapter BUILT, gated on the API-key secret (2026-07-14)
+- **Prices (ADR-017: Massive, ex-Polygon.io)** — the adapter is rebuilt DATE-driven
+  around the grouped-daily endpoint (whole US market in one call per trading day;
+  ETF proxies included — asserted at validation): resumable full rebuild with a
+  cursor in `<store>/prices_meta.json`, capped daily incremental (~1 call/day),
+  per-ticker split re-base, 429 Retry-After handling, empirical history-floor
+  detection (403 or 5 consecutive empty weekdays). 9 mock-tested scenarios pass.
+  Free tier: 5 req/min, 2 years history → ~105-min backfill in one CI job.
+- **BLOCKED ONLY on the user adding the `MASSIVE_API_KEY` repo secret**
+  (Settings → Secrets and variables → Actions; sign up free at massive.com).
+  The validate workflow fails with an explicit "secret missing" message until then.
+- **Stock-level valuation + backtest:** built, synthetic-verified, merged (ADR-016);
+  waiting on real price data.
+- **Licensing flag:** Massive's derived-data terms clause needs a human read before
+  stock-level derived metrics go PUBLIC (raw redistribution definitively requires a
+  business plan — we never republish raw bars anyway). See ADR-017.
 
 ## Immediate next step
-1. **User decision needed:** price source — Tiingo (free tier, needs an API key
-   the user provisions) vs. another keyless alternative.
-2. Swap `fetch_ticker_prices()` to the chosen source; re-run `price-validate.yml`.
-3. Fire `price-backfill.yml` (full-universe daily history, multi-hour) once validated.
-4. Fire `backtest.yml` → the first REAL backtest result.
-5. Surface bottom-up (which stocks within a cheap/growing market) in the dashboard.
+1. **User:** add `MASSIVE_API_KEY` secret → say so (or re-fire `price-validate.yml`).
+2. Validate run: coverage ≥25/30 batch tickers, SPY/ETF assertion, depth probes.
+3. Fire `price-backfill.yml` (~105 min, resumable) → prices land in Tier B.
+4. Fire `backtest.yml` → the FIRST REAL rank-IC/hit-rate report per signal.
+5. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
+   surface bottom-up in the dashboard.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
