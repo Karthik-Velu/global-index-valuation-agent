@@ -1,12 +1,17 @@
-name: Price ingestion — validation batch (Stooq)
+name: Price ingestion — validation (Massive)
 
-# FIRST real-network test of the Stooq EOD adapter (engine/sources/prices.py) —
-# untestable from the dev sandbox (outbound network unavailable there), so this
-# is the fail-fast check before committing to an hours-long full backfill: fetch
-# the existing 30-ticker validation_batch (already trusted for the EDGAR 20-F/40-F
-# path — same US-tickered names work here) and confirm the CSV endpoint, symbol
-# format (TICKER.US), and parsing actually work against the real Stooq service.
+# First real-network test of the Massive adapter (engine/sources/prices.py,
+# ADR-017) — the fail-fast gate before the multi-hour full backfill:
+#   1. one recent grouped-daily call must cover >=25 of the 30 validation_batch
+#      tickers AND include SPY + sample index-proxy ETFs (ETF coverage in
+#      market=stocks is strongly indicated but not verbatim-documented — this
+#      assertion is the proof)
+#   2. history-depth probes at ~22 months / 3y / 6y back report the key's real
+#      entitlement window (free tier is documented as 2 years)
+#   3. a per-ticker range call exercises the second endpoint + ET date handling
 #
+# Requires the MASSIVE_API_KEY secret (repo Settings > Secrets > Actions) —
+# fails immediately with a clear message if missing.
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch).
 
@@ -25,50 +30,75 @@ jobs:
     timeout-minutes: 20
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+      PRICES_DEBUG: "1"
     steps:
+      - name: Check MASSIVE_API_KEY secret exists
+        run: |
+          if [ -z "$MASSIVE_API_KEY" ]; then
+            echo "::error::MASSIVE_API_KEY secret is missing — sign up free at massive.com and add the key under repo Settings > Secrets and variables > Actions, then re-run this workflow."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with: { ref: "${{ github.ref_name }}" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
-      - name: Restore Tier B store (Parquet)
-        uses: actions/cache@v4
-        with:
-          path: data/tierb
-          key: tierb-v1-price-validate-${{ github.run_id }}
-          restore-keys: |
-            tierb-v1-
-      - name: Hydrate if the cache missed
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python -m engine.tierbsync pull
-      - name: Ingest prices for the 30-ticker validation batch
-        env:
-          PRICES_DEBUG: "1"
+      - name: Grouped-daily coverage + ETF assertion + history-depth probes
         run: |
-          python -c "
-          import json
+          python - <<'EOF'
+          import time
+          import datetime as dt
           from engine import universescan
           from engine.sources import prices
-          batch = universescan.load_seed().get('validation_batch', [])
-          print(f'validating against {len(batch)} tickers: {batch}')
-          result = prices.bulk_ingest(tickers=batch, full=True, sleep=0.3)
-          print(json.dumps(result, indent=2, default=str))
-          written, missing, errors = result['written'], result['missing'], result['errors']
-          if written == 0:
-              raise SystemExit(f'FAIL: 0 rows written for {len(batch)} known-good tickers — '
-                               f'the Stooq adapter is broken (missing={missing[:10]}, errors={errors[:5]})')
-          if len(missing) > len(batch) * 0.5:
-              raise SystemExit(f'FAIL: {len(missing)}/{len(batch)} tickers had no data — '
-                               f'symbol format or endpoint likely wrong (missing={missing[:10]})')
-          print(f'PASS: {written} rows written, {len(missing)} missing, {len(errors)} errors — '
-               'the adapter works against the real Stooq service')
-          "
-      - name: Upload the small validation store (for inspection)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: price-validate-store
-          path: data/tierb
-          retention-days: 14
-          if-no-files-found: warn
+
+          def last_weekday(d):
+              while d.weekday() >= 5:
+                  d -= dt.timedelta(days=1)
+              return d
+
+          PACE = 13  # seconds between calls — free tier is 5 req/min
+
+          # 1. recent grouped day: universe + ETF coverage
+          day = last_weekday(dt.date.today() - dt.timedelta(days=4))
+          df = prices.fetch_grouped_daily(day)
+          got = set(df["ticker"].str.upper()) if not df.empty else set()
+          print(f"grouped {day}: {len(got)} tickers returned")
+          batch = [t.upper() for t in universescan.load_seed().get("validation_batch", [])]
+          covered = [t for t in batch if t in got]
+          print(f"validation_batch coverage: {len(covered)}/{len(batch)} — missing: "
+                f"{sorted(set(batch) - got)}")
+          etf_sample = ["SPY", "EWJ", "EWG", "IXN", "VT"]
+          etfs_found = [t for t in etf_sample if t in got]
+          print(f"ETF coverage: {etfs_found} of {etf_sample}")
+          assert len(covered) >= 25, f"FAIL: only {len(covered)}/30 validation tickers covered"
+          assert "SPY" in got, "FAIL: SPY missing from grouped daily — ETFs NOT covered"
+          spy_close = float(df[df["ticker"].str.upper() == "SPY"]["close"].iloc[0])
+          assert 100 < spy_close < 2000, f"FAIL: SPY close {spy_close} implausible"
+
+          # 2. history-depth probes (free tier documented at 2 years)
+          for months_back, label in ((22, "~22mo (inside free window)"),
+                                     (36, "3y (Starter territory)"),
+                                     (72, "6y (Developer territory)")):
+              time.sleep(PACE)
+              probe = last_weekday(dt.date.today() - dt.timedelta(days=months_back * 30))
+              try:
+                  pdf = prices.fetch_grouped_daily(probe)
+                  print(f"depth probe {label} ({probe}): {len(pdf)} tickers -> "
+                        f"{'DATA' if len(pdf) else 'EMPTY'}")
+              except prices.NotEntitled:
+                  print(f"depth probe {label} ({probe}): 403 NOT_AUTHORIZED (beyond plan)")
+              except prices.RateLimited as e:
+                  print(f"depth probe {label} ({probe}): rate-limited ({e}) — pacing issue")
+
+          # 3. per-ticker range endpoint + ET date handling
+          time.sleep(PACE)
+          rng = prices.fetch_ticker_range("AAPL", dt.date.today() - dt.timedelta(days=30),
+                                          dt.date.today())
+          assert rng is not None and len(rng) >= 15, f"FAIL: AAPL range returned {rng}"
+          print(f"per-ticker range OK: AAPL {len(rng)} bars, "
+                f"{rng['date'].iloc[0]}..{rng['date'].iloc[-1]}, "
+                f"last close {rng['close'].iloc[-1]}")
+
+          print("PASS: Massive adapter validated against the real service")
+          EOF

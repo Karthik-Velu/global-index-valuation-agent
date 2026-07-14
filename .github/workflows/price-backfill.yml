@@ -1,0 +1,77 @@
+name: Price backfill — full history (Massive)
+
+# Full-history daily OHLCV rebuild via Massive's grouped-daily endpoint: ONE
+# call per trading day covers the entire universe (stocks + ETF proxies), so a
+# 2-year free-tier backfill is ~504 calls ≈ 105 min paced at 4.6 req/min.
+# RESUMABLE: the adapter persists a cursor in <store>/prices_meta.json after
+# every processed day — if the job stops (timeout, --max-minutes, rate-limit
+# abort), re-firing continues from the cursor instead of restarting.
+#
+# Fires only after price-validate.yml has passed against the real service.
+# Trigger: push to THIS FILE on the feature branch (the session's GitHub
+# integration lacks actions:write for API dispatch).
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/price-backfill.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+    steps:
+      - name: Check MASSIVE_API_KEY secret exists
+        run: |
+          if [ -z "$MASSIVE_API_KEY" ]; then
+            echo "::error::MASSIVE_API_KEY secret is missing — add it under repo Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-price-backfill-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+      - name: Full-history price backfill (grouped-daily, paced, resumable)
+        run: python -m engine.sources.prices ingest --full --max-minutes 300
+      - name: Compact + bundle the store
+        if: always()
+        run: |
+          python -m engine.tierbsync compact
+          python -m engine.tierbsync bundle
+      - name: Publish bundle as release asset (durable hydration source)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view tierb-store >/dev/null 2>&1 || \
+            gh release create tierb-store --latest --title "Tier B store bundle" \
+              --notes "Rolling Parquet bundle of the Tier B metric store, refreshed by CI. Used by \`engine.tierbsync pull\` to hydrate fresh environments post-cutover."
+          gh release upload tierb-store data/tierb-store.tar.gz --clobber
+      - name: Upload store + report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-store-price-backfill
+          path: |
+            data/tierb-store.tar.gz
+          if-no-files-found: ignore
+          retention-days: 90

@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-08.
+> Last updated: 2026-07-14.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -93,30 +93,30 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
   ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
-## Current state: prices → stock valuation → backtest BUILT (2026-07-08, ADR-016)
-- **Prices:** `engine/sources/prices.py` (Stooq, free/keyless, server-side only) +
-  a second Tier B dataset (`engine/tierb.py`: base/delta, PK security_id+date,
-  split-safe full refresh via delete+re-fetch). Wired into the daily pipeline.
-  **Not yet run against the real network** — the dev sandbox has no outbound
-  access; `price-validate.yml` (30 known-good tickers) must pass before
-  `price-backfill.yml` (whole universe) fires.
-- **Stock-level valuation:** `engine/stockvaluation.py` — point-in-time pe/pb/ps/
-  pcf/growth/momentum per security, reusing `engine.metrics.compute()` (the SAME
-  scoring formula as the index product), peer-grouped by sector.
-- **Backtest:** `engine/backtest.py` — monthly walk-forward, no look-ahead,
-  fixed-horizon rank-IC/hit-rate/significance, persists to `backtest_runs`.
-  Verified end-to-end against an engineered synthetic signal (recovered mean
-  rank-IC 0.8–0.95). Needs real price history before `backtest.yml` can run for real.
-- All new code is synthetic-data tested (point-in-time correctness, split
-  handling, negative-earnings guard, cross-sectional ranking, signal recovery)
-  but **UNVALIDATED against real market data** until the CI backfill completes.
+## Current state: Massive adapter BUILT, gated on the API-key secret (2026-07-14)
+- **Prices (ADR-017: Massive, ex-Polygon.io)** — the adapter is rebuilt DATE-driven
+  around the grouped-daily endpoint (whole US market in one call per trading day;
+  ETF proxies included — asserted at validation): resumable full rebuild with a
+  cursor in `<store>/prices_meta.json`, capped daily incremental (~1 call/day),
+  per-ticker split re-base, 429 Retry-After handling, empirical history-floor
+  detection (403 or 5 consecutive empty weekdays). 9 mock-tested scenarios pass.
+  Free tier: 5 req/min, 2 years history → ~105-min backfill in one CI job.
+- **BLOCKED ONLY on the user adding the `MASSIVE_API_KEY` repo secret**
+  (Settings → Secrets and variables → Actions; sign up free at massive.com).
+  The validate workflow fails with an explicit "secret missing" message until then.
+- **Stock-level valuation + backtest:** built, synthetic-verified, merged (ADR-016);
+  waiting on real price data.
+- **Licensing flag:** Massive's derived-data terms clause needs a human read before
+  stock-level derived metrics go PUBLIC (raw redistribution definitively requires a
+  business plan — we never republish raw bars anyway). See ADR-017.
 
 ## Immediate next step
-1. Push `price-validate.yml` → confirm the Stooq adapter works against the real
-   network (untestable locally).
-2. Fire `price-backfill.yml` (full-universe daily history, multi-hour).
-3. Fire `backtest.yml` → the first REAL backtest result.
-4. Surface bottom-up (which stocks within a cheap/growing market) in the dashboard.
+1. **User:** add `MASSIVE_API_KEY` secret → say so (or re-fire `price-validate.yml`).
+2. Validate run: coverage ≥25/30 batch tickers, SPY/ETF assertion, depth probes.
+3. Fire `price-backfill.yml` (~105 min, resumable) → prices land in Tier B.
+4. Fire `backtest.yml` → the FIRST REAL rank-IC/hit-rate report per signal.
+5. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
+   surface bottom-up in the dashboard.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):

@@ -39,6 +39,7 @@ jobs:
       SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}   # Ollama Cloud — tier-1 for the LLM agents
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # Groq — cross-provider rate-limit fallback
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }} # Massive — EOD prices (step 2c; ADR-017)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

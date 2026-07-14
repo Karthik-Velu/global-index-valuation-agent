@@ -20,6 +20,11 @@ interactive dashboard on Vercel, not a report.
   LLMs only see aggregated data, through a waterfall of free/cheap models; deterministic
   fallbacks mean it works with no API key.
 - **Two feedback loops:** user (pin/dismiss/rate) + market (grade predictions vs returns).
+- **The product is DONE only when all the agents are built** (user directive 2026-07-10):
+  Analyst, Quality-Triage, Source-Discovery, Sector-KPI, Model-Upgrade — see
+  `docs/AGENTS.md`. Evaluate every architecture/source decision against that END
+  STATE (agents querying sources, MCP tooling, news/corp-actions data), not just
+  against what runs today.
 - **Phased:** Phase 1 = index level (done). Phase 2 = bottom-up stock level: prices +
   valuation + backtest harness are BUILT (ADR-016), pending real-network validation.
 - **Data integrity is foundational** — especially for the backtest. Validate before scaling.

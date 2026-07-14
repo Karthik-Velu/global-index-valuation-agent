@@ -36,12 +36,16 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
   store is missing post-cutover (the 2026-07-07 refill incident can't recur).
   R2 remains the eventual home.
-- 🔜 **Prices (ADR-016)** — Stooq (free, keyless, server-side only), a second Tier B
-  dataset (`engine/tierb.py` prices base/delta, PK security_id+date), adapter
-  `engine/sources/prices.py` (daily incremental + full/split-safe refresh via
-  delete+re-fetch), wired into the daily pipeline. Built + synthetic-tested;
-  **`price-validate.yml` (30-ticker real-network check) must pass before the full
-  backfill (`price-backfill.yml`) fires** — untestable from the dev sandbox.
+- 🔜 **Prices (ADR-017: Massive, supersedes Stooq)** — adapter rebuilt DATE-driven
+  around Massive's grouped-daily endpoint (1 call = whole market/day; free tier =
+  5 req/min, 2y history): resumable full rebuild (cursor in `prices_meta.json`),
+  capped daily incremental (~1 call), per-ticker split re-base path, 429/403
+  handling, history-floor auto-detection. Fully mock-tested (9 scenarios).
+  **Gated on the user adding the `MASSIVE_API_KEY` repo secret** — then:
+  `price-validate.yml` (coverage + ETF assertion + depth probes) →
+  `price-backfill.yml` (~105 min, resumable) → `backtest.yml` (first REAL result).
+  Licensing note: derived-data clause needs a human read before stock-level
+  derived metrics go public (ADR-017).
 - ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
   pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
   formula, index + stock share it), peer-grouped by sector. Verified: point-in-time

@@ -8,6 +8,62 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-14 — Massive adapter built (ADR-017): date-driven prices, gated on the key
+
+**Decision context:** the user set the end-state directive (product is done only when
+ALL agents are built — now in CLAUDE.md) and chose Massive (ex-Polygon.io) over
+Tiingo. Verified against Massive's official client source + doc snapshots before
+building: `api.massive.com`, Bearer auth, env convention literally `MASSIVE_API_KEY`,
+grouped-daily = whole market per call, free tier = 5 req/min + 2y history, 429 on
+limit, raw-redistribution needs a business plan (derived-data clause: human review
+flagged). Full ADR-017.
+
+**Built (engine/sources/prices.py rewritten):** ingestion is now DATE-driven —
+grouped-daily gives 1 call/day operation and a ~105-min 2y backfill. Resumable full
+rebuild (cursor persisted in `<store>/prices_meta.json` after EVERY day — min(date)
+alone would never advance past zero-row holidays), capped incremental (30d max, 7d
+on empty store, so the daily pipeline can't wander into backfill costs), per-ticker
+split re-base path kept, 429 Retry-After (floored 60s), history floor detected
+empirically (403 OR 5 consecutive empty weekdays — no US market week is all
+holidays). ET-timezone date conversion for per-ticker bars (ms epochs are
+ET-midnight-anchored; naive UTC conversion lands on the wrong calendar day).
+9 mocked scenarios all pass; stockvaluation/backtest/tierb suites unaffected.
+
+**CI:** price-validate.yml now asserts grouped coverage (≥25/30 batch tickers),
+**SPY/ETF presence** (ETF-in-market=stocks is strongly indicated but not verbatim-
+documented — we assert instead of assume), and probes the key's real history depth.
+price-backfill.yml runs the resumable rebuild with --max-minutes 300. Everything
+fails fast and loud if the `MASSIVE_API_KEY` secret is missing — the user adds it on
+their own schedule; nothing else blocks.
+
+## 2026-07-09 — Stooq is bot-walled from CI; two production days lost to the unmerged hydrate fix
+
+**Stooq blocker:** `price-validate.yml` (30 known-good tickers) failed twice — first
+a trivial import bug (fixed), then genuinely: every single request got back an
+identical 796-byte "This site requires JavaScript to verify your browser" page,
+HTTP 200, for all 30 tickers uniformly. Added `PRICES_DEBUG=1` (prints status/
+headers/body-head per request — the only way to see this, since the dev sandbox
+has no outbound network at all right now) to confirm it's a real anti-bot wall
+against GitHub Actions' IPs, not a URL/parsing bug in our adapter. This is a hard
+blocker for Stooq's per-ticker CSV endpoint from CI — not something worth trying
+to route around (that's evasion territory, not a bug fix). ADR-016's Stooq choice
+needs revisiting: either a keyed free-tier source (Tiingo was the pre-blessed
+fallback in STATUS.md/ARCHITECTURE.md) or another keyless option — needs the
+user's call since provisioning a key is their action, not something I can do.
+
+**The other cost of holding PR #8 open:** the daily main-branch pipeline failed for
+a SECOND consecutive day (2026-07-09, same "Tier B store missing" error as
+2026-07-08) because the hydrate fix (commit d0cf8b9) was sitting unmerged in PR #8
+while I held it back waiting on the backtest work to validate. The fix itself was
+independently proven working (its own dev-branch verification run succeeded same
+day it was written) — the cost was pure process, not a code problem. Lesson:
+holding an open PR to sequence a risky follow-on change has a real cost if the PR
+also contains an unrelated, already-verified production fix — split them, or merge
+the safe part immediately instead of bundling. Merged PR #8 as soon as this became
+visible; the backtest/valuation/prices code riding along is safe on main (additive,
+gated on `tierb.enabled()`, and its own CI workflows only trigger on the feature
+branch's own path, never main).
+
 ## 2026-07-08 (later) — prices, stock valuation, and the backtest harness built (ADR-016)
 
 **User direction:** "let's get to backtesting" — the critical path item since Phase 1
