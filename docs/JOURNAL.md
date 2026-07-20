@@ -8,6 +8,40 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-20 — MASSIVE_API_KEY added: first real-network run finds and fixes a real bug
+
+User added the `MASSIVE_API_KEY` repo secret. Fired the chain: `price-validate.yml`
+passed cleanly first try — 30/30 validation-batch coverage, ETF proxies (SPY/EWJ/EWG/
+IXN/VT) confirmed present in grouped-daily, ~22 months of history entitled on the free
+tier (3y/6y probes correctly 403 `NOT_AUTHORIZED`). Then `price-backfill.yml` completed
+in under a minute with `written: 0` — clearly wrong for a ~105-minute backfill.
+
+**Root cause:** `bulk_ingest`'s full-rebuild fresh start set `walk_from = date.today()`,
+and `_weekdays_backward()` yields the start date itself first. Today's trading session
+isn't complete when CI runs (pre-/mid-market), so grouped-daily has no data for it yet —
+Massive returns a 403 that the code blanket-maps to `NotEntitled`, indistinguishable from
+a genuine beyond-entitlement error. That made "today" a false floor before a single valid
+day was ever tried, even though 2026-07-16 and 2024-09-27 had both just been proven to
+work via validate. The incremental path had the same latent issue (window also ended at
+`date.today()`), plus `fetch_day_into` had no catch-all for `NotEntitled` — a bad day
+would have crashed daily ingestion uncaught rather than degrading gracefully.
+
+**Fix:** `_last_complete_trading_day()` excludes today from both walks; hardened
+`fetch_day_into`. The existing mock (`fake_get_full`) always returned valid data for
+"today," which is precisely why this was untestable synthetically — real validation
+against the live API caught something the sandbox structurally couldn't. Added two
+regression scenarios (mid-window error doesn't crash; today-403 doesn't floor at day
+zero) — this is the argument for why STATUS.md flagged "not yet run against real
+market data" as a real risk, not a formality. All 12 prices.py scenarios plus
+stockvaluation/backtest suites verified green (stood up a local Postgres 16 +
+pgvector in-session to actually run the DB-backed scratch suite, since the DB
+container from earlier sessions doesn't persist).
+
+Re-fired `price-backfill.yml` with the fix. **Next: monitor to completion, then fire
+`backtest.yml` for the first real rank-IC/hit-rate report.**
+
+---
+
 ## 2026-07-14 — Massive adapter built (ADR-017): date-driven prices, gated on the key
 
 **Decision context:** the user set the end-state directive (product is done only when
