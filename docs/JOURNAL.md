@@ -8,6 +8,35 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-20 (cont'd) — backtest.yml blocked: GitHub Actions capacity, not code
+
+After the real backfill landed (1,420,695 rows), fired `backtest.yml` — it
+failed at startup in 3 seconds, 0 billable runner-ms (no runner ever
+assigned). First hypothesis: the run step referenced the bare `inputs`
+context, valid only for `workflow_dispatch`, but this fires via `push`.
+Fixed to use `github.event.inputs.*` instead — but the re-fire failed
+**identically**. A control-test push to `price-validate.yml` (which had
+fired successfully at 12:59 UTC) *also* failed the same way at 16:00 UTC.
+All 10 workflows still show `state: active` (not disabled at the
+definition level).
+
+**Conclusion: this isn't a code/YAML issue.** Something blocked ALL new
+workflow runs on this repo starting between 15:17 UTC (backfill completion)
+and 15:53 UTC (first backtest fire) — most likely an Actions minutes quota
+or spending-limit cap reached, tripped by the ~113-minute backfill job
+plus the day's other runs. I have no billing/admin access to confirm or
+fix this — **the user needs to check repo/org Settings → Billing and
+plans → Actions** (spending limit or included-minutes usage) and either
+wait for reset or raise the limit. The `github.event.inputs.*` fix stays
+in `backtest.yml` regardless — it's a real, independent correctness fix,
+just not what's blocking this specific failure.
+
+**Status:** price data is safely landed (1,420,695 rows, real). The first
+real backtest is one `backtest.yml` re-fire away once Actions capacity is
+restored — no further code changes needed on this end.
+
+---
+
 ## 2026-07-20 — MASSIVE_API_KEY added: first real-network run finds and fixes a real bug
 
 User added the `MASSIVE_API_KEY` repo secret. Fired the chain: `price-validate.yml`
