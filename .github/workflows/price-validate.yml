@@ -15,6 +15,9 @@ name: Price ingestion — validation (Massive)
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch).
 # Fired 2026-07-20: MASSIVE_API_KEY secret added, first real-network run.
+# Re-fired 2026-07-20 (control test): backtest.yml is failing at startup
+# with 0 billable ms; touching this already-proven-working file to check
+# whether push-triggered workflows are still firing correctly right now.
 
 on:
   workflow_dispatch: {}
