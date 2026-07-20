@@ -10,6 +10,8 @@ name: Price backfill — full history (Massive)
 # Fires only after price-validate.yml has passed against the real service.
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch).
+# Fired 2026-07-20: price-validate.yml passed (30/30 coverage, ETFs
+# confirmed, ~22mo history entitled) — first full backfill.
 
 on:
   workflow_dispatch: {}
