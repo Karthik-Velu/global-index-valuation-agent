@@ -36,16 +36,17 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
   store is missing post-cutover (the 2026-07-07 refill incident can't recur).
   R2 remains the eventual home.
-- 🔜 **Prices (ADR-017: Massive, supersedes Stooq)** — adapter rebuilt DATE-driven
-  around Massive's grouped-daily endpoint (1 call = whole market/day; free tier =
-  5 req/min, 2y history): resumable full rebuild (cursor in `prices_meta.json`),
-  capped daily incremental (~1 call), per-ticker split re-base path, 429/403
-  handling, history-floor auto-detection. Fully mock-tested (9 scenarios).
-  **Gated on the user adding the `MASSIVE_API_KEY` repo secret** — then:
-  `price-validate.yml` (coverage + ETF assertion + depth probes) →
-  `price-backfill.yml` (~105 min, resumable) → `backtest.yml` (first REAL result).
-  Licensing note: derived-data clause needs a human read before stock-level
-  derived metrics go public (ADR-017).
+- ✅ **Prices (ADR-017: Massive, supersedes Stooq) — REAL DATA LANDED 2026-07-20.**
+  `price-validate.yml` passed against the live service (30/30 coverage, ETFs
+  confirmed, ~22mo entitled); `price-backfill.yml` completed: **1,420,695 real
+  OHLCV rows** in Tier B, floor correctly hit at the free tier's ~2y window,
+  zero errors. Found + fixed a real bug on the first attempt (`walk_from =
+  date.today()` false-floored on today's own unpublished session — see
+  JOURNAL 2026-07-20); untestable synthetically since the mock always modeled
+  today as having data. Licensing note: derived-data clause needs a human read
+  before stock-level derived metrics go public (ADR-017).
+- 🔜 **First real backtest** — `backtest.yml` about to fire against the real
+  price window now in Tier B; this is the actual validated deliverable.
 - ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
   pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
   formula, index + stock share it), peer-grouped by sector. Verified: point-in-time

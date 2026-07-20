@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-14.
+> Last updated: 2026-07-20.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -93,30 +93,37 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   End state: **database 29 MB**; **Tier B = 3,527,837 rows / 21.3 MB** across 1,645
   ingested companies (29 markets); quality 93/100 (known follow-ups in PLAN.md).
 
-## Current state: Massive adapter BUILT, gated on the API-key secret (2026-07-14)
-- **Prices (ADR-017: Massive, ex-Polygon.io)** — the adapter is rebuilt DATE-driven
-  around the grouped-daily endpoint (whole US market in one call per trading day;
-  ETF proxies included — asserted at validation): resumable full rebuild with a
-  cursor in `<store>/prices_meta.json`, capped daily incremental (~1 call/day),
-  per-ticker split re-base, 429 Retry-After handling, empirical history-floor
-  detection (403 or 5 consecutive empty weekdays). 9 mock-tested scenarios pass.
-  Free tier: 5 req/min, 2 years history → ~105-min backfill in one CI job.
-- **BLOCKED ONLY on the user adding the `MASSIVE_API_KEY` repo secret**
-  (Settings → Secrets and variables → Actions; sign up free at massive.com).
-  The validate workflow fails with an explicit "secret missing" message until then.
-- **Stock-level valuation + backtest:** built, synthetic-verified, merged (ADR-016);
-  waiting on real price data.
+## Current state: REAL price data landed (2026-07-20) — first real backtest next
+- **Prices (ADR-017: Massive, ex-Polygon.io) — LIVE.** `MASSIVE_API_KEY` added
+  2026-07-20; `price-validate.yml` passed against the real service (30/30
+  validation-batch coverage, ETF proxies confirmed, ~22mo history entitled on
+  the free tier). `price-backfill.yml` then completed: **1,420,695 real OHLCV
+  rows** written to Tier B, floor correctly hit at `403 NOT_AUTHORIZED` (the
+  free tier's ~2-year window), zero errors.
+- **Real-network bug found + fixed on the first backfill attempt:** the fresh
+  full-rebuild's `walk_from = date.today()` hit today's own (not-yet-published)
+  session first and false-floored with 0 rows written, before ever trying a
+  day we'd already proven entitled. Fixed with `_last_complete_trading_day()`
+  excluding today from both the full and incremental walks; also hardened
+  `fetch_day_into`'s missing exception handling. See JOURNAL 2026-07-20 — a
+  concrete case for why "not yet run against real market data" was flagged as
+  a real risk, not a formality: the synthetic mock always modeled "today" as
+  having valid data, so this was untestable before real-network validation.
+- **Stock-level valuation + backtest:** built, synthetic-verified, merged
+  (ADR-016) — **now unblocked**, real price data exists to run it against.
 - **Licensing flag:** Massive's derived-data terms clause needs a human read before
   stock-level derived metrics go PUBLIC (raw redistribution definitively requires a
   business plan — we never republish raw bars anyway). See ADR-017.
 
 ## Immediate next step
-1. **User:** add `MASSIVE_API_KEY` secret → say so (or re-fire `price-validate.yml`).
-2. Validate run: coverage ≥25/30 batch tickers, SPY/ETF assertion, depth probes.
-3. Fire `price-backfill.yml` (~105 min, resumable) → prices land in Tier B.
-4. Fire `backtest.yml` → the FIRST REAL rank-IC/hit-rate report per signal.
-5. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
-   surface bottom-up in the dashboard.
+1. Fire `backtest.yml` → the FIRST REAL rank-IC/hit-rate report per signal ×
+   horizon, against the ~2-year Massive price window now in Tier B.
+2. Run a `stockvaluation.score_frame(today)` smoke check for real-data P/E/P/B
+   sanity (unit errors real data exposes that synthetic can't).
+3. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
+   surface bottom-up in the dashboard. Decide on a paid Massive tier (Starter
+   $29/mo, 5y) once the free-tier backtest's usable-period count is known —
+   ~2y gives ~12–20 periods at 1m/3m horizons but is thin at 12m.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
