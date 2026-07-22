@@ -15,6 +15,13 @@ name: Corporate actions backfill — dividends + splits (Massive)
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch) — matches every other
 # CI-fired job this session.
+#
+# Re-fired 2026-07-22: the first attempt (this file's own creation, which
+# also matched its own path filter) raced data-pipeline.yml's simultaneous
+# migration-apply step and lost a Postgres catalog race on CREATE TABLE IF
+# NOT EXISTS (UniqueViolation on pg_type — confirmed not a real schema
+# conflict). Fixed in engine/db.py::apply_migrations() to treat that
+# specific race as success; re-firing now that the race window has passed.
 
 on:
   workflow_dispatch: {}
