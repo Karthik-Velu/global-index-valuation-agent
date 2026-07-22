@@ -59,7 +59,19 @@ def apply_migrations() -> list[str]:
     Commits per-migration, so a failure in one (e.g. an optional pgvector step on a
     DB without the extension) leaves earlier migrations applied rather than rolling
     the whole batch back.
+
+    Now called from multiple places (datapipeline.py step 0, corpactions-backfill.yml,
+    a manual run) that can legitimately race on a fresh migration the first time it
+    ships — e.g. two push-triggered workflows firing off the same commit. `CREATE
+    TABLE IF NOT EXISTS` is NOT safe under concurrent execution: Postgres can still
+    raise a UniqueViolation on the internal pg_type catalog entry when two sessions
+    create the same table at once (confirmed 2026-07-22, migration 0009, message
+    "...already exists"). Since our migrations are pure additive DDL, the loser of
+    that race achieved the same end state the winner did — treat it as applied, not
+    a failure, rather than hard-failing the caller.
     """
+    import psycopg
+
     applied_now = []
     with connect() as conn:
         with conn.cursor() as cur:
@@ -75,6 +87,15 @@ def apply_migrations() -> list[str]:
                 with conn.cursor() as cur:
                     cur.execute(f.read_text())
                     cur.execute("insert into schema_migrations(name) values (%s)", (f.name,))
+                conn.commit()
+                applied_now.append(f.name)
+            except psycopg.errors.UniqueViolation as e:
+                conn.rollback()
+                if "already exists" not in str(e):
+                    raise  # a real data conflict, not the concurrent-DDL race
+                with conn.cursor() as cur:
+                    cur.execute("insert into schema_migrations(name) values (%s) "
+                                "on conflict (name) do nothing", (f.name,))
                 conn.commit()
                 applied_now.append(f.name)
             except Exception:
