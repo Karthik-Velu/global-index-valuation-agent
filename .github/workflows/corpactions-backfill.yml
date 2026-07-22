@@ -16,12 +16,21 @@ name: Corporate actions backfill — dividends + splits (Massive)
 # integration lacks actions:write for API dispatch) — matches every other
 # CI-fired job this session.
 #
-# Re-fired 2026-07-22: the first attempt (this file's own creation, which
-# also matched its own path filter) raced data-pipeline.yml's simultaneous
+# Re-fired 2026-07-22 (1st retry): the first attempt (this file's own creation,
+# which also matched its own path filter) raced data-pipeline.yml's simultaneous
 # migration-apply step and lost a Postgres catalog race on CREATE TABLE IF
 # NOT EXISTS (UniqueViolation on pg_type — confirmed not a real schema
 # conflict). Fixed in engine/db.py::apply_migrations() to treat that
-# specific race as success; re-firing now that the race window has passed.
+# specific race as success.
+# Re-fired 2026-07-22 (2nd retry): the 1st retry ran for the full 30-minute
+# timeout with ZERO console output, then got cancelled — corpactions.py had no
+# progress logging at all, and its default pagination pacing (1s/page) was far
+# more aggressive than prices.py's proven-safe 13s/page for this same
+# provider/tier, most likely causing repeated silent 429 backoffs. Fixed:
+# progress logging added, pacing matched to prices.py's 13s, page size raised
+# to the provider's max (5000, was 1000) to cut total round trips ~5x. Timeout
+# raised as a safety margin since the real page count for a whole-market 2y
+# pull is still unconfirmed.
 
 on:
   workflow_dispatch: {}
@@ -35,7 +44,7 @@ permissions:
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}

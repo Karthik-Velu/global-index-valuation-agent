@@ -31,7 +31,7 @@ _KEY_ENV = "MASSIVE_API_KEY"
 
 _DIVIDENDS_PATH = "/v3/reference/dividends"
 _SPLITS_PATH = "/v3/reference/splits"
-_PAGE_LIMIT = 1000  # provider max is 5000; smaller pages keep retries cheap
+_PAGE_LIMIT = 5000  # provider max — fewer round trips against the shared 5 req/min free tier
 
 # Default incremental window: comfortably covers a year of TTM dividend history
 # plus the daily gap since the last run. --full uses the same ~2y span as the
@@ -69,40 +69,51 @@ def _get(path: str, params: dict) -> dict:
     return r.json()
 
 
-def _paginated(path: str, params: dict, sleep: float) -> list[dict]:
-    """Walk next_url until exhausted, retrying once on a 429."""
+def _paginated(path: str, params: dict, sleep: float, label: str) -> list[dict]:
+    """Walk next_url until exhausted, retrying once on a 429. Prints per-page
+    progress — a silent multi-minute pagination loop with zero output is exactly
+    what made the first CI run's 30-minute timeout undiagnosable (had to pull raw
+    job logs to learn it never printed anything at all)."""
     out: list[dict] = []
+    page = 1
     try:
         data = _get(path, params)
     except RateLimited as rl:
+        print(f"   [{label}] page {page} rate-limited, sleeping {rl.retry_after:.0f}s", flush=True)
         time.sleep(rl.retry_after)
         data = _get(path, params)
     out.extend(data.get("results") or [])
+    print(f"   [{label}] page {page}: {len(data.get('results') or [])} rows "
+          f"({len(out)} total)", flush=True)
     while data.get("next_url"):
         time.sleep(sleep)
+        page += 1
         nxt = data["next_url"]
         nxt_path = nxt[len(MASSIVE_BASE):] if nxt.startswith(MASSIVE_BASE) else nxt
         try:
             data = _get(nxt_path, {})
         except RateLimited as rl:
+            print(f"   [{label}] page {page} rate-limited, sleeping {rl.retry_after:.0f}s", flush=True)
             time.sleep(rl.retry_after)
             data = _get(nxt_path, {})
         out.extend(data.get("results") or [])
+        print(f"   [{label}] page {page}: {len(data.get('results') or [])} rows "
+              f"({len(out)} total)", flush=True)
     return out
 
 
-def fetch_dividends(start: date, end: date, sleep: float = 1.0) -> list[dict]:
+def fetch_dividends(start: date, end: date, sleep: float = 13.0) -> list[dict]:
     return _paginated(_DIVIDENDS_PATH, {
         "ex_dividend_date.gte": start.isoformat(), "ex_dividend_date.lte": end.isoformat(),
         "limit": _PAGE_LIMIT,
-    }, sleep)
+    }, sleep, "dividends")
 
 
-def fetch_splits(start: date, end: date, sleep: float = 1.0) -> list[dict]:
+def fetch_splits(start: date, end: date, sleep: float = 13.0) -> list[dict]:
     return _paginated(_SPLITS_PATH, {
         "execution_date.gte": start.isoformat(), "execution_date.lte": end.isoformat(),
         "limit": _PAGE_LIMIT,
-    }, sleep)
+    }, sleep, "splits")
 
 
 def _tracked_ids() -> dict[str, int]:
@@ -113,11 +124,18 @@ def _tracked_ids() -> dict[str, int]:
 
 
 def ingest(start: date | None = None, end: date | None = None, full: bool = False,
-          sleep: float = 1.0) -> dict:
+          sleep: float = 13.0) -> dict:
     """Bulk date-range pull of dividends + splits across the whole market (ticker
     omitted from the request), keeping only rows for tickers we track. Idempotent
     (ON CONFLICT DO NOTHING on the natural key), so a daily re-run over an
     overlapping window is cheap and safe.
+
+    `sleep` defaults to 13s (~4.6 req/min) — the same free-tier-safe pacing
+    prices.py uses, since this is the same provider/plan and there's no
+    confirmed evidence the reference endpoints get a more generous quota than
+    grouped-daily prices (the first CI attempt at 1.0s produced zero output in
+    30 minutes, consistent with repeated silent 429 backoffs — see JOURNAL
+    2026-07-22).
 
     `full=True` (no explicit start/end) widens the window to ~2y, matching the
     price backfill's window — same `full_ingest` flag the daily pipeline already
@@ -131,11 +149,13 @@ def ingest(start: date | None = None, end: date | None = None, full: bool = Fals
     stats: dict = {"window": [start.isoformat(), end.isoformat()], "dividends": 0, "splits": 0,
                   "dividends_unmatched": 0, "splits_unmatched": 0, "errors": []}
 
+    print(f"   fetching dividends {start} .. {end}", flush=True)
     try:
         divs = fetch_dividends(start, end, sleep)
     except Exception as e:
         stats["errors"].append(f"dividends: {str(e)[:160]}")
         divs = []
+    print(f"   fetching splits {start} .. {end}", flush=True)
     try:
         splits = fetch_splits(start, end, sleep)
     except Exception as e:
@@ -195,7 +215,7 @@ if __name__ == "__main__":
                      help=f"~{_FULL_DAYS // 365}y history (matches the price backfill window)")
     ing.add_argument("--start", help="ISO date, default: window-days back from --end")
     ing.add_argument("--end", help="ISO date, default: today")
-    ing.add_argument("--sleep", type=float, default=1.0, help="seconds between pagination requests")
+    ing.add_argument("--sleep", type=float, default=13.0, help="seconds between pagination requests")
     a = p.parse_args()
     if a.cmd == "ingest":
         start_d = date.fromisoformat(a.start) if a.start else None
