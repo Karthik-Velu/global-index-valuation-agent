@@ -13,8 +13,12 @@ name: Stock backtest — walk-forward (Pillar 2)
 # integration lacks actions:write for API dispatch).
 # Fired 2026-07-20: price-backfill.yml completed (1,420,695 real OHLCV rows,
 # ~2y window) — the first attempt failed at startup (bare `inputs` context is
-# invalid on a push trigger); fixed to use github.event.inputs.* below. This
-# push carries the fix and re-fires the first real backtest.
+# invalid on a push trigger); fixed to use github.event.inputs.* below.
+# Both retries then failed identically (0 billable runner-ms) — a GitHub
+# Actions capacity limit (private-repo included-minutes/spending cap),
+# confirmed via a control-test push to an unrelated, previously-successful
+# workflow that failed the same way. Repo made public since (unlimited free
+# Actions minutes for public repos) — re-firing now that that's lifted.
 
 on:
   workflow_dispatch:
