@@ -45,8 +45,17 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   JOURNAL 2026-07-20); untestable synthetically since the mock always modeled
   today as having data. Licensing note: derived-data clause needs a human read
   before stock-level derived metrics go public (ADR-017).
-- 🔜 **First real backtest** — `backtest.yml` about to fire against the real
-  price window now in Tier B; this is the actual validated deliverable.
+- ✅ **First real backtest — COMPLETE 2026-07-22** (`backtest_runs` id=1, window
+  2024-10-20..2025-07-17, 9 monthly rebalances). `opportunity_score` is the
+  standout: mean rank-IC 0.009/0.026/0.042/0.031 at 1m/3m/6m/12m, hit-rate up
+  to 100% at 6m/12m, positive every period at 3m/6m — but `n_periods=9` is
+  below the significance gate's floor of 12, so nothing is formally
+  `significant` yet despite t-stats up to 5.84. `value_score` trends the same
+  direction, weaker. `growth_score`/`momentum_score` show no signal yet
+  (growth_score has an odd 0%-hit-rate-despite-positive-IC split at 6m/12m,
+  unexplained, flagged for later). Full numbers in JOURNAL 2026-07-22.
+  CI note: `backtest.yml` needed the repo made public to actually run — two
+  attempts failed at 0 billable runner-ms (private-repo Actions minutes cap).
 - ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
   pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
   formula, index + stock share it), peer-grouped by sector. Verified: point-in-time
@@ -55,11 +64,10 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   no look-ahead, fixed-horizon (1/3/6/12m) rank-IC/hit-rate/decile-spread per signal,
   IC-population + significance gates, persists to Postgres `backtest_runs`. Verified
   end-to-end against an ENGINEERED synthetic signal (recovered mean rank-IC
-  0.8–0.95). **Needs real price history (price-backfill.yml) before it can run for
-  real** — `backtest.yml` fires once that lands.
-- ⬜ Activate the **recalibration** trigger (goes live once the first REAL backtest
-  run completes — the harness exists now, ADR-016; recalibration.py already reads
-  `backtest_runs`)
+  0.8–0.95), and now against the real market too (above).
+- 🔜 Activate the **recalibration** trigger — the first real `backtest_runs` row
+  now exists (ADR-016 harness; `recalibration.py` already reads `backtest_runs`);
+  confirm it picks up on the next daily pipeline run / health check.
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company

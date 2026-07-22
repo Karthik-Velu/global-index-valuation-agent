@@ -115,15 +115,46 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   stock-level derived metrics go PUBLIC (raw redistribution definitively requires a
   business plan — we never republish raw bars anyway). See ADR-017.
 
+## Current state: FIRST REAL BACKTEST completed (2026-07-22, `backtest_runs` id=1)
+- Window auto-detected as **2024-10-20 .. 2025-07-17, 9 monthly rebalance dates**
+  (narrower than the ~2y price span — the walk-forward loop needs the 12m
+  horizon's forward return inside the store too, so the window's end is
+  pinned ~12mo before the latest price date).
+- **`opportunity_score` (the combined GARP score) is the standout across every
+  horizon**: mean rank-IC 0.009 / 0.026 / **0.042** / 0.031 at 1m/3m/6m/12m,
+  hit-rate 78% / 89% / **100%** / 100%, positive in every single period at
+  3m/6m (`pct_positive_ic` 1.0). t-stats are the strongest in the whole table
+  (3.47 / 5.84 / 4.43 at 3m/6m/12m) — but **none clear `significant: true`**,
+  because the gate requires `n_periods >= 12` and this maiden run only has 9;
+  the t-stat threshold (|t|>=2) is otherwise cleared comfortably. Read this as
+  a genuinely encouraging early signal, not yet statistically proven.
+- `value_score` trends the same direction (IC ~0 at 1m rising to 0.024 by
+  12m, hit-rate reaching 100% at 6m/12m) — weaker, same small-sample caveat.
+- `growth_score` and `momentum_score` show no real signal yet; growth_score
+  has an odd split (small positive mean rank-IC alongside **0% hit-rate** at
+  6m/12m) worth a closer look once more periods accumulate — not
+  investigated further this session.
+- **CI capacity note:** `backtest.yml` failed twice with 0 billable runner-ms
+  before this — a private-repo GitHub Actions minutes/spending cap, confirmed
+  via a control-test push to an unrelated, already-working workflow that
+  failed identically. **The user made the repo public** (unlimited free
+  Actions minutes on public repos), which fixed it immediately — no code
+  change was the actual fix, despite an earlier real bug fix
+  (`github.event.inputs.*`, commit 36ffbde) found along the way.
+- Read the numbers with the documented methodology caveats front and center
+  (see `engine/backtest.py` docstring): no survivorship-bias control,
+  latest-FY-only fundamentals (not TTM), no transaction costs, single
+  9-period window. This is a first look, not a validated edge.
+
 ## Immediate next step
-1. Fire `backtest.yml` → the FIRST REAL rank-IC/hit-rate report per signal ×
-   horizon, against the ~2-year Massive price window now in Tier B.
+1. Let more history accumulate (daily incremental price ingestion is live)
+   and re-run `backtest.yml` periodically — `n_periods >= 12` is what's
+   needed to clear the significance gate on the strongest signal.
 2. Run a `stockvaluation.score_frame(today)` smoke check for real-data P/E/P/B
    sanity (unit errors real data exposes that synthetic can't).
 3. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
    surface bottom-up in the dashboard. Decide on a paid Massive tier (Starter
-   $29/mo, 5y) once the free-tier backtest's usable-period count is known —
-   ~2y gives ~12–20 periods at 1m/3m horizons but is thin at 12m.
+   $29/mo, 5y) for more usable periods per horizon once growth stabilizes.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):

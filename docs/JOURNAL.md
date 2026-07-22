@@ -8,6 +8,68 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-22 — FIRST REAL BACKTEST: opportunity_score shows the strongest early signal
+
+`backtest.yml` finally ran clean after two instant failures (0 billable runner-ms
+both times — a private-repo GitHub Actions minutes/spending cap, confirmed via a
+control-test push to an unrelated, already-working workflow that failed identically).
+**The user made the repo public** (unlimited free Actions minutes on public repos),
+which fixed it immediately. A real bug was also found and fixed along the way
+(`github.event.inputs.*` — the bare `inputs` context is invalid on a push trigger,
+commit 36ffbde) but wasn't the actual blocker for this failure; both fixes are
+correct and both are now shipped.
+
+**Result** (`backtest_runs` id=1, queried directly from Supabase via MCP since the
+GitHub Actions artifact download is blocked by this session's egress policy —
+api.github.com direct access and signed-URL artifact downloads are both denied by
+design, "do not retry or route around it"): window auto-detected as
+**2024-10-20 .. 2025-07-17, 9 monthly rebalance dates** — narrower than the full
+~2y price span because the walk-forward loop needs the 12m horizon's forward
+return already sitting in Tier B too, which pins the window's end ~12 months
+before the latest price date.
+
+| horizon | signal | mean rank-IC | hit-rate | pct positive | t-stat | significant |
+|---|---|---|---|---|---|---|
+| 1m | opportunity_score | 0.009 | 77.8% | 55.6% | 1.15 | false |
+| 1m | value_score | -0.006 | 77.8% | 44.4% | -0.29 | false |
+| 3m | opportunity_score | 0.026 | 88.9% | 100% | 3.47 | false |
+| 3m | value_score | 0.007 | 88.9% | 55.6% | 0.27 | false |
+| 6m | **opportunity_score** | **0.042** | **100%** | **100%** | **5.84** | false |
+| 6m | value_score | 0.023 | 100% | 55.6% | 0.91 | false |
+| 12m | opportunity_score | 0.031 | 100% | 88.9% | 4.43 | false |
+| 12m | value_score | 0.024 | 100% | 88.9% | 2.37 | false |
+
+`opportunity_score` (the combined GARP score) is the standout across every single
+horizon — positive rank-IC and improving hit-rate at every step, t-stats up to
+5.84. **None are marked `significant`**, but not because the signal is weak: the
+gate requires `n_periods >= 12`, and this maiden run only has 9 (the t-stat
+threshold |t|>=2 is otherwise cleared comfortably at 3m/6m/12m). Read this as a
+genuinely encouraging first look, not yet statistically proven — exactly the
+"real data exposes what synthetic can't" moment this whole multi-week effort was
+for, except this time the surprise is a promising signal rather than a bug.
+
+`value_score` moves the same direction, weaker. `growth_score` and
+`momentum_score` show no real signal; `growth_score` has an odd split — small
+positive mean rank-IC alongside **0% hit-rate** at 6m and 12m — flagged as
+unexplained, not investigated further this session (could be a very small
+top/bottom-quartile bin size at n=9 periods producing noisy hit-rate, or
+something more structural; worth a look once more periods accumulate).
+
+**Also learned:** this session's sandboxed network cannot reach api.github.com
+directly or download GitHub Actions artifacts (signed Azure blob URLs 403 at the
+proxy) — by design, per the agent-proxy policy ("403/407: do not retry or route
+around it, report the blocked host"). When CI produces a result that needs
+pulling out of GitHub and Postgres has it too, query Postgres directly (Supabase
+MCP) instead of fighting the artifact download.
+
+**Status:** the critical path from "Massive adapter built" to "first real
+backtest" is done. Recalibration should activate on the next daily pipeline run
+now that `backtest_runs` has a real row — worth confirming on the next health
+check. Next: corp actions (dividends/splits), the Quality-Triage agent, and
+surfacing bottom-up rankings in the dashboard.
+
+---
+
 ## 2026-07-20 (cont'd) — backtest.yml blocked: GitHub Actions capacity, not code
 
 After the real backfill landed (1,420,695 rows), fired `backtest.yml` — it
