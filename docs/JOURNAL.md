@@ -8,6 +8,102 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-22 (later) — Phase A hardening: growth_score confirmed, corp actions shipped, production audit
+
+Picked up "Phase A" (from the roadmap discussion after the first real backtest)
+plus an explicit user directive: a thorough hardcoding/dummy-data/dummy-connection
+audit ahead of an imminent production launch.
+
+**growth_score anomaly resolved with real numbers.** The earlier backtest run only
+persisted the aggregate summary; re-ran `backtest.yml` after teaching
+`backtest.py::_persist` to also store per-period detail (`backtest_runs` id=2), then
+pulled the 6m growth_score series directly from Postgres. Confirmed: `hit_rate` is
+**0% in all 9/9 periods** (not a coarse-statistic artifact as first hypothesized —
+top-quartile-by-growth-score names' mean forward return trailed the bottom
+quartile's every single time, by up to -29pp in Apr/May 2025), while `rank_ic` (the
+full ~2,700-name Spearman correlation) is mildly positive Nov'24–Mar'25 then flips
+negative Apr–Jul'25. Two live hypotheses, not distinguished yet: a real growth-trap
+effect in this regime, or the documented latest-FY-only (not TTM) fundamentals
+caveat. Needs more history/regimes, not chased further with 9 periods.
+
+**Production-readiness audit** (two parallel sub-agents: backend data/sources,
+dashboard/CI/config) surfaced real issues, now fixed:
+- Dead Stooq adapter was still registered in `adapters.py` and probed daily by the
+  ingestion agent, a year after Massive replaced it (ADR-017) — removed + deleted
+  the module.
+- `SEC_USER_AGENT` silently fell back to a hardcoded placeholder at 3 call sites
+  (`edgar.py`, `universescan.py`, `sectoragent/tagging.py`) when unset — exactly
+  what SEC's fair-use policy exists to catch. Added `config.sec_user_agent()`,
+  raising loudly at call time (found a 4th call site — `sectoragent/tagging.py` —
+  only because the local scratch test suite caught the resulting ImportError after
+  the first pass; a reminder that "grep for the pattern" isn't the same as
+  "run the tests").
+- `probe.py`'s quality scorer gave a source that returned zero records (no error)
+  hardcoded 60/70 completeness/sanity subscores instead of reflecting the empty
+  response — a fully broken adapter scored ~43/100 ("middling") instead of near-
+  zero, on the exact score that drives active-adapter selection. Fixed to
+  short-circuit to 0 on an empty-but-no-error response.
+- 5 one-shot migration/repair CI workflows (cutover, retruncate, activate,
+  universe-backfill, universe-validate) all completed their job but still carried
+  a `push:` trigger scoped to their own file — any future incidental edit would
+  silently re-fire a destructive job (TRUNCATE, full-universe regen). Dropped to
+  `workflow_dispatch` only (`price-backfill.yml`/`backtest.yml` keep their push
+  trigger — still the only way this session's GitHub integration, no
+  `actions:write`, can fire them).
+- README/DISCLAIMER/dashboard footer's "no backtest yet" language was true when
+  written, false now — updated to the accurate (still honest: not yet
+  significant) status.
+- `.env.example` didn't document `SEC_USER_AGENT`/`MASSIVE_API_KEY` (both actually
+  required) and listed `SUPABASE_URL`/`ANON_KEY`/`SERVICE_ROLE_KEY`/`R2_*`, none of
+  which any code in the repo reads — cleaned up.
+- Stale "(Stooq)" references in CLAUDE.md (the always-loaded orientation file) and
+  3 docs files.
+- Still open, not code fixes I can make myself: rotate `OLLAMA_API_KEY`/
+  `GROQ_API_KEY` (pasted into chat during initial setup, more pressing now the
+  repo is public), and a minor disclosure-marker inconsistency in
+  `llm.py::_fallback_tag` vs `_fallback_brief` (rated worth-fixing-not-urgent by
+  the audit; deferred in favor of Phase A).
+
+**Corporate actions ingestion shipped (ADR-018)** — the other half of Phase A, and
+itself a real hardcoding fix: `stockvaluation.py` shipped with `dividend_yield`
+**hardcoded to 0.0 for every single stock**, documented as a known gap. Built
+`engine/sources/corpactions.py`: Massive's `/v3/reference/dividends` and
+`/v3/reference/splits` are both ticker-optional and date-range filterable
+(`.gte`/`.lte` suffixes), so one paginated bulk query per type pulls every
+dividend/split across the whole market for a window — same one-call-covers-
+everything shape as `prices.py`'s grouped-daily endpoint, not a per-ticker sweep.
+New Postgres `dividends`/`splits` tables (migration 0009 — relational, low-volume,
+same tier as `filings`, not Tier B). `stockvaluation.py::_dividend_features` now
+computes real trailing-12-month dividends-per-share ÷ price, point-in-time
+(`ex_dividend_date <= asof`, same no-look-ahead discipline as fundamentals/prices).
+Splits are NOT re-applied to prices — `prices.py` already fetches split-adjusted
+bars from the same provider, so the `splits` table is an audit trail, not a
+derivation source. Wired into the daily pipeline (step 2d) + a new
+`corpactions-backfill.yml` for one-time ~2y history (not yet fired this session).
+
+**Side effect: migrations are now self-healing.** While wiring migration 0009,
+found that NO CI workflow anywhere calls `db.apply_migrations()` — each of the
+first 8 migrations needed someone to remember to run it by hand. Added it as step 0
+of `datapipeline.py::run()` (idempotent, tracked in `schema_migrations`).
+
+**Recalibration trigger confirmed wired** (by code review, not a live run):
+`recalibration.py` reads the latest `backtest_runs` row — which now exists for
+real (2 rows) — and `datapipeline.py` step 6 calls `recalibration.run()` on every
+pipeline execution. The `pending_initial` branch ("no backtest yet") is already
+behind us; no separate activation step needed.
+
+**Tested:** all new code against the local sandbox Postgres (`tester@127.0.0.1:5445/
+giva`) — a synthetic corp-actions scenario (dividend-payer, non-payer, split-only
+ticker; an out-of-TTM-window old dividend correctly excluded; an untracked-ticker
+row correctly dropped; idempotent re-ingest) end-to-end through
+`stockvaluation.score_frame()`, confirming the real (not hardcoded) dividend_yield.
+Re-ran the existing backtest/prices/universe scratch suites — all still green (the
+universe test's one pre-existing failure reproduces identically on the unmodified
+code too, confirmed via `git stash` — local test-DB state pollution in
+`_ingest_universe`, not a regression from this session's changes).
+
+---
+
 ## 2026-07-22 — FIRST REAL BACKTEST: opportunity_score shows the strongest early signal
 
 `backtest.yml` finally ran clean after two instant failures (0 billable runner-ms

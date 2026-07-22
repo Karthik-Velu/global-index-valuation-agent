@@ -17,9 +17,10 @@ Known v1 simplifications (documented, not silent):
   * Valuation multiples use the latest ANNUAL (FY) revenue/net_income/operating
     cash flow as of `asof` — not a trailing-twelve-month roll of quarters. Can be
     up to ~12 months stale relative to price for calendar-quarter reporters.
-  * No dividend data (EDGAR's per-share dividend tag isn't in the catalog yet) —
-    dividend_yield is 0.0 for every stock, same graceful-degradation shape
-    metrics.py already uses for markets with no growth data.
+  * dividend_yield is trailing-12-month dividends-per-share (from the `dividends`
+    table, engine/sources/corpactions.py — Massive reference data, point-in-time
+    on ex_dividend_date) divided by price; 0.0 for stocks with no dividend rows
+    in the window, which is a real value (non-payer), not a placeholder.
   * No forward (analyst-estimate) growth — fwd_growth is NaN; growth_raw is
     trailing YoY revenue/earnings only.
 """
@@ -128,6 +129,25 @@ def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> 
     return pd.DataFrame(out, columns=cols)
 
 
+def _dividend_features(asof, security_ids: list[int]) -> pd.DataFrame:
+    """security_id -> trailing-12-month dividends-per-share as of `asof` (sum of
+    cash_amount for ex-dividend dates in (asof - 365d, asof]) — point-in-time,
+    same discipline as fundamentals/prices: an ex-date after `asof` is invisible."""
+    from . import db
+
+    cols = ["security_id", "ttm_dps"]
+    if not security_ids or not db.have_db():
+        return pd.DataFrame(columns=cols)
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "select security_id, sum(cash_amount) from dividends "
+            "where ex_dividend_date <= %s and ex_dividend_date > %s::date - interval '365 days' "
+            "and security_id = any(%s) group by security_id",
+            (asof, asof, security_ids))
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=cols)
+
+
 def _universe(security_ids: list[int] | None) -> pd.DataFrame:
     """(security_id, ticker, name, sector, country) for the stock universe."""
     from . import db
@@ -155,15 +175,18 @@ def score_frame(asof, security_ids: list[int] | None = None) -> pd.DataFrame:
 
     fund = _fundamentals_frame(asof, ids)
     price = _price_features(asof, ids)
+    div = _dividend_features(asof, ids)
 
     df = uni.merge(fund, on="security_id", how="left").merge(price, on="security_id", how="left")
+    df = df.merge(div, on="security_id", how="left")
 
     df["market_cap"] = df["price"] * df["shares_outstanding"]
     df["pe"] = (df["market_cap"] / df["net_income"]).where(df["net_income"] > 0)
     df["pb"] = (df["market_cap"] / df["total_equity"]).where(df["total_equity"] > 0)
     df["ps"] = (df["market_cap"] / df["total_revenue"]).where(df["total_revenue"] > 0)
     df["pcf"] = (df["market_cap"] / df["operating_cash_flow"]).where(df["operating_cash_flow"] > 0)
-    df["dividend_yield"] = 0.0   # no per-share dividend data yet (see module docstring)
+    df["dividend_yield"] = (df["ttm_dps"] / df["price"]).where(df["price"] > 0).fillna(0.0)
+    df = df.drop(columns=["ttm_dps"])
     df["fwd_growth"] = np.nan    # no analyst-estimate source at stock level yet
     df["growth_cov"] = 1.0
 

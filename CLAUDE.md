@@ -89,9 +89,10 @@ Nothing important should live only in a chat — push it into these so it surviv
 ## Handy commands
 ```bash
 python -c "from engine import db; print(db.apply_migrations())"  # apply schema
-python -m engine.datapipeline --agents   # data pipeline + agents (now includes prices)
+python -m engine.datapipeline --agents   # data pipeline + agents (prices, corp actions, migrations)
 python -m engine.quality                 # data-quality score
 python -m engine.memory                  # semantic-memory stats / promotions
-python -m engine.sources.prices ingest --full   # full-history price backfill (Massive)
+python -m engine.sources.prices ingest --full       # full-history price backfill (Massive)
+python -m engine.sources.corpactions ingest --full  # full-history dividends + splits (Massive)
 python -m engine.backtest run            # walk-forward stock backtest
 ```

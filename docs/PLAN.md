@@ -65,17 +65,26 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   IC-population + significance gates, persists to Postgres `backtest_runs`. Verified
   end-to-end against an ENGINEERED synthetic signal (recovered mean rank-IC
   0.8–0.95), and now against the real market too (above).
-- 🔜 Activate the **recalibration** trigger — the first real `backtest_runs` row
-  now exists (ADR-016 harness; `recalibration.py` already reads `backtest_runs`);
-  confirm it picks up on the next daily pipeline run / health check.
+- ✅ **Recalibration trigger wired to real data** — `recalibration.py` reads
+  `backtest_runs` (now has 2 real rows, 2026-07-22); `datapipeline.py` step 6 calls
+  it on every run, so the daily pipeline moves off the `pending_initial` branch
+  automatically — no separate activation needed, confirmed by code path.
+- ✅ **Corporate actions ingestion (ADR-018)** — `engine/sources/corpactions.py`:
+  bulk date-range pull of dividends + splits from Massive's v3 reference endpoints
+  (ticker-optional, one paginated query per type covers the whole market), new
+  Postgres `dividends`/`splits` tables (migration 0009). `dividend_yield` in
+  stockvaluation.py is now REAL trailing-12-month dividends-per-share ÷ price,
+  point-in-time — no longer the hardcoded 0.0 placeholder. Wired into the daily
+  pipeline (step 2d) + a one-time `corpactions-backfill.yml` for ~2y history.
+  Self-healing migrations added as a side effect (datapipeline step 0 —
+  no CI step previously applied `engine/migrations/*.sql` automatically).
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company
   is invisible to the whole backtest), transaction costs, benchmark-relative Sharpe
   (needs an index-level price series over the same window), TTM (trailing-twelve-
   month) multiples instead of latest-FY-only (up to ~12mo stale for calendar-quarter
-  reporters), forward (analyst-estimate) growth at stock level, per-share dividend
-  data (EDGAR tag not yet in the catalog — dividend_yield is 0.0 for every stock),
+  reporters), forward (analyst-estimate) growth at stock level,
   continuous/live prediction-ledger grading (vs. today's historical-only harness).
 
 ## Parallel tracks (don't block the critical path)  ⬜

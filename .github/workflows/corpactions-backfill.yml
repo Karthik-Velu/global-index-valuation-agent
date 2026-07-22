@@ -1,0 +1,54 @@
+name: Corporate actions backfill — dividends + splits (Massive)
+
+# Bulk date-range backfill of dividends + splits via Massive's v3 reference
+# endpoints (ticker-optional, date-range filterable — one paginated query per
+# type covers the WHOLE market for the window, not a per-ticker sweep). Fills
+# the ~2y history stockvaluation.py's trailing-12-month dividend_yield needs
+# (previously hardcoded to 0.0 — see docs/STATUS.md). Postgres-only (low
+# volume, relational — same home as `filings`), so no Tier B cache/hydrate
+# needed, unlike price-backfill.yml.
+#
+# Idempotent: dividends/splits use ON CONFLICT DO NOTHING on their natural
+# key, so re-running (or the daily pipeline's own ~400d incremental window)
+# never duplicates rows.
+#
+# Trigger: push to THIS FILE on the feature branch (the session's GitHub
+# integration lacks actions:write for API dispatch) — matches every other
+# CI-fired job this session.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/corpactions-backfill.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+    steps:
+      - name: Check required secrets exist
+        run: |
+          if [ -z "$MASSIVE_API_KEY" ]; then
+            echo "::error::MASSIVE_API_KEY secret is missing — add it under repo Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is missing."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Apply schema migrations (self-healing, idempotent)
+        run: python -c "from engine import db; print(db.apply_migrations())"
+      - name: Full-history corp actions backfill (~2y, matches price backfill window)
+        run: python -m engine.sources.corpactions ingest --full

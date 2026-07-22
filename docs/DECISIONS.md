@@ -9,6 +9,40 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-018 · Corporate actions (dividends + splits) via Massive reference endpoints
+- **Context:** stockvaluation.py shipped (ADR-016) with `dividend_yield` **hardcoded
+  to 0.0 for every stock** — documented as a known gap ("no dividend data yet"),
+  surfaced again by the 2026-07-22 hardcoding/dummy-data audit (user directive:
+  "we do not want hardcoding or dummy data or dummy connections anywhere — we plan
+  to go to production pretty soon"). ADR-017 already flagged Massive's
+  `/v3/reference/dividends` and `/v3/reference/splits` as the planned end-state
+  source for this.
+- **Choice:** `engine/sources/corpactions.py` — both endpoints are TICKER-OPTIONAL
+  and date-range filterable (`ex_dividend_date.gte/.lte`, `execution_date.gte/.lte`),
+  so one paginated bulk query per type covers the WHOLE market for a window, the
+  same one-call-covers-everything shape as prices.py's grouped-daily endpoint
+  (not a per-ticker sweep). New Postgres tables `dividends`/`splits` (migration
+  0009) — relational, low-volume (unlike prices/fundamentals), same tier as
+  `filings`. `stockvaluation.py::_dividend_features` computes real trailing-12-month
+  dividends-per-share ÷ price, point-in-time on `ex_dividend_date <= asof` (same
+  no-look-ahead discipline as fundamentals/prices) — 0.0 now means "confirmed
+  non-payer," not "no data source."
+- **Splits are NOT re-applied to prices:** prices.py already fetches
+  `adjusted=true` (split-adjusted) bars from the SAME provider, so the price
+  series is already correctly rebased. The `splits` table is an audit trail
+  (explains a rebasing event), not something downstream code derives prices from.
+- **Self-healing migrations:** while building this, found NO CI step anywhere
+  applies `engine/migrations/*.sql` automatically — each of the 8 prior migrations
+  required someone to remember to run `db.apply_migrations()` by hand. Added it as
+  step 0 of `datapipeline.py::run()` (idempotent, tracked in `schema_migrations`,
+  a no-op most days) so a shipped migration can never again silently fail to
+  reach production between sessions.
+- **Rejected:** deriving a synthetic/estimated yield from EDGAR's
+  `CommonStockDividendsPerShareDeclared` tag instead — real per-event dividend
+  data (with ex-date) is strictly better for point-in-time correctness and EDGAR's
+  tag isn't in the catalog yet either; would've been solving the same problem twice.
+- **Date:** 2026-07-22.
+
 ### ADR-017 · Massive (ex-Polygon.io) replaces Stooq as the price source
 - **Context:** ADR-016 chose Stooq (free, keyless). Empirically DEAD from CI
   (JOURNAL 2026-07-09): its per-ticker CSV API serves a JS anti-bot challenge and

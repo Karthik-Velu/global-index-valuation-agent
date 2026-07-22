@@ -51,6 +51,9 @@ engine/sources/
                    # daily/bulk equity prices now come from engine/sources/prices.py
                    # (Massive/Polygon.io, ADR-017), a separate deterministic job,
                    # not a SourceAdapter probed by the ingestion agent)
+  corpactions.py   # dividends + splits (Massive reference data, ADR-018) —
+                   # also a standalone job, not a SourceAdapter; feeds
+                   # stockvaluation.py's real (not hardcoded) dividend_yield
   seed_catalog.json# 40 research-verified, license-aware sources (the backlog)
 engine/dataagent/
   probe.py         # deterministic quality scoring (the "test cleanliness" core)

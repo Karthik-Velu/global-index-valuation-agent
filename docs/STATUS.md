@@ -130,10 +130,24 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   a genuinely encouraging early signal, not yet statistically proven.
 - `value_score` trends the same direction (IC ~0 at 1m rising to 0.024 by
   12m, hit-rate reaching 100% at 6m/12m) — weaker, same small-sample caveat.
-- `growth_score` and `momentum_score` show no real signal yet; growth_score
-  has an odd split (small positive mean rank-IC alongside **0% hit-rate** at
-  6m/12m) worth a closer look once more periods accumulate — not
-  investigated further this session.
+- `growth_score` and `momentum_score` show no real signal yet. **The
+  growth_score hit-rate/rank-IC divergence is now confirmed with per-period
+  data** (2026-07-22, `backtest_runs` id=2, which persists full per-period
+  detail — see `engine/backtest.py::_persist`): at 6m, **hit_rate is 0% in
+  all 9/9 periods** — the top-quartile-by-growth-score names' *mean* forward
+  return trails the bottom quartile's every single time, by up to -29pp
+  (Apr/May 2025). rank_ic (the full ~2,700-name Spearman correlation) is
+  mildly *positive* in the first 5 periods (Nov'24–Mar'25, +0.01 to +0.14)
+  then flips *negative* in the last 4 (Apr–Jul'25, -0.07 to -0.00). So this
+  isn't just "hit-rate is a noisy statistic on two small buckets" as
+  originally hypothesized — it's a real, consistent pattern in this window:
+  high-growth-score names underperformed on a mean basis throughout,
+  worst during a Apr–Jun 2025 stretch consistent with a growth-stock
+  selloff. Two live hypotheses, not yet distinguished: (a) a genuine
+  growth-trap effect in this specific regime, or (b) a signal-construction
+  issue (latest-FY-only fundamentals, not TTM — the documented caveat in
+  `engine/backtest.py`'s docstring). Needs more history/regimes before
+  concluding either way; not chasing further with only 9 periods.
 - **CI capacity note:** `backtest.yml` failed twice with 0 billable runner-ms
   before this — a private-repo GitHub Actions minutes/spending cap, confirmed
   via a control-test push to an unrelated, already-working workflow that
@@ -146,15 +160,47 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   latest-FY-only fundamentals (not TTM), no transaction costs, single
   9-period window. This is a first look, not a validated edge.
 
+## Phase A hardening (2026-07-22)
+- **Corporate actions shipped (ADR-018):** `engine/sources/corpactions.py` pulls
+  dividends + splits from Massive's v3 reference endpoints (bulk date-range,
+  whole market per query) into new Postgres `dividends`/`splits` tables
+  (migration 0009). `stockvaluation.py`'s `dividend_yield` is now a REAL
+  trailing-12-month dividends-per-share ÷ price, point-in-time — replacing the
+  hardcoded `0.0` every stock previously got. Wired into the daily pipeline
+  (step 2d, ~400d incremental window) + `corpactions-backfill.yml` (one-time
+  ~2y history, not yet fired — needs a push to that workflow file to trigger
+  via this session's push-path mechanism).
+- **Migrations are now self-healing:** found no CI step anywhere applied
+  `engine/migrations/*.sql` automatically (each of the first 8 needed a manual
+  `db.apply_migrations()` run) — added as `datapipeline.py` step 0.
+- **Recalibration trigger confirmed wired:** `recalibration.py` reads
+  `backtest_runs` (2 real rows now exist) and `datapipeline.py` step 6 calls it
+  every run — no separate activation needed, the `pending_initial` branch is
+  already behind us.
+- **Full hardcoding/dummy-data audit (user directive, ahead of production):**
+  removed the dead Stooq adapter (still registered/probed daily after Massive
+  replaced it), closed 3 silent `SEC_USER_AGENT` placeholder-fallback call
+  sites (now raise loudly if unset, matching prices.py's `_api_key()` pattern),
+  fixed a data-quality scorer bug (empty adapter responses scored ~43/100
+  instead of near-zero), dropped `push:` triggers from 5 completed one-shot
+  migration workflows (destructive-job re-fire risk), refreshed stale
+  "no backtest yet" claims in README/DISCLAIMER/dashboard now that a real
+  backtest has run, and cleaned up `.env.example` (documented
+  `SEC_USER_AGENT`/`MASSIVE_API_KEY`, dropped unused Supabase/R2 placeholders).
+  Still open: rotate `OLLAMA_API_KEY`/`GROQ_API_KEY` (pasted into chat during
+  initial setup — needs the user to generate new keys), a minor LLM-output
+  disclosure-marker gap in `llm.py::_fallback_tag`.
+
 ## Immediate next step
-1. Let more history accumulate (daily incremental price ingestion is live)
+1. Fire `corpactions-backfill.yml` to get ~2y of real dividend history, then
+   re-run `backtest.yml` — `dividend_yield` now feeding `value_score` (real
+   data, not always-0.0) could shift its rank-IC.
+2. Let more history accumulate (daily incremental price ingestion is live)
    and re-run `backtest.yml` periodically — `n_periods >= 12` is what's
    needed to clear the significance gate on the strongest signal.
-2. Run a `stockvaluation.score_frame(today)` smoke check for real-data P/E/P/B
-   sanity (unit errors real data exposes that synthetic can't).
-3. Then: corp actions (dividends), Quality-Triage agent (Massive MCP as a tool),
-   surface bottom-up in the dashboard. Decide on a paid Massive tier (Starter
-   $29/mo, 5y) for more usable periods per horizon once growth stabilizes.
+3. Then: Quality-Triage agent (Massive MCP as a tool), surface bottom-up in
+   the dashboard. Decide on a paid Massive tier (Starter $29/mo, 5y) for more
+   usable periods per horizon once growth stabilizes.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
@@ -201,5 +247,6 @@ python -m engine.quality                          # data-quality score
 python -m engine.memory                           # memory stats / promotions
 python -m engine.modelrouting                     # model reliability scorecard
 python -m engine.sources.prices ingest --full     # full-history price backfill (Massive)
+python -m engine.sources.corpactions ingest --full # full-history dividends + splits (Massive)
 python -m engine.backtest run                     # walk-forward stock backtest
 ```
