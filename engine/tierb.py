@@ -53,7 +53,7 @@ _FM_DDL = ("security_id BIGINT, period_end DATE, fiscal_period VARCHAR, "
            "confidence DOUBLE, ingested_at TIMESTAMPTZ")
 
 # Daily OHLCV. No restatement vintage — a trading day's print is final — so the key
-# is just (security_id, date). `source` records the provider (e.g. "stooq") in case
+# is just (security_id, date). `source` records the provider (e.g. "massive") in case
 # a second price source is ever blended in.
 PRICE_COLUMNS = ("security_id", "date", "open", "high", "low", "close", "volume",
                   "source", "ingested_at")

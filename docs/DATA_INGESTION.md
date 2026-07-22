@@ -46,8 +46,11 @@ Scheduled daily via `.github/workflows/data-agent.yml` (uploads the report artif
 engine/sources/
   base.py          # SourceAdapter interface + DataKind / License + Record/SampleResult
   registry.py      # catalog + eval ledger + data_needs + decisions (SQLite)
-  adapters.py      # live adapter instances (yahoo, stooq)
-  yahoo.py stooq.py# concrete adapters
+  adapters.py      # live adapter instances (yahoo, simfin, edgar)
+  yahoo.py edgar.py simfin.py  # concrete adapters (Stooq dropped, see below —
+                   # daily/bulk equity prices now come from engine/sources/prices.py
+                   # (Massive/Polygon.io, ADR-017), a separate deterministic job,
+                   # not a SourceAdapter probed by the ingestion agent)
   seed_catalog.json# 40 research-verified, license-aware sources (the backlog)
 engine/dataagent/
   probe.py         # deterministic quality scoring (the "test cleanliness" core)

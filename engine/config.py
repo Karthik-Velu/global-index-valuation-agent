@@ -111,6 +111,23 @@ ZAI_API_KEY = os.getenv("ZAI_API_KEY", "").strip()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()  # set for Ollama Cloud (remote endpoint)
 
+
+def sec_user_agent() -> str:
+    """SEC EDGAR's fair-use policy requires a descriptive User-Agent identifying
+    the requester (app name + contact) — see sec.gov/os/webmaster-faq#developers.
+    No placeholder default: an impersonal fallback is exactly what SEC's policy
+    is meant to catch, and silently sending one risks a block that only shows up
+    as mysterious EDGAR failures later. Raises loudly, at call time, so ingestion
+    fails fast with a clear fix instead of degrading quietly."""
+    ua = os.getenv("SEC_USER_AGENT", "").strip()
+    if not ua:
+        raise RuntimeError(
+            "SEC_USER_AGENT is not set — SEC EDGAR requires a descriptive "
+            "User-Agent (format: 'app-name contact-email', e.g. "
+            "'global-index-valuation-agent you@example.com'). Add it as a "
+            "GitHub Actions secret/env var before calling SEC EDGAR.")
+    return ua
+
 # --- Scoring weights -------------------------------------------------------
 # Value (cheapness) is a blend of yield-style metrics. Higher yield = cheaper.
 # Weights are normalised internally, so relative magnitude is what matters.

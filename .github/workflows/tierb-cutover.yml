@@ -14,10 +14,12 @@ name: Tier B cutover + universe backfill (ADR-015)
 # integration lacks actions:write for API dispatch).
 
 on:
+  # workflow_dispatch only — this one-shot cutover already ran (2026-07-06) and
+  # its destructive TRUNCATE step must never re-fire from an incidental push
+  # (e.g. a repo-wide workflow edit touching this file's comments). Re-run only
+  # via the GitHub UI's "Run workflow" button if a genuine re-cutover is ever
+  # needed.
   workflow_dispatch: {}
-  push:
-    branches: ["claude/beautiful-brahmagupta-m0uxps"]
-    paths: [".github/workflows/tierb-cutover.yml"]
 
 permissions:
   contents: write

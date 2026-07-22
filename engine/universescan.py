@@ -20,16 +20,19 @@ no price feed needed.
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
 import requests
 
+from .config import sec_user_agent
+
 SEED_PATH = Path(__file__).parent / "sources" / "universe_stocks.json"
-_UA = os.getenv("SEC_USER_AGENT", "global-index-valuation-agent research contact@example.com")
-_HEADERS = {"User-Agent": _UA, "Accept-Encoding": "gzip, deflate"}
 _FRAMES_URL = "https://data.sec.gov/api/xbrl/frames/{tax}/{concept}/{unit}/{frame}.json"
+
+
+def _headers() -> dict:
+    return {"User-Agent": sec_user_agent(), "Accept-Encoding": "gzip, deflate"}
 
 
 def load_seed() -> dict:
@@ -64,7 +67,7 @@ def _recent_frames() -> list[str]:
 
 def _fetch_frame(tax: str, concept: str, unit: str, frame: str) -> list[dict]:
     r = requests.get(_FRAMES_URL.format(tax=tax, concept=concept, unit=unit, frame=frame),
-                     headers=_HEADERS, timeout=60)
+                     headers=_headers(), timeout=60)
     if r.status_code != 200:
         return []
     return r.json().get("data", [])
@@ -229,7 +232,7 @@ def _foreign_filer_ciks(quarters: int = 6) -> set[int]:
     for _ in range(quarters):
         url = f"https://www.sec.gov/Archives/edgar/full-index/{y}/QTR{q}/form.idx"
         try:
-            r = requests.get(url, headers=_HEADERS, timeout=60)
+            r = requests.get(url, headers=_headers(), timeout=60)
             if r.status_code == 200:
                 for line in r.text.splitlines():
                     if line.startswith(("20-F ", "20-F/A", "40-F ", "40-F/A")):
@@ -252,7 +255,7 @@ def _classify_country(cik: int) -> str | None:
     wins over incorporation (a Cayman-incorporated company operating from
     Shanghai belongs to the China market)."""
     r = requests.get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json",
-                     headers=_HEADERS, timeout=30)
+                     headers=_headers(), timeout=30)
     if r.status_code != 200:
         return None
     sub = r.json()

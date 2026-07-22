@@ -19,10 +19,14 @@ licensed financial professional before making any investment decision.
 
 ## Experimental and unvalidated
 
-The methodology is **experimental** and has **not been validated** by an out-of-sample
-backtest. There is currently **no evidence** that the rankings predict future returns. The
-"track record" / accuracy metrics, where shown, are early-stage and may be statistically
-insignificant.
+The methodology is **experimental**. A first out-of-sample, point-in-time walk-forward
+backtest of the stock-level scores has run against real market data (2026-07-22, ~9
+monthly rebalance periods) — see `docs/STATUS.md` for the full results. Early results are
+directionally encouraging for the combined opportunity score, but **no signal has yet
+cleared the significance gate** (too few periods so far), and the backtest window itself
+is short. There is **not yet sufficient evidence** that the rankings predict future
+returns. The "track record" / accuracy metrics, where shown, are early-stage and may be
+statistically insignificant.
 
 ## Data limitations
 

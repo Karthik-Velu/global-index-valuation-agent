@@ -200,6 +200,6 @@ python -m engine.datapipeline --agents            # full data pipeline + agents
 python -m engine.quality                          # data-quality score
 python -m engine.memory                           # memory stats / promotions
 python -m engine.modelrouting                     # model reliability scorecard
-python -m engine.sources.prices ingest --full     # full-history price backfill (Stooq)
+python -m engine.sources.prices ingest --full     # full-history price backfill (Massive)
 python -m engine.backtest run                     # walk-forward stock backtest
 ```

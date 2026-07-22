@@ -26,7 +26,9 @@ interactive dashboard on Vercel, not a report.
   STATE (agents querying sources, MCP tooling, news/corp-actions data), not just
   against what runs today.
 - **Phased:** Phase 1 = index level (done). Phase 2 = bottom-up stock level: prices +
-  valuation + backtest harness are BUILT (ADR-016), pending real-network validation.
+  valuation + backtest harness are BUILT and have run against real market data
+  (ADR-016/ADR-017) — hardening (corp actions, recalibration, growth_score
+  investigation) is the current work; see `docs/STATUS.md`.
 - **Data integrity is foundational** — especially for the backtest. Validate before scaling.
 
 ## Terminology (precise — the user cares)
@@ -47,16 +49,15 @@ interactive dashboard on Vercel, not a report.
   decay/point-in-time) → curated `engine/context/*.md`. → `docs/MEMORY.md`
 - Jobs vs agents → `docs/AGENTS.md` · roadmap → `docs/ROADMAP.md` · target design → `docs/ARCHITECTURE.md`
 
-## Current state (2026-07-08)
+## Current state (2026-07-22)
 Phase 1 **COMPLETE**: Tier B (Parquet/DuckDB) is the sole metric store (3.5M rows,
 21 MB), universe scaled to 2,983 companies / 29 markets, Postgres a thin 29 MB
-dashboard layer. Phase 2: prices (`engine/sources/prices.py`, Stooq), stock-level
-valuation (`engine/stockvaluation.py`, reuses `engine.metrics.compute()`), and the
-walk-forward backtest (`engine/backtest.py`) are BUILT and synthetic-tested (ADR-016)
-— **not yet run against real market data**, since the dev sandbox has no outbound
-network. `price-validate.yml` (30 tickers) must confirm the Stooq adapter works
-before `price-backfill.yml` (full universe) and `backtest.yml` fire. Details in
-`docs/STATUS.md`.
+dashboard layer. Phase 2: prices (`engine/sources/prices.py`, Massive/Polygon.io,
+ADR-017 — Stooq was dropped after it added a bot-wall), stock-level valuation
+(`engine/stockvaluation.py`, reuses `engine.metrics.compute()`), and the walk-forward
+backtest (`engine/backtest.py`) are BUILT and have completed a real run against real
+market data (2026-07-22: 1.42M price rows backfilled, first backtest results in
+Postgres `backtest_runs`). Details in `docs/STATUS.md`.
 
 ## Living context — keep these growing
 This project's memory is deliberately durable, in layers. **Maintain them as you work:**
@@ -91,6 +92,6 @@ python -c "from engine import db; print(db.apply_migrations())"  # apply schema
 python -m engine.datapipeline --agents   # data pipeline + agents (now includes prices)
 python -m engine.quality                 # data-quality score
 python -m engine.memory                  # semantic-memory stats / promotions
-python -m engine.sources.prices ingest --full   # full-history price backfill (Stooq)
+python -m engine.sources.prices ingest --full   # full-history price backfill (Massive)
 python -m engine.backtest run            # walk-forward stock backtest
 ```
