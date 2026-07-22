@@ -13,8 +13,10 @@ from whether its past calls actually played out — so you spend a minute, not a
 
 > [!WARNING]
 > **For research/education only — not investment advice.** The rankings are
-> **experimental and unvalidated** (no backtest yet — see [roadmap](#status--roadmap)).
-> Do your own research. See [DISCLAIMER.md](DISCLAIMER.md).
+> **experimental and unvalidated** — a first stock-level walk-forward backtest has run
+> (2026-07-22) with an encouraging but not yet statistically significant signal (see
+> [docs/STATUS.md](docs/STATUS.md) for the numbers). Do your own research. See
+> [DISCLAIMER.md](DISCLAIMER.md).
 
 ---
 
@@ -199,11 +201,14 @@ serves a committed snapshot of it and refreshes weekly via GitHub Actions.
   foundation (single source of truth); **SEC EDGAR** ingesting sector-aware, point-in-time
   stock-level fundamentals (110-KPI catalog, restatement vintages); the sequenced daily
   data-pipeline job; and **LLM agents activatable locally for $0** (Ollama).
-- **Honest caveats:** scores are **relative within each run** and the strategy is **not yet
-  backtested** — experimental. Free Yahoo data is license-restricted (migrating to
-  license-clean sources, EDGAR-first).
-- **Next:** ingest the S&P 500 (with agents), non-US fundamentals (EDINET/SimFin), Tier B
-  (R2/Parquet for prices), then **Phase 2** — the backtest + validated ranking model.
+- **Honest caveats:** scores are **relative within each run**; a first stock-level
+  walk-forward backtest has run against real market data (2026-07-22) but the
+  strongest signal hasn't yet cleared the significance gate (too few periods) — see
+  [docs/STATUS.md](docs/STATUS.md) for the real rank-IC/hit-rate numbers. Free Yahoo
+  data is license-restricted (migrating to license-clean sources, EDGAR-first).
+- **Next:** corporate actions ingestion, more history to clear the significance gate,
+  the Quality-Triage/Source-Discovery/Sector-KPI/Model-Upgrade agents (see
+  [docs/AGENTS.md](docs/AGENTS.md)), and surfacing stock-level results in the dashboard.
 
 The [architecture doc](docs/ARCHITECTURE.md) has a measurable "definition of agentic"
 checklist; the roadmap closes the gap from *automated* to *agentic*.
@@ -226,7 +231,7 @@ checklist; the roadmap closes the gap from *automated* to *agentic*.
 
 This software is provided for **informational and educational purposes only**. It is
 **not** investment advice, a recommendation, or an offer to buy or sell any security. The
-rankings are experimental and unvalidated, may contain errors, and rely on free data that
+rankings are experimental and not yet statistically validated, may contain errors, and rely on free data that
 can be incomplete or wrong. Markets are risky; **do your own research** and consult a
 licensed professional. The authors accept no liability for any use of this software. See
 [DISCLAIMER.md](DISCLAIMER.md).

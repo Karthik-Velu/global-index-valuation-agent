@@ -36,16 +36,26 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   (`tierb-store`), refreshed on the monthly sweep; ingestion aborts loudly if the
   store is missing post-cutover (the 2026-07-07 refill incident can't recur).
   R2 remains the eventual home.
-- 🔜 **Prices (ADR-017: Massive, supersedes Stooq)** — adapter rebuilt DATE-driven
-  around Massive's grouped-daily endpoint (1 call = whole market/day; free tier =
-  5 req/min, 2y history): resumable full rebuild (cursor in `prices_meta.json`),
-  capped daily incremental (~1 call), per-ticker split re-base path, 429/403
-  handling, history-floor auto-detection. Fully mock-tested (9 scenarios).
-  **Gated on the user adding the `MASSIVE_API_KEY` repo secret** — then:
-  `price-validate.yml` (coverage + ETF assertion + depth probes) →
-  `price-backfill.yml` (~105 min, resumable) → `backtest.yml` (first REAL result).
-  Licensing note: derived-data clause needs a human read before stock-level
-  derived metrics go public (ADR-017).
+- ✅ **Prices (ADR-017: Massive, supersedes Stooq) — REAL DATA LANDED 2026-07-20.**
+  `price-validate.yml` passed against the live service (30/30 coverage, ETFs
+  confirmed, ~22mo entitled); `price-backfill.yml` completed: **1,420,695 real
+  OHLCV rows** in Tier B, floor correctly hit at the free tier's ~2y window,
+  zero errors. Found + fixed a real bug on the first attempt (`walk_from =
+  date.today()` false-floored on today's own unpublished session — see
+  JOURNAL 2026-07-20); untestable synthetically since the mock always modeled
+  today as having data. Licensing note: derived-data clause needs a human read
+  before stock-level derived metrics go public (ADR-017).
+- ✅ **First real backtest — COMPLETE 2026-07-22** (`backtest_runs` id=1, window
+  2024-10-20..2025-07-17, 9 monthly rebalances). `opportunity_score` is the
+  standout: mean rank-IC 0.009/0.026/0.042/0.031 at 1m/3m/6m/12m, hit-rate up
+  to 100% at 6m/12m, positive every period at 3m/6m — but `n_periods=9` is
+  below the significance gate's floor of 12, so nothing is formally
+  `significant` yet despite t-stats up to 5.84. `value_score` trends the same
+  direction, weaker. `growth_score`/`momentum_score` show no signal yet
+  (growth_score has an odd 0%-hit-rate-despite-positive-IC split at 6m/12m,
+  unexplained, flagged for later). Full numbers in JOURNAL 2026-07-22.
+  CI note: `backtest.yml` needed the repo made public to actually run — two
+  attempts failed at 0 billable runner-ms (private-repo Actions minutes cap).
 - ✅ **Stock-level valuation** — `engine/stockvaluation.py`: point-in-time pe/pb/ps/
   pcf/growth/momentum per security, REUSES `engine.metrics.compute()` (one scoring
   formula, index + stock share it), peer-grouped by sector. Verified: point-in-time
@@ -54,19 +64,27 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   no look-ahead, fixed-horizon (1/3/6/12m) rank-IC/hit-rate/decile-spread per signal,
   IC-population + significance gates, persists to Postgres `backtest_runs`. Verified
   end-to-end against an ENGINEERED synthetic signal (recovered mean rank-IC
-  0.8–0.95). **Needs real price history (price-backfill.yml) before it can run for
-  real** — `backtest.yml` fires once that lands.
-- ⬜ Activate the **recalibration** trigger (goes live once the first REAL backtest
-  run completes — the harness exists now, ADR-016; recalibration.py already reads
-  `backtest_runs`)
+  0.8–0.95), and now against the real market too (above).
+- ✅ **Recalibration trigger wired to real data** — `recalibration.py` reads
+  `backtest_runs` (now has 2 real rows, 2026-07-22); `datapipeline.py` step 6 calls
+  it on every run, so the daily pipeline moves off the `pending_initial` branch
+  automatically — no separate activation needed, confirmed by code path.
+- ✅ **Corporate actions ingestion (ADR-018)** — `engine/sources/corpactions.py`:
+  bulk date-range pull of dividends + splits from Massive's v3 reference endpoints
+  (ticker-optional, one paginated query per type covers the whole market), new
+  Postgres `dividends`/`splits` tables (migration 0009). `dividend_yield` in
+  stockvaluation.py is now REAL trailing-12-month dividends-per-share ÷ price,
+  point-in-time — no longer the hardcoded 0.0 placeholder. Wired into the daily
+  pipeline (step 2d) + a one-time `corpactions-backfill.yml` for ~2y history.
+  Self-healing migrations added as a side effect (datapipeline step 0 —
+  no CI step previously applied `engine/migrations/*.sql` automatically).
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company
   is invisible to the whole backtest), transaction costs, benchmark-relative Sharpe
   (needs an index-level price series over the same window), TTM (trailing-twelve-
   month) multiples instead of latest-FY-only (up to ~12mo stale for calendar-quarter
-  reporters), forward (analyst-estimate) growth at stock level, per-share dividend
-  data (EDGAR tag not yet in the catalog — dividend_yield is 0.0 for every stock),
+  reporters), forward (analyst-estimate) growth at stock level,
   continuous/live prediction-ledger grading (vs. today's historical-only harness).
 
 ## Parallel tracks (don't block the critical path)  ⬜

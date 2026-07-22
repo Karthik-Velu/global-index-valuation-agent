@@ -25,10 +25,11 @@ name: Tier B re-truncate (repair the 2026-07-07 Postgres refill)
 # still guards the run itself.
 
 on:
+  # workflow_dispatch only — this one-shot repair already ran and re-truncates
+  # fundamental_metrics; must never re-fire from an incidental push. Re-run
+  # only via the GitHub UI's "Run workflow" button if a genuine repeat is
+  # ever needed.
   workflow_dispatch: {}
-  push:
-    branches: ["claude/beautiful-brahmagupta-m0uxps"]
-    paths: [".github/workflows/tierb-retruncate.yml"]
 
 permissions:
   contents: write

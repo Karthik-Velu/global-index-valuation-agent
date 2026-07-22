@@ -98,6 +98,16 @@ def probe(adapter: SourceAdapter, kind: str, keys: list[str]) -> Scorecard:
         return Scorecard(adapter.id, kind, error=res.error[:300], latency_ms=round(latency, 1),
                          rate_ok=not res.rate_limited, sample_n=len(keys), quality_score=0.0)
 
+    if not res.records:
+        # A silent empty response (no exception, no error string) is a broken
+        # source, not a "middling" one — score it like the error/exception
+        # paths above, not with the neutral completeness/sanity defaults
+        # further down (those exist for "not applicable to this kind", e.g.
+        # sanity on NEWS text fields, not for "no data at all").
+        return Scorecard(adapter.id, kind, coverage_pct=0.0, latency_ms=round(latency, 1),
+                         rate_ok=not res.rate_limited, sample_n=0, quality_score=0.0,
+                         detail={"requested": len(keys), "returned": 0})
+
     requested = set(keys)
     got = {r.key for r in res.records if r.key in requested} if requested else {r.key for r in res.records}
     coverage = (len(got) / len(requested) * 100) if requested else (100.0 if res.records else 0.0)

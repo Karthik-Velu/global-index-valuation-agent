@@ -8,6 +8,295 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-22 (even later) — corpactions-backfill.yml: 4 real CI failures, 4 real fixes
+
+After PR #10 went up, subscribed to its activity and babysat `corpactions-backfill.yml`
+through 4 consecutive failures — each one a genuinely different root cause, not the
+same bug recurring, which is why each got its own fix rather than a blanket retry:
+
+1. **Postgres catalog race.** The new migration 0009 landed in the same commit as an
+   edit to `data-pipeline.yml`, so both workflows' push-triggered runs fired
+   simultaneously and both tried `CREATE TABLE IF NOT EXISTS dividends` on the same
+   production DB at once — `CREATE TABLE IF NOT EXISTS` is NOT safe under concurrent
+   execution; Postgres can still raise `UniqueViolation` on the internal `pg_type`
+   catalog entry. Confirmed with a local two-thread reproduction. Fixed:
+   `db.apply_migrations()` now treats that specific race (UniqueViolation +
+   "already exists" in the message) as success rather than a failure, since the
+   loser of the race achieved the same end state as the winner.
+2. **Zero progress visibility + too-aggressive pacing.** The next run consumed its
+   full 30-minute timeout with NOT ONE LINE of output before being killed.
+   `corpactions.py` had no progress logging anywhere, and its default pagination
+   pacing (1s/page) was far more aggressive than `prices.py`'s proven-safe 13s/page
+   for the same provider/tier — consistent with silent repeated 429 backoffs, though
+   without any logging there was no way to actually confirm that from the log alone.
+   Fixed: per-page progress prints, pacing matched to 13s, page size raised
+   1000→5000 (incorrectly, see #3).
+3. **`limit=5000` → 400 Bad Request.** The very next run "succeeded" in under a
+   minute — but wrote zero rows. Both dividends and splits fetches 400'd instantly.
+   The progress logging from fix #2 is what surfaced this cleanly: Polygon/Massive's
+   v3 REFERENCE endpoints (dividends, splits) cap `limit` at 1000, a lower, different
+   ceiling than the aggregates/grouped-daily endpoints `prices.py` uses (up to
+   50000) — fix #2's own page-size bump had silently broken things. Reverted to
+   1000. Also hardened `_get()` to include the response body in raised errors
+   (`requests`' default discards it — exactly the detail that would have made this
+   diagnosable on the FIRST 400, not after another guess-and-check round), and made
+   the CLI exit non-zero when `ingest()` reports fetch errors, so a fully-failed run
+   can't report a misleading green checkmark again.
+4. **The real one: architecture, not a parameter.** With pacing and limit both
+   correct, the next run made clean, steady, error-free progress — 394,000 dividend
+   rows across 394 pages at a rock-solid ~13.5s/page — and STILL hit the 90-minute
+   timeout mid-fetch, having not even started on splits. Worse: because the old
+   design accumulated every page into a Python list and only wrote to Postgres
+   ONCE, at the very end, ALL 394,000 already-fetched rows were discarded when the
+   timeout cancelled the job. This was the "stop and reconsider the approach"
+   moment flagged in my own check-in instructions rather than a 5th blind patch.
+   Root cause: the "whole US market" (Massive's reference endpoints have no
+   multi-ticker filter, so a bulk query can't ask for less server-side) is vastly
+   bigger than our ~3,000-ticker tracked universe, and a full 2-year window was
+   simply too much total data to fetch in one CI job at a safe pace. But the 2-year
+   window itself was the wrong ask: `stockvaluation.py`'s `dividend_yield` only ever
+   needs a TRAILING 12-MONTH window (see `_dividend_features`) — the 2y figure was
+   copied from `prices.py`'s precedent (which genuinely needs deep history for
+   backtesting) without checking whether corp actions needed the same depth. Fixed:
+   shrunk `_FULL_DAYS` 730→400 (~13mo, covers TTM with a buffer — empirically
+   roughly half the request volume) and `_INCREMENTAL_DAYS` 400→35 (the daily
+   pipeline step needs to be fast, not just eventually-consistent); rewrote
+   `_paginated`/`ingest()` to persist PER PAGE via an `on_page` callback instead of
+   accumulating and batching at the end — verified with a new interruption-safety
+   test (mocks a failure on page 2, confirms page 1's row is already durably in
+   Postgres). Idempotent `ON CONFLICT DO NOTHING` means a run that still doesn't
+   finish in one sitting isn't wasted — a re-fire makes real forward progress
+   instead of repeating the same doomed fetch.
+
+**Lesson for future capacity planning:** before defaulting a new bulk-fetch job's
+window to match an existing job's precedent (prices.py's 2y), check whether the
+NEW job's actual downstream need is the same depth — it often isn't, and copying
+the number without re-deriving it from the actual requirement is how a 4x-larger-
+than-necessary fetch volume ends up silently baked into a timeout budget.
+
+---
+
+## 2026-07-22 (later) — Phase A hardening: growth_score confirmed, corp actions shipped, production audit
+
+Picked up "Phase A" (from the roadmap discussion after the first real backtest)
+plus an explicit user directive: a thorough hardcoding/dummy-data/dummy-connection
+audit ahead of an imminent production launch.
+
+**growth_score anomaly resolved with real numbers.** The earlier backtest run only
+persisted the aggregate summary; re-ran `backtest.yml` after teaching
+`backtest.py::_persist` to also store per-period detail (`backtest_runs` id=2), then
+pulled the 6m growth_score series directly from Postgres. Confirmed: `hit_rate` is
+**0% in all 9/9 periods** (not a coarse-statistic artifact as first hypothesized —
+top-quartile-by-growth-score names' mean forward return trailed the bottom
+quartile's every single time, by up to -29pp in Apr/May 2025), while `rank_ic` (the
+full ~2,700-name Spearman correlation) is mildly positive Nov'24–Mar'25 then flips
+negative Apr–Jul'25. Two live hypotheses, not distinguished yet: a real growth-trap
+effect in this regime, or the documented latest-FY-only (not TTM) fundamentals
+caveat. Needs more history/regimes, not chased further with 9 periods.
+
+**Production-readiness audit** (two parallel sub-agents: backend data/sources,
+dashboard/CI/config) surfaced real issues, now fixed:
+- Dead Stooq adapter was still registered in `adapters.py` and probed daily by the
+  ingestion agent, a year after Massive replaced it (ADR-017) — removed + deleted
+  the module.
+- `SEC_USER_AGENT` silently fell back to a hardcoded placeholder at 3 call sites
+  (`edgar.py`, `universescan.py`, `sectoragent/tagging.py`) when unset — exactly
+  what SEC's fair-use policy exists to catch. Added `config.sec_user_agent()`,
+  raising loudly at call time (found a 4th call site — `sectoragent/tagging.py` —
+  only because the local scratch test suite caught the resulting ImportError after
+  the first pass; a reminder that "grep for the pattern" isn't the same as
+  "run the tests").
+- `probe.py`'s quality scorer gave a source that returned zero records (no error)
+  hardcoded 60/70 completeness/sanity subscores instead of reflecting the empty
+  response — a fully broken adapter scored ~43/100 ("middling") instead of near-
+  zero, on the exact score that drives active-adapter selection. Fixed to
+  short-circuit to 0 on an empty-but-no-error response.
+- 5 one-shot migration/repair CI workflows (cutover, retruncate, activate,
+  universe-backfill, universe-validate) all completed their job but still carried
+  a `push:` trigger scoped to their own file — any future incidental edit would
+  silently re-fire a destructive job (TRUNCATE, full-universe regen). Dropped to
+  `workflow_dispatch` only (`price-backfill.yml`/`backtest.yml` keep their push
+  trigger — still the only way this session's GitHub integration, no
+  `actions:write`, can fire them).
+- README/DISCLAIMER/dashboard footer's "no backtest yet" language was true when
+  written, false now — updated to the accurate (still honest: not yet
+  significant) status.
+- `.env.example` didn't document `SEC_USER_AGENT`/`MASSIVE_API_KEY` (both actually
+  required) and listed `SUPABASE_URL`/`ANON_KEY`/`SERVICE_ROLE_KEY`/`R2_*`, none of
+  which any code in the repo reads — cleaned up.
+- Stale "(Stooq)" references in CLAUDE.md (the always-loaded orientation file) and
+  3 docs files.
+- Still open, not code fixes I can make myself: rotate `OLLAMA_API_KEY`/
+  `GROQ_API_KEY` (pasted into chat during initial setup, more pressing now the
+  repo is public), and a minor disclosure-marker inconsistency in
+  `llm.py::_fallback_tag` vs `_fallback_brief` (rated worth-fixing-not-urgent by
+  the audit; deferred in favor of Phase A).
+
+**Corporate actions ingestion shipped (ADR-018)** — the other half of Phase A, and
+itself a real hardcoding fix: `stockvaluation.py` shipped with `dividend_yield`
+**hardcoded to 0.0 for every single stock**, documented as a known gap. Built
+`engine/sources/corpactions.py`: Massive's `/v3/reference/dividends` and
+`/v3/reference/splits` are both ticker-optional and date-range filterable
+(`.gte`/`.lte` suffixes), so one paginated bulk query per type pulls every
+dividend/split across the whole market for a window — same one-call-covers-
+everything shape as `prices.py`'s grouped-daily endpoint, not a per-ticker sweep.
+New Postgres `dividends`/`splits` tables (migration 0009 — relational, low-volume,
+same tier as `filings`, not Tier B). `stockvaluation.py::_dividend_features` now
+computes real trailing-12-month dividends-per-share ÷ price, point-in-time
+(`ex_dividend_date <= asof`, same no-look-ahead discipline as fundamentals/prices).
+Splits are NOT re-applied to prices — `prices.py` already fetches split-adjusted
+bars from the same provider, so the `splits` table is an audit trail, not a
+derivation source. Wired into the daily pipeline (step 2d) + a new
+`corpactions-backfill.yml` for one-time ~2y history (not yet fired this session).
+
+**Side effect: migrations are now self-healing.** While wiring migration 0009,
+found that NO CI workflow anywhere calls `db.apply_migrations()` — each of the
+first 8 migrations needed someone to remember to run it by hand. Added it as step 0
+of `datapipeline.py::run()` (idempotent, tracked in `schema_migrations`).
+
+**Recalibration trigger confirmed wired** (by code review, not a live run):
+`recalibration.py` reads the latest `backtest_runs` row — which now exists for
+real (2 rows) — and `datapipeline.py` step 6 calls `recalibration.run()` on every
+pipeline execution. The `pending_initial` branch ("no backtest yet") is already
+behind us; no separate activation step needed.
+
+**Tested:** all new code against the local sandbox Postgres (`tester@127.0.0.1:5445/
+giva`) — a synthetic corp-actions scenario (dividend-payer, non-payer, split-only
+ticker; an out-of-TTM-window old dividend correctly excluded; an untracked-ticker
+row correctly dropped; idempotent re-ingest) end-to-end through
+`stockvaluation.score_frame()`, confirming the real (not hardcoded) dividend_yield.
+Re-ran the existing backtest/prices/universe scratch suites — all still green (the
+universe test's one pre-existing failure reproduces identically on the unmodified
+code too, confirmed via `git stash` — local test-DB state pollution in
+`_ingest_universe`, not a regression from this session's changes).
+
+---
+
+## 2026-07-22 — FIRST REAL BACKTEST: opportunity_score shows the strongest early signal
+
+`backtest.yml` finally ran clean after two instant failures (0 billable runner-ms
+both times — a private-repo GitHub Actions minutes/spending cap, confirmed via a
+control-test push to an unrelated, already-working workflow that failed identically).
+**The user made the repo public** (unlimited free Actions minutes on public repos),
+which fixed it immediately. A real bug was also found and fixed along the way
+(`github.event.inputs.*` — the bare `inputs` context is invalid on a push trigger,
+commit 36ffbde) but wasn't the actual blocker for this failure; both fixes are
+correct and both are now shipped.
+
+**Result** (`backtest_runs` id=1, queried directly from Supabase via MCP since the
+GitHub Actions artifact download is blocked by this session's egress policy —
+api.github.com direct access and signed-URL artifact downloads are both denied by
+design, "do not retry or route around it"): window auto-detected as
+**2024-10-20 .. 2025-07-17, 9 monthly rebalance dates** — narrower than the full
+~2y price span because the walk-forward loop needs the 12m horizon's forward
+return already sitting in Tier B too, which pins the window's end ~12 months
+before the latest price date.
+
+| horizon | signal | mean rank-IC | hit-rate | pct positive | t-stat | significant |
+|---|---|---|---|---|---|---|
+| 1m | opportunity_score | 0.009 | 77.8% | 55.6% | 1.15 | false |
+| 1m | value_score | -0.006 | 77.8% | 44.4% | -0.29 | false |
+| 3m | opportunity_score | 0.026 | 88.9% | 100% | 3.47 | false |
+| 3m | value_score | 0.007 | 88.9% | 55.6% | 0.27 | false |
+| 6m | **opportunity_score** | **0.042** | **100%** | **100%** | **5.84** | false |
+| 6m | value_score | 0.023 | 100% | 55.6% | 0.91 | false |
+| 12m | opportunity_score | 0.031 | 100% | 88.9% | 4.43 | false |
+| 12m | value_score | 0.024 | 100% | 88.9% | 2.37 | false |
+
+`opportunity_score` (the combined GARP score) is the standout across every single
+horizon — positive rank-IC and improving hit-rate at every step, t-stats up to
+5.84. **None are marked `significant`**, but not because the signal is weak: the
+gate requires `n_periods >= 12`, and this maiden run only has 9 (the t-stat
+threshold |t|>=2 is otherwise cleared comfortably at 3m/6m/12m). Read this as a
+genuinely encouraging first look, not yet statistically proven — exactly the
+"real data exposes what synthetic can't" moment this whole multi-week effort was
+for, except this time the surprise is a promising signal rather than a bug.
+
+`value_score` moves the same direction, weaker. `growth_score` and
+`momentum_score` show no real signal; `growth_score` has an odd split — small
+positive mean rank-IC alongside **0% hit-rate** at 6m and 12m — flagged as
+unexplained, not investigated further this session (could be a very small
+top/bottom-quartile bin size at n=9 periods producing noisy hit-rate, or
+something more structural; worth a look once more periods accumulate).
+
+**Also learned:** this session's sandboxed network cannot reach api.github.com
+directly or download GitHub Actions artifacts (signed Azure blob URLs 403 at the
+proxy) — by design, per the agent-proxy policy ("403/407: do not retry or route
+around it, report the blocked host"). When CI produces a result that needs
+pulling out of GitHub and Postgres has it too, query Postgres directly (Supabase
+MCP) instead of fighting the artifact download.
+
+**Status:** the critical path from "Massive adapter built" to "first real
+backtest" is done. Recalibration should activate on the next daily pipeline run
+now that `backtest_runs` has a real row — worth confirming on the next health
+check. Next: corp actions (dividends/splits), the Quality-Triage agent, and
+surfacing bottom-up rankings in the dashboard.
+
+---
+
+## 2026-07-20 (cont'd) — backtest.yml blocked: GitHub Actions capacity, not code
+
+After the real backfill landed (1,420,695 rows), fired `backtest.yml` — it
+failed at startup in 3 seconds, 0 billable runner-ms (no runner ever
+assigned). First hypothesis: the run step referenced the bare `inputs`
+context, valid only for `workflow_dispatch`, but this fires via `push`.
+Fixed to use `github.event.inputs.*` instead — but the re-fire failed
+**identically**. A control-test push to `price-validate.yml` (which had
+fired successfully at 12:59 UTC) *also* failed the same way at 16:00 UTC.
+All 10 workflows still show `state: active` (not disabled at the
+definition level).
+
+**Conclusion: this isn't a code/YAML issue.** Something blocked ALL new
+workflow runs on this repo starting between 15:17 UTC (backfill completion)
+and 15:53 UTC (first backtest fire) — most likely an Actions minutes quota
+or spending-limit cap reached, tripped by the ~113-minute backfill job
+plus the day's other runs. I have no billing/admin access to confirm or
+fix this — **the user needs to check repo/org Settings → Billing and
+plans → Actions** (spending limit or included-minutes usage) and either
+wait for reset or raise the limit. The `github.event.inputs.*` fix stays
+in `backtest.yml` regardless — it's a real, independent correctness fix,
+just not what's blocking this specific failure.
+
+**Status:** price data is safely landed (1,420,695 rows, real). The first
+real backtest is one `backtest.yml` re-fire away once Actions capacity is
+restored — no further code changes needed on this end.
+
+---
+
+## 2026-07-20 — MASSIVE_API_KEY added: first real-network run finds and fixes a real bug
+
+User added the `MASSIVE_API_KEY` repo secret. Fired the chain: `price-validate.yml`
+passed cleanly first try — 30/30 validation-batch coverage, ETF proxies (SPY/EWJ/EWG/
+IXN/VT) confirmed present in grouped-daily, ~22 months of history entitled on the free
+tier (3y/6y probes correctly 403 `NOT_AUTHORIZED`). Then `price-backfill.yml` completed
+in under a minute with `written: 0` — clearly wrong for a ~105-minute backfill.
+
+**Root cause:** `bulk_ingest`'s full-rebuild fresh start set `walk_from = date.today()`,
+and `_weekdays_backward()` yields the start date itself first. Today's trading session
+isn't complete when CI runs (pre-/mid-market), so grouped-daily has no data for it yet —
+Massive returns a 403 that the code blanket-maps to `NotEntitled`, indistinguishable from
+a genuine beyond-entitlement error. That made "today" a false floor before a single valid
+day was ever tried, even though 2026-07-16 and 2024-09-27 had both just been proven to
+work via validate. The incremental path had the same latent issue (window also ended at
+`date.today()`), plus `fetch_day_into` had no catch-all for `NotEntitled` — a bad day
+would have crashed daily ingestion uncaught rather than degrading gracefully.
+
+**Fix:** `_last_complete_trading_day()` excludes today from both walks; hardened
+`fetch_day_into`. The existing mock (`fake_get_full`) always returned valid data for
+"today," which is precisely why this was untestable synthetically — real validation
+against the live API caught something the sandbox structurally couldn't. Added two
+regression scenarios (mid-window error doesn't crash; today-403 doesn't floor at day
+zero) — this is the argument for why STATUS.md flagged "not yet run against real
+market data" as a real risk, not a formality. All 12 prices.py scenarios plus
+stockvaluation/backtest suites verified green (stood up a local Postgres 16 +
+pgvector in-session to actually run the DB-backed scratch suite, since the DB
+container from earlier sessions doesn't persist).
+
+Re-fired `price-backfill.yml` with the fix. **Next: monitor to completion, then fire
+`backtest.yml` for the first real rank-IC/hit-rate report.**
+
+---
+
 ## 2026-07-14 — Massive adapter built (ADR-017): date-driven prices, gated on the key
 
 **Decision context:** the user set the end-state directive (product is done only when

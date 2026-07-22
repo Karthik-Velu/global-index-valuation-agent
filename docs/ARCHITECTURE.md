@@ -144,7 +144,7 @@ Text fallback:
 ```
                     ┌────────────────────────── BATCH / CRON (rare, heavy) ──────────────────────────┐
   Data sources      │  GitHub Actions (weekly + 15-min pollers, free)                                 │
-  ─────────────     │   ├─ engine/sources/*  EDGAR (stock fundamentals), stooq, FMP/Finnhub (free)    │
+  ─────────────     │   ├─ engine/sources/*  EDGAR (stock fundamentals), Massive/Polygon.io (prices)  │
   SEC EDGAR (free)  │   ├─ engine/ingest/*   GDELT + SEC filings + news RSS  → events table           │
   GDELT (free)      │   ├─ metrics/score (T0 deterministic)                                           │
   news RSS (free)   │   ├─ engine/agent/*    bounded ReAct agent (T1/T2) → theses + lessons (memory)  │
@@ -228,7 +228,7 @@ the *deterministic ranker (P2) is the model that actually matters and is free to
 Replace the **ToS-violating yfinance** dependency with a `SourceAdapter` registry:
 **SEC EDGAR first** (public-domain XBRL `companyfacts` + financial-statement
 datasets — redistributable, solves the licensing blocker for US names) + free-tier
-adapters (stooq, FMP, Finnhub, Tiingo) load-balanced; honest about non-US gaps.
+adapters (Massive/Polygon.io, FMP, Finnhub, Tiingo) load-balanced; honest about non-US gaps.
 **Near-real-time:** GitHub Actions pollers (every 15–30 min) ingest **GDELT** +
 **SEC filings** + news RSS into an `events` table; a **T1 LLM extractor** turns an
 event into a structured signal; an **incremental scorer** recomputes only affected

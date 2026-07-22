@@ -8,14 +8,14 @@ import time
 import requests
 
 from .. import db
-from ..sources.edgar import _HEADERS
+from ..sources.edgar import _headers
 from . import sic_map
 
 _SUB_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 
 
 def _submission(cik: int) -> dict | None:
-    r = requests.get(_SUB_URL.format(cik=int(cik)), headers=_HEADERS, timeout=20)
+    r = requests.get(_SUB_URL.format(cik=int(cik)), headers=_headers(), timeout=20)
     return r.json() if r.status_code == 200 else None
 
 

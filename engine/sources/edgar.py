@@ -12,18 +12,21 @@ US fundamentals gap. SEC asks for a descriptive User-Agent (set SEC_USER_AGENT).
 """
 from __future__ import annotations
 
-import os
 import time
 
 import requests
 
 from . import catalog
 from .base import DataKind, License, Record, SampleResult, SourceAdapter
+from ..config import sec_user_agent
 
-_UA = os.getenv("SEC_USER_AGENT", "global-index-valuation-agent research contact@example.com")
-_HEADERS = {"User-Agent": _UA, "Accept-Encoding": "gzip, deflate"}
 _TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 _FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
+
+
+def _headers() -> dict:
+    return {"User-Agent": sec_user_agent(), "Accept-Encoding": "gzip, deflate"}
+
 
 _AUDITED_FORMS = {"10-K", "10-K/A", "20-F", "40-F"}
 
@@ -35,7 +38,7 @@ def _tickers() -> dict[str, dict]:
     """ticker (upper) -> {cik, title}."""
     global _cik_map
     if _cik_map is None:
-        r = requests.get(_TICKERS_URL, headers=_HEADERS, timeout=20)
+        r = requests.get(_TICKERS_URL, headers=_headers(), timeout=20)
         r.raise_for_status()
         _cik_map = {row["ticker"].upper(): {"cik": int(row["cik_str"]), "title": row["title"]}
                     for row in r.json().values()}
@@ -53,7 +56,7 @@ def _companyfacts(cik: int, cache: bool = True) -> dict | None:
     backfill. The cache serves the adapter's repeated small samples only."""
     if cik in _facts_cache:
         return _facts_cache[cik]
-    r = requests.get(_FACTS_URL.format(cik=cik), headers=_HEADERS, timeout=30)
+    r = requests.get(_FACTS_URL.format(cik=cik), headers=_headers(), timeout=30)
     if r.status_code != 200:
         return None
     data = r.json()
@@ -226,7 +229,7 @@ def recent_filer_ciks(days: int = 7) -> set[int]:
         url = (f"https://www.sec.gov/Archives/edgar/daily-index/{d.year}/QTR{q}/"
                f"company.{d:%Y%m%d}.idx")
         try:
-            r = requests.get(url, headers=_HEADERS, timeout=30)
+            r = requests.get(url, headers=_headers(), timeout=30)
         except Exception:
             continue
         if r.status_code != 200:

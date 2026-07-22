@@ -193,6 +193,19 @@ def _weekdays_backward(start: date):
         d -= timedelta(days=1)
 
 
+def _last_complete_trading_day(ref: date) -> date:
+    """Most recent weekday strictly before `ref`. Today's session is never
+    complete when our CI jobs run (pre- or mid-market), so grouped-daily has
+    no data for it yet — requesting it returns a 403 that looks identical to a
+    genuine beyond-entitlement error, which would falsely declare the backfill
+    floor before a single valid day is fetched. Confirmed on the first
+    real-network run (2026-07-20): walk_from=today() 403'd immediately."""
+    d = ref - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
 def _weekdays_between(lo: date, hi: date) -> list[date]:
     return [lo + timedelta(days=i) for i in range((hi - lo).days + 1)
             if (lo + timedelta(days=i)).weekday() < 5]
@@ -289,7 +302,9 @@ def bulk_ingest(tickers: list[str] | None = None, full: bool = False,
 
     # --- date-driven grouped paths -------------------------------------------
     def fetch_day_into(writer: tierb.PriceWriter, day: date) -> int | None:
-        """One paced grouped call -> rows written; None means rate-limit gave up."""
+        """One paced grouped call -> rows written; None means give up on this
+        day (rate-limit exhausted, not-entitled, or any other fetch error) —
+        callers stop the loop rather than treat it as further progress."""
         _call_paced(last_call, sleep)
         try:
             rows, _ = _grouped_day_rows(day, id_by_ticker)
@@ -300,14 +315,18 @@ def bulk_ingest(tickers: list[str] | None = None, full: bool = False,
             except Exception as e:
                 stats["errors"].append(f"{day}: {str(e)[:80]}")
                 return None
+        except Exception as e:
+            stats["errors"].append(f"{day}: {str(e)[:80]}")
+            return None
         writer.add(rows)
         return len(rows)
 
     if not full:
+        last_complete = _last_complete_trading_day(date.today())
         _, hi = _store_date_bounds()
         window_start = (hi + timedelta(days=1)) if hi else (date.today() - timedelta(days=7))
         window_start = max(window_start, date.today() - timedelta(days=30))
-        days = _weekdays_between(window_start, date.today())
+        days = _weekdays_between(window_start, last_complete) if window_start <= last_complete else []
         writer = tierb.PriceWriter()
         for day in days:
             if deadline and time.monotonic() > deadline:
@@ -336,7 +355,7 @@ def bulk_ingest(tickers: list[str] | None = None, full: bool = False,
         stats["purged"] = purged
         _meta_write(full_rebuild_started=True, cursor=date.today().isoformat(),
                     started_at=date.today().isoformat())
-        walk_from = date.today()
+        walk_from = _last_complete_trading_day(date.today())
 
     writer = tierb.PriceWriter()
     empty_streak = 0

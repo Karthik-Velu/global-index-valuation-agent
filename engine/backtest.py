@@ -200,6 +200,11 @@ def _persist(result: dict, start: str, end: str) -> None:
     print(f"   wrote {REPORT_PATH}")
     if not db.have_db():
         return
+    # metrics carries both the aggregate summary AND the per-period detail so
+    # a real run is fully introspectable from Postgres alone — CI artifact
+    # downloads are one more thing that can be unreachable (this session's
+    # sandboxed egress blocks them outright), so backtest_runs is the
+    # source of truth, not a convenience mirror of the JSON report.
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select id from data_versions order by ts desc limit 1")
         row = cur.fetchone()
@@ -207,7 +212,8 @@ def _persist(result: dict, start: str, end: str) -> None:
             """insert into backtest_runs (data_version_id, window_start, window_end, status, metrics, note)
                values (%s,%s,%s,%s,%s,%s)""",
             (row[0] if row else None, start, end, result["status"],
-             json.dumps(result.get("summary", {}), default=str),
+             json.dumps({"summary": result.get("summary", {}),
+                        "periods": result.get("periods", [])}, default=str),
              f"stock-level walk-forward backtest, {result.get('usable_periods', 0)} periods"))
         conn.commit()
 

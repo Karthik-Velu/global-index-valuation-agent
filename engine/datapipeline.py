@@ -3,6 +3,9 @@
 Runs the data steps in sequence so validation happens right after ingestion, in one
 job rather than separate cron jobs:
 
+  0. apply schema migrations — self-healing: no separate step in CI ran this before,
+     so a newly added migration silently never reached prod until someone remembered
+     to run it by hand. Idempotent (tracked in schema_migrations); a no-op most days.
   1. probe sources        — which sources are healthy / license-clean (updates registry)
   2. ingest fundamentals  — EDGAR (and, later, other sources) for tracked securities
   3. tag securities       — deterministic SIC sector/sub-sector tagging
@@ -83,6 +86,17 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
     print("== Data pipeline (job) ==")
     steps: dict = {}
 
+    # 0. Apply any pending schema migrations before anything below depends on them.
+    if db.have_db():
+        try:
+            applied = db.apply_migrations()
+            steps["migrations"] = {"applied": applied}
+            if applied:
+                print(f"   applied migrations: {applied}")
+        except Exception as e:
+            steps["migrations"] = {"error": str(e)[:160]}
+            print(f"   WARNING: migration apply failed: {str(e)[:160]}")
+
     # 1. Source health/license probe (deterministic part of the ingestion role).
     try:
         sp = source_probe.run(sample_n=6, auto_apply=True, with_discovery=False)
@@ -147,6 +161,22 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         # of record (fundamentals) or the checks that follow.
         steps["prices"] = {"error": str(e)[:160]}
         print(f"   WARNING: price ingestion failed: {str(e)[:160]}")
+
+    # 2d. Corporate actions (dividends + splits) — Postgres, not Tier B (low volume,
+    #     relational, like `filings`). Incremental ~400d window daily; a full ~2y
+    #     backfill rides the same monthly full-sweep flag as prices.
+    try:
+        from .sources import corpactions
+        cst = corpactions.ingest(full=full_ingest)
+        steps["corp_actions"] = {k: v for k, v in cst.items() if k != "errors"}
+        if cst.get("errors"):
+            steps["corp_actions"]["n_errors"] = len(cst["errors"])
+        print(f"   corp actions: {steps['corp_actions']}")
+    except Exception as e:
+        # Recorded, not fatal: dividend_yield gracefully falls back to 0.0 for
+        # any security with no rows yet — never blocks ingestion of record.
+        steps["corp_actions"] = {"error": str(e)[:160]}
+        print(f"   WARNING: corp actions ingestion failed: {str(e)[:160]}")
 
     # 3. Tag securities (deterministic).
     steps["tagging"] = tagging.tag_securities()
