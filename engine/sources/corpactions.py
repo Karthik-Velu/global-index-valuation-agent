@@ -31,7 +31,11 @@ _KEY_ENV = "MASSIVE_API_KEY"
 
 _DIVIDENDS_PATH = "/v3/reference/dividends"
 _SPLITS_PATH = "/v3/reference/splits"
-_PAGE_LIMIT = 5000  # provider max — fewer round trips against the shared 5 req/min free tier
+# Polygon/Massive's v3 REFERENCE endpoints (dividends, splits) cap `limit` at
+# 1000 — that's a different, lower ceiling than the aggregates/grouped-daily
+# endpoints prices.py uses (which allow up to 50000). 5000 here 400'd
+# immediately in CI (confirmed 2026-07-22, see JOURNAL) — reverted to 1000.
+_PAGE_LIMIT = 1000
 
 # Default incremental window: comfortably covers a year of TTM dividend history
 # plus the daily gap since the last run. --full uses the same ~2y span as the
@@ -65,7 +69,13 @@ def _get(path: str, params: dict) -> dict:
         except ValueError:
             retry_after = 60.0
         raise RateLimited(max(retry_after, 60.0))
-    r.raise_for_status()
+    if not r.ok:
+        # requests' own raise_for_status() message never includes the response
+        # body, which is exactly the detail that would have made the 400
+        # (limit=5000 exceeding this endpoint's real max of 1000) diagnosable
+        # from the CI log alone instead of needing a guess-and-check cycle.
+        raise requests.HTTPError(
+            f"{r.status_code} {r.reason} for url: {r.url} — body: {r.text[:300]}", response=r)
     return r.json()
 
 
@@ -222,3 +232,15 @@ if __name__ == "__main__":
         end_d = date.fromisoformat(a.end) if a.end else None
         result = ingest(start=start_d, end=end_d, full=a.full, sleep=a.sleep)
         print(json.dumps(result, indent=2, default=str))
+        if result["errors"]:
+            # ingest() itself never raises on a fetch failure (datapipeline.py's
+            # daily incremental call wraps this non-fatally, same as prices/EDGAR
+            # hiccups) — but for this standalone CLI/CI job, a small handful of
+            # bulk calls erroring means the run accomplished nothing while still
+            # printing "success" to the workflow. A CI job that silently does
+            # nothing is worse than one that fails loudly (see JOURNAL 2026-07-22
+            # — the first two backfill attempts both reported success: one from
+            # a 30-min timeout that never got this far, one from every fetch
+            # 400ing on the first call).
+            import sys
+            sys.exit(1)
