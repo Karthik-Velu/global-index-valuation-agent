@@ -19,6 +19,9 @@ name: Stock backtest — walk-forward (Pillar 2)
 # confirmed via a control-test push to an unrelated, previously-successful
 # workflow that failed the same way. Repo made public since (unlimited free
 # Actions minutes for public repos) — re-firing now that that's lifted.
+# Re-fired 2026-07-22: backtest_runs.metrics now also persists per-period
+# detail (not just the aggregate summary) so results are fully
+# introspectable from Postgres without needing a CI artifact download.
 
 on:
   workflow_dispatch:
