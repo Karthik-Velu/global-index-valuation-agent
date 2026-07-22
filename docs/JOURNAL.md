@@ -8,6 +8,74 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-22 (even later) — corpactions-backfill.yml: 4 real CI failures, 4 real fixes
+
+After PR #10 went up, subscribed to its activity and babysat `corpactions-backfill.yml`
+through 4 consecutive failures — each one a genuinely different root cause, not the
+same bug recurring, which is why each got its own fix rather than a blanket retry:
+
+1. **Postgres catalog race.** The new migration 0009 landed in the same commit as an
+   edit to `data-pipeline.yml`, so both workflows' push-triggered runs fired
+   simultaneously and both tried `CREATE TABLE IF NOT EXISTS dividends` on the same
+   production DB at once — `CREATE TABLE IF NOT EXISTS` is NOT safe under concurrent
+   execution; Postgres can still raise `UniqueViolation` on the internal `pg_type`
+   catalog entry. Confirmed with a local two-thread reproduction. Fixed:
+   `db.apply_migrations()` now treats that specific race (UniqueViolation +
+   "already exists" in the message) as success rather than a failure, since the
+   loser of the race achieved the same end state as the winner.
+2. **Zero progress visibility + too-aggressive pacing.** The next run consumed its
+   full 30-minute timeout with NOT ONE LINE of output before being killed.
+   `corpactions.py` had no progress logging anywhere, and its default pagination
+   pacing (1s/page) was far more aggressive than `prices.py`'s proven-safe 13s/page
+   for the same provider/tier — consistent with silent repeated 429 backoffs, though
+   without any logging there was no way to actually confirm that from the log alone.
+   Fixed: per-page progress prints, pacing matched to 13s, page size raised
+   1000→5000 (incorrectly, see #3).
+3. **`limit=5000` → 400 Bad Request.** The very next run "succeeded" in under a
+   minute — but wrote zero rows. Both dividends and splits fetches 400'd instantly.
+   The progress logging from fix #2 is what surfaced this cleanly: Polygon/Massive's
+   v3 REFERENCE endpoints (dividends, splits) cap `limit` at 1000, a lower, different
+   ceiling than the aggregates/grouped-daily endpoints `prices.py` uses (up to
+   50000) — fix #2's own page-size bump had silently broken things. Reverted to
+   1000. Also hardened `_get()` to include the response body in raised errors
+   (`requests`' default discards it — exactly the detail that would have made this
+   diagnosable on the FIRST 400, not after another guess-and-check round), and made
+   the CLI exit non-zero when `ingest()` reports fetch errors, so a fully-failed run
+   can't report a misleading green checkmark again.
+4. **The real one: architecture, not a parameter.** With pacing and limit both
+   correct, the next run made clean, steady, error-free progress — 394,000 dividend
+   rows across 394 pages at a rock-solid ~13.5s/page — and STILL hit the 90-minute
+   timeout mid-fetch, having not even started on splits. Worse: because the old
+   design accumulated every page into a Python list and only wrote to Postgres
+   ONCE, at the very end, ALL 394,000 already-fetched rows were discarded when the
+   timeout cancelled the job. This was the "stop and reconsider the approach"
+   moment flagged in my own check-in instructions rather than a 5th blind patch.
+   Root cause: the "whole US market" (Massive's reference endpoints have no
+   multi-ticker filter, so a bulk query can't ask for less server-side) is vastly
+   bigger than our ~3,000-ticker tracked universe, and a full 2-year window was
+   simply too much total data to fetch in one CI job at a safe pace. But the 2-year
+   window itself was the wrong ask: `stockvaluation.py`'s `dividend_yield` only ever
+   needs a TRAILING 12-MONTH window (see `_dividend_features`) — the 2y figure was
+   copied from `prices.py`'s precedent (which genuinely needs deep history for
+   backtesting) without checking whether corp actions needed the same depth. Fixed:
+   shrunk `_FULL_DAYS` 730→400 (~13mo, covers TTM with a buffer — empirically
+   roughly half the request volume) and `_INCREMENTAL_DAYS` 400→35 (the daily
+   pipeline step needs to be fast, not just eventually-consistent); rewrote
+   `_paginated`/`ingest()` to persist PER PAGE via an `on_page` callback instead of
+   accumulating and batching at the end — verified with a new interruption-safety
+   test (mocks a failure on page 2, confirms page 1's row is already durably in
+   Postgres). Idempotent `ON CONFLICT DO NOTHING` means a run that still doesn't
+   finish in one sitting isn't wasted — a re-fire makes real forward progress
+   instead of repeating the same doomed fetch.
+
+**Lesson for future capacity planning:** before defaulting a new bulk-fetch job's
+window to match an existing job's precedent (prices.py's 2y), check whether the
+NEW job's actual downstream need is the same depth — it often isn't, and copying
+the number without re-deriving it from the actual requirement is how a 4x-larger-
+than-necessary fetch volume ends up silently baked into a timeout budget.
+
+---
+
 ## 2026-07-22 (later) — Phase A hardening: growth_score confirmed, corp actions shipped, production audit
 
 Picked up "Phase A" (from the roadmap discussion after the first real backtest)

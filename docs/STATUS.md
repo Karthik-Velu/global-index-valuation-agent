@@ -161,15 +161,32 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   9-period window. This is a first look, not a validated edge.
 
 ## Phase A hardening (2026-07-22)
-- **Corporate actions shipped (ADR-018):** `engine/sources/corpactions.py` pulls
-  dividends + splits from Massive's v3 reference endpoints (bulk date-range,
-  whole market per query) into new Postgres `dividends`/`splits` tables
-  (migration 0009). `stockvaluation.py`'s `dividend_yield` is now a REAL
-  trailing-12-month dividends-per-share ÷ price, point-in-time — replacing the
-  hardcoded `0.0` every stock previously got. Wired into the daily pipeline
-  (step 2d, ~400d incremental window) + `corpactions-backfill.yml` (one-time
-  ~2y history, not yet fired — needs a push to that workflow file to trigger
-  via this session's push-path mechanism).
+- **Corporate actions shipped (ADR-018), hardened through 4 real CI failures:**
+  `engine/sources/corpactions.py` pulls dividends + splits from Massive's v3
+  reference endpoints (bulk date-range, whole market per query) into new
+  Postgres `dividends`/`splits` tables (migration 0009). `stockvaluation.py`'s
+  `dividend_yield` is now a REAL trailing-12-month dividends-per-share ÷ price,
+  point-in-time — replacing the hardcoded `0.0` every stock previously got.
+  The one-time `corpactions-backfill.yml` needed 4 iterative fixes to get
+  right: (1) a Postgres catalog race between two workflows applying the same
+  migration concurrently, (2) zero progress visibility masking a 30-min
+  timeout, plus pagination pacing far too aggressive for the provider's rate
+  limit, (3) a `limit=5000` parameter exceeding the reference endpoints' real
+  max of 1000 (a different, lower ceiling than the aggregates endpoints
+  prices.py uses), and (4) the real architectural finding: the "whole US
+  market" is far bigger than our ~3,000-ticker universe (394,000+ dividend
+  rows in a 2-year window, still climbing, with splits not even started) —
+  and the old design accumulated every page in memory, discarding all of it
+  when a 90-minute timeout hit mid-fetch. Fixed by shrinking the backfill
+  window from 2 years to ~13 months (dividend_yield only ever needs a
+  trailing-12-month window; 2y was copied from prices.py's precedent without
+  checking whether corp actions needed the same depth) and persisting PER
+  PAGE instead of batching to the end, so an interrupted run keeps real
+  progress and a re-fire extends coverage via `ON CONFLICT DO NOTHING`
+  idempotency rather than repeating wasted work. Wired into the daily
+  pipeline (step 2d, ~35d incremental window — shrunk from 400d for the same
+  reason) + `corpactions-backfill.yml` (one-time ~13mo history; the 5th
+  attempt, with all fixes in place, has not yet been confirmed complete).
 - **Migrations are now self-healing:** found no CI step anywhere applied
   `engine/migrations/*.sql` automatically (each of the first 8 needed a manual
   `db.apply_migrations()` run) — added as `datapipeline.py` step 0.
@@ -192,9 +209,10 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   disclosure-marker gap in `llm.py::_fallback_tag`.
 
 ## Immediate next step
-1. Fire `corpactions-backfill.yml` to get ~2y of real dividend history, then
-   re-run `backtest.yml` — `dividend_yield` now feeding `value_score` (real
-   data, not always-0.0) could shift its rank-IC.
+1. Confirm the 5th `corpactions-backfill.yml` attempt (per-page persistence +
+   ~13mo window) actually completes, then re-run `backtest.yml` —
+   `dividend_yield` now feeding `value_score` (real data, not always-0.0)
+   could shift its rank-IC.
 2. Let more history accumulate (daily incremental price ingestion is live)
    and re-run `backtest.yml` periodically — `n_periods >= 12` is what's
    needed to clear the significance gate on the strongest signal.

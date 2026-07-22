@@ -13,8 +13,23 @@ downstream code re-derives prices from. Dividends are NOT reflected in that
 stockvaluation.py's trailing-12-month dividend_yield (previously hardcoded to
 0.0 — see ADR entry).
 
-  python -m engine.sources.corpactions ingest             # ~400d window (daily incremental)
-  python -m engine.sources.corpactions ingest --full       # ~2y window, matches price backfill
+Volume reality check (confirmed 2026-07-22, see JOURNAL): the "whole US
+market" is a LOT bigger than our ~3,000-ticker tracked universe — a 2-year
+window hit 394,000+ dividend rows and was still climbing when a 90-minute CI
+job ran out of time, having not even started on splits. Rows for tickers we
+don't track are the overwhelming majority of that (this module keeps only
+`ticker in _tracked_ids()`) but Massive's v3 reference endpoints have no
+multi-ticker filter, so there's no way to ask for less server-side — the
+options are "fetch the whole market and discard most of it" (fewer, fatter
+requests) or "sweep our ~3,000 tickers individually" (thousands of thinner
+requests, empirically slower at the same per-request rate limit). This module
+takes the whole-market approach and instead shrinks the WINDOW (see
+_FULL_DAYS/_INCREMENTAL_DAYS below) and persists PER PAGE (not batched to the
+end) so a run that still doesn't finish in one sitting saves real, durable
+progress instead of losing everything to a timeout.
+
+  python -m engine.sources.corpactions ingest             # ~35d window (daily incremental)
+  python -m engine.sources.corpactions ingest --full       # ~13mo window (one-time backfill)
   python -m engine.sources.corpactions ingest --start 2024-01-01 --end 2024-06-01
 """
 from __future__ import annotations
@@ -37,11 +52,19 @@ _SPLITS_PATH = "/v3/reference/splits"
 # immediately in CI (confirmed 2026-07-22, see JOURNAL) — reverted to 1000.
 _PAGE_LIMIT = 1000
 
-# Default incremental window: comfortably covers a year of TTM dividend history
-# plus the daily gap since the last run. --full uses the same ~2y span as the
-# price backfill (prices.py's free-tier entitlement window).
-_INCREMENTAL_DAYS = 400
-_FULL_DAYS = 730
+# stockvaluation.py's dividend_yield only ever needs a TRAILING 12-MONTH
+# window (see _dividend_features) — a 2-year backfill was borrowed from
+# prices.py's precedent (which genuinely needs deep history for backtesting)
+# without checking whether corp actions needed the same depth. It doesn't:
+# ~13 months covers today's TTM yield with a buffer, and empirically that's
+# roughly half the request volume of the 2-year window that couldn't finish
+# in 90 minutes. _INCREMENTAL_DAYS is intentionally much smaller than the
+# daily pipeline's other steps' windows — this step runs INSIDE the larger
+# daily pipeline (already ~2h for a full sweep), not as its own job, so it
+# has to be fast: ~35 days of whole-market dividend volume is a few minutes,
+# not tens of minutes.
+_INCREMENTAL_DAYS = 35
+_FULL_DAYS = 400
 
 
 class RateLimited(Exception):
@@ -79,12 +102,18 @@ def _get(path: str, params: dict) -> dict:
     return r.json()
 
 
-def _paginated(path: str, params: dict, sleep: float, label: str) -> list[dict]:
-    """Walk next_url until exhausted, retrying once on a 429. Prints per-page
-    progress — a silent multi-minute pagination loop with zero output is exactly
-    what made the first CI run's 30-minute timeout undiagnosable (had to pull raw
-    job logs to learn it never printed anything at all)."""
-    out: list[dict] = []
+def _paginated(path: str, params: dict, sleep: float, label: str, on_page) -> int:
+    """Walk next_url until exhausted, retrying once on a 429. Calls `on_page(rows)`
+    with each page's raw results as they arrive — the caller persists immediately
+    rather than this function accumulating everything in memory, so a run that
+    gets killed mid-pagination (CI timeout, rate-limit exhaustion) keeps whatever
+    it already fetched instead of losing it all (confirmed 2026-07-22: a 90-min
+    timeout mid-dividends-fetch discarded 394,000 already-fetched rows because
+    the old design only persisted once, at the very end). Prints per-page
+    progress too — a silent multi-minute pagination loop with zero output is
+    exactly what made an earlier CI timeout undiagnosable without a log pull.
+    Returns the total row count seen."""
+    total = 0
     page = 1
     try:
         data = _get(path, params)
@@ -92,9 +121,10 @@ def _paginated(path: str, params: dict, sleep: float, label: str) -> list[dict]:
         print(f"   [{label}] page {page} rate-limited, sleeping {rl.retry_after:.0f}s", flush=True)
         time.sleep(rl.retry_after)
         data = _get(path, params)
-    out.extend(data.get("results") or [])
-    print(f"   [{label}] page {page}: {len(data.get('results') or [])} rows "
-          f"({len(out)} total)", flush=True)
+    rows = data.get("results") or []
+    on_page(rows)
+    total += len(rows)
+    print(f"   [{label}] page {page}: {len(rows)} rows ({total} total)", flush=True)
     while data.get("next_url"):
         time.sleep(sleep)
         page += 1
@@ -106,24 +136,11 @@ def _paginated(path: str, params: dict, sleep: float, label: str) -> list[dict]:
             print(f"   [{label}] page {page} rate-limited, sleeping {rl.retry_after:.0f}s", flush=True)
             time.sleep(rl.retry_after)
             data = _get(nxt_path, {})
-        out.extend(data.get("results") or [])
-        print(f"   [{label}] page {page}: {len(data.get('results') or [])} rows "
-              f"({len(out)} total)", flush=True)
-    return out
-
-
-def fetch_dividends(start: date, end: date, sleep: float = 13.0) -> list[dict]:
-    return _paginated(_DIVIDENDS_PATH, {
-        "ex_dividend_date.gte": start.isoformat(), "ex_dividend_date.lte": end.isoformat(),
-        "limit": _PAGE_LIMIT,
-    }, sleep, "dividends")
-
-
-def fetch_splits(start: date, end: date, sleep: float = 13.0) -> list[dict]:
-    return _paginated(_SPLITS_PATH, {
-        "execution_date.gte": start.isoformat(), "execution_date.lte": end.isoformat(),
-        "limit": _PAGE_LIMIT,
-    }, sleep, "splits")
+        rows = data.get("results") or []
+        on_page(rows)
+        total += len(rows)
+        print(f"   [{label}] page {page}: {len(rows)} rows ({total} total)", flush=True)
+    return total
 
 
 def _tracked_ids() -> dict[str, int]:
@@ -136,20 +153,22 @@ def _tracked_ids() -> dict[str, int]:
 def ingest(start: date | None = None, end: date | None = None, full: bool = False,
           sleep: float = 13.0) -> dict:
     """Bulk date-range pull of dividends + splits across the whole market (ticker
-    omitted from the request), keeping only rows for tickers we track. Idempotent
-    (ON CONFLICT DO NOTHING on the natural key), so a daily re-run over an
-    overlapping window is cheap and safe.
+    omitted from the request), keeping only rows for tickers we track. Persists
+    PER PAGE (see _paginated) rather than accumulating everything and writing once
+    at the end — a run that runs out of time keeps whatever it already fetched.
+    Idempotent (ON CONFLICT DO NOTHING on the natural key), so a daily re-run over
+    an overlapping window, or a re-fire after a partial run, is cheap and safe.
 
     `sleep` defaults to 13s (~4.6 req/min) — the same free-tier-safe pacing
     prices.py uses, since this is the same provider/plan and there's no
     confirmed evidence the reference endpoints get a more generous quota than
-    grouped-daily prices (the first CI attempt at 1.0s produced zero output in
-    30 minutes, consistent with repeated silent 429 backoffs — see JOURNAL
-    2026-07-22).
+    grouped-daily prices.
 
-    `full=True` (no explicit start/end) widens the window to ~2y, matching the
-    price backfill's window — same `full_ingest` flag the daily pipeline already
-    threads through to prices.bulk_ingest(full=...)."""
+    `full=True` (no explicit start/end) widens the window to _FULL_DAYS — see
+    the module docstring for why that's ~13 months, not the 2 years prices.py
+    uses (dividend_yield only ever needs a trailing-12-month window; a 2-year
+    whole-market pull couldn't finish a 90-minute CI job — see JOURNAL
+    2026-07-22)."""
     from .. import db
 
     _api_key()  # fail fast + loud before any work if the key is missing
@@ -158,59 +177,79 @@ def ingest(start: date | None = None, end: date | None = None, full: bool = Fals
     id_by_ticker = _tracked_ids()
     stats: dict = {"window": [start.isoformat(), end.isoformat()], "dividends": 0, "splits": 0,
                   "dividends_unmatched": 0, "splits_unmatched": 0, "errors": []}
+    have_db = db.have_db()
+    if not have_db:
+        stats["note"] = "DATABASE_URL not set — nothing will be persisted"
 
-    print(f"   fetching dividends {start} .. {end}", flush=True)
-    try:
-        divs = fetch_dividends(start, end, sleep)
-    except Exception as e:
-        stats["errors"].append(f"dividends: {str(e)[:160]}")
-        divs = []
-    print(f"   fetching splits {start} .. {end}", flush=True)
-    try:
-        splits = fetch_splits(start, end, sleep)
-    except Exception as e:
-        stats["errors"].append(f"splits: {str(e)[:160]}")
-        splits = []
-
-    div_rows, split_rows = [], []
-    for d in divs:
-        tk = str(d.get("ticker") or "").upper()
-        sid = id_by_ticker.get(tk)
-        if sid is None:
-            stats["dividends_unmatched"] += 1
-            continue
-        div_rows.append((sid, tk, d.get("cash_amount"), d.get("currency"), d.get("dividend_type"),
-                         d.get("declaration_date"), d.get("ex_dividend_date"), d.get("record_date"),
-                         d.get("pay_date"), d.get("frequency")))
-    for s in splits:
-        tk = str(s.get("ticker") or "").upper()
-        sid = id_by_ticker.get(tk)
-        if sid is None:
-            stats["splits_unmatched"] += 1
-            continue
-        split_rows.append((sid, tk, s.get("execution_date"), s.get("split_from"), s.get("split_to")))
-
-    if not db.have_db():
-        stats["note"] = "DATABASE_URL not set — fetched but not persisted"
-        return stats
-
-    with db.connect() as conn, conn.cursor() as cur:
-        if div_rows:
+    def _persist_dividends(rows: list[dict]) -> None:
+        if not have_db or not rows:
+            stats["dividends_unmatched"] += sum(
+                1 for d in rows if id_by_ticker.get(str(d.get("ticker") or "").upper()) is None)
+            return
+        batch = []
+        for d in rows:
+            tk = str(d.get("ticker") or "").upper()
+            sid = id_by_ticker.get(tk)
+            if sid is None:
+                stats["dividends_unmatched"] += 1
+                continue
+            batch.append((sid, tk, d.get("cash_amount"), d.get("currency"), d.get("dividend_type"),
+                          d.get("declaration_date"), d.get("ex_dividend_date"), d.get("record_date"),
+                          d.get("pay_date"), d.get("frequency")))
+        if not batch:
+            return
+        with db.connect() as conn, conn.cursor() as cur:
             cur.executemany(
                 """insert into dividends (security_id, ticker, cash_amount, currency, dividend_type,
                                           declaration_date, ex_dividend_date, record_date, pay_date, frequency)
                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                    on conflict (ticker, ex_dividend_date, cash_amount) do nothing""",
-                div_rows)
-            stats["dividends"] = len(div_rows)
-        if split_rows:
+                batch)
+            conn.commit()
+        stats["dividends"] += len(batch)
+
+    def _persist_splits(rows: list[dict]) -> None:
+        if not have_db or not rows:
+            stats["splits_unmatched"] += sum(
+                1 for s in rows if id_by_ticker.get(str(s.get("ticker") or "").upper()) is None)
+            return
+        batch = []
+        for s in rows:
+            tk = str(s.get("ticker") or "").upper()
+            sid = id_by_ticker.get(tk)
+            if sid is None:
+                stats["splits_unmatched"] += 1
+                continue
+            batch.append((sid, tk, s.get("execution_date"), s.get("split_from"), s.get("split_to")))
+        if not batch:
+            return
+        with db.connect() as conn, conn.cursor() as cur:
             cur.executemany(
                 """insert into splits (security_id, ticker, execution_date, split_from, split_to)
                    values (%s,%s,%s,%s,%s)
                    on conflict (ticker, execution_date, split_from, split_to) do nothing""",
-                split_rows)
-            stats["splits"] = len(split_rows)
-        conn.commit()
+                batch)
+            conn.commit()
+        stats["splits"] += len(batch)
+
+    print(f"   fetching dividends {start} .. {end}", flush=True)
+    try:
+        _paginated(_DIVIDENDS_PATH, {
+            "ex_dividend_date.gte": start.isoformat(), "ex_dividend_date.lte": end.isoformat(),
+            "limit": _PAGE_LIMIT,
+        }, sleep, "dividends", _persist_dividends)
+    except Exception as e:
+        stats["errors"].append(f"dividends: {str(e)[:160]}")
+
+    print(f"   fetching splits {start} .. {end}", flush=True)
+    try:
+        _paginated(_SPLITS_PATH, {
+            "execution_date.gte": start.isoformat(), "execution_date.lte": end.isoformat(),
+            "limit": _PAGE_LIMIT,
+        }, sleep, "splits", _persist_splits)
+    except Exception as e:
+        stats["errors"].append(f"splits: {str(e)[:160]}")
+
     return stats
 
 
@@ -222,7 +261,8 @@ if __name__ == "__main__":
     sub = p.add_subparsers(dest="cmd", required=True)
     ing = sub.add_parser("ingest", help="bulk date-range pull of dividends + splits")
     ing.add_argument("--full", action="store_true",
-                     help=f"~{_FULL_DAYS // 365}y history (matches the price backfill window)")
+                     help=f"~{_FULL_DAYS} days of history (one-time backfill; covers the TTM "
+                          "dividend_yield window with a buffer)")
     ing.add_argument("--start", help="ISO date, default: window-days back from --end")
     ing.add_argument("--end", help="ISO date, default: today")
     ing.add_argument("--sleep", type=float, default=13.0, help="seconds between pagination requests")

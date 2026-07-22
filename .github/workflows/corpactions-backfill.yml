@@ -3,14 +3,16 @@ name: Corporate actions backfill — dividends + splits (Massive)
 # Bulk date-range backfill of dividends + splits via Massive's v3 reference
 # endpoints (ticker-optional, date-range filterable — one paginated query per
 # type covers the WHOLE market for the window, not a per-ticker sweep). Fills
-# the ~2y history stockvaluation.py's trailing-12-month dividend_yield needs
+# the ~13mo history stockvaluation.py's trailing-12-month dividend_yield needs
 # (previously hardcoded to 0.0 — see docs/STATUS.md). Postgres-only (low
 # volume, relational — same home as `filings`), so no Tier B cache/hydrate
 # needed, unlike price-backfill.yml.
 #
 # Idempotent: dividends/splits use ON CONFLICT DO NOTHING on their natural
-# key, so re-running (or the daily pipeline's own ~400d incremental window)
-# never duplicates rows.
+# key, and corpactions.py persists per page (not batched to the end), so
+# re-running (or the daily pipeline's own ~35d incremental window) never
+# duplicates rows and a run that doesn't finish in one sitting still makes
+# real forward progress.
 #
 # Trigger: push to THIS FILE on the feature branch (the session's GitHub
 # integration lacks actions:write for API dispatch) — matches every other
@@ -40,6 +42,22 @@ name: Corporate actions backfill — dividends + splits (Massive)
 # non-2xx/429 status so a future 400 is diagnosable from the log directly;
 # the CLI now exits non-zero when ingest() reports fetch errors so a
 # fully-failed run can no longer report a misleading green success.
+# Re-fired 2026-07-22 (4th retry): the 3rd retry paced correctly, hit zero
+# errors, and made real steady progress (394,000 dividend rows over 394
+# pages) — but the 90-min timeout still hit mid-fetch, before splits even
+# started, and ALL of that progress was silently discarded: the old design
+# accumulated every page in memory and only wrote to Postgres once, at the
+# very end. Root cause was architectural, not a parameter: a full 2-year
+# whole-market pull is genuinely too much data (the "whole US market" is far
+# bigger than our ~3,000-ticker universe, and the reference endpoints have no
+# multi-ticker filter to ask for less server-side). Fixed: the one-time
+# backfill window shrunk from 2 years to ~13 months (dividend_yield only ever
+# needs a trailing-12-month window — 2y was borrowed from prices.py's
+# precedent without checking whether corp actions needed the same depth);
+# corpactions.py now persists PER PAGE instead of batching to the end, so a
+# run that still doesn't finish in one sitting keeps whatever it already
+# fetched — a re-fire makes forward progress via ON CONFLICT DO NOTHING
+# idempotency rather than repeating the same wasted work.
 
 on:
   workflow_dispatch: {}
@@ -75,5 +93,5 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Apply schema migrations (self-healing, idempotent)
         run: python -c "from engine import db; print(db.apply_migrations())"
-      - name: Full-history corp actions backfill (~2y, matches price backfill window)
+      - name: Full-history corp actions backfill (~13mo, covers the TTM dividend_yield window)
         run: python -m engine.sources.corpactions ingest --full
