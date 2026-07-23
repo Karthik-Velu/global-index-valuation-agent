@@ -26,6 +26,7 @@ ROLE_FILES = {
     "source_discovery": ["house_rules.md", "source_discovery.md"],
     "sector_research": ["house_rules.md", "sector_kpis.md"],
     "quality_triage": ["house_rules.md", "data_quality.md"],
+    "analyst": ["house_rules.md", "analyst_playbook.md"],
 }
 
 # Which semantic-memory scopes are relevant to each role (LIKE patterns).
@@ -36,6 +37,7 @@ ROLE_SCOPES = {
     "source_discovery": ["global", "source_discovery", "source:%"],
     "sector_research": ["global", "sector_research", "sector_research:%"],
     "quality_triage": ["global", "quality", "data_quality"],
+    "analyst": ["global", "analyst", "analyst:%"],
 }
 
 # Map a scope to the playbook a promoted lesson should be curated into.
@@ -44,6 +46,7 @@ _SCOPE_FILE = [
     ("sector_research", "sector_kpis.md"),
     ("quality", "data_quality.md"),
     ("data_quality", "data_quality.md"),
+    ("analyst", "analyst_playbook.md"),
 ]
 
 

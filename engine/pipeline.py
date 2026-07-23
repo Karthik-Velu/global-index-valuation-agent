@@ -44,7 +44,8 @@ COLUMNS = [
 ]
 
 
-def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True) -> dict:
+def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
+        with_agent: bool = False, with_model_upgrade: bool = False) -> dict:
     asof = asof or date.today().isoformat()
     print(f"== Global Index Valuation Agent — run {asof} ==")
 
@@ -77,7 +78,31 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True) 
 
     scoreboard = df[[c for c in COLUMNS if c in df.columns]].to_dict(orient="records")
     insights = surfacing.build_insights(df)
+
+    # 5b. Analyst agent (optional, infrequent): investigates the few genuinely
+    # ambiguous markets and writes falsifiable theses. Advises only — runs
+    # between surfacing and brief generation, never touches the scores above.
+    analyst_result = None
+    if with_agent and llm.available():
+        try:
+            from .agent.agent import run as run_analyst
+            analyst_result = run_analyst(df, asof, current_prices, max_markets=8)
+        except Exception as e:
+            analyst_result = {"active": False, "error": str(e)[:160]}
+
     brief = llm.smart_brief(scoreboard, accuracy) if with_llm else llm._fallback_brief(scoreboard)
+
+    # 5c. Model-Upgrade agent (optional, monthly): advisory chain-health proposals
+    # from model_scorecard. The proposal computation itself is deterministic SQL
+    # (no LLM needed) — only the optional narrative gloss requires a model, and
+    # that degrades gracefully on its own. Never mutates config — proposals only.
+    model_upgrade_result = None
+    if with_model_upgrade:
+        try:
+            from .modelupgrade import propose_upgrades
+            model_upgrade_result = propose_upgrades()
+        except Exception as e:
+            model_upgrade_result = {"error": str(e)[:160]}
 
     payload = {
         "asof": asof,
@@ -89,6 +114,8 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True) 
         "scoreboard": scoreboard,
         "accuracy": accuracy,
         "tuning": tuning.status(),
+        "analyst": analyst_result,
+        "model_upgrade": model_upgrade_result,
         "kinds": sorted(df["kind"].unique().tolist()),
         "meta": {
             "data_source": "Yahoo Finance ETF holdings (single-methodology proxies)",

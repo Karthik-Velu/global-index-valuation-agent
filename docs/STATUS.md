@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-20.
+> Last updated: 2026-07-23.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -56,8 +56,11 @@ pipeline consolidates. See [MEMORY.md](MEMORY.md). Embeddings need `ollama pull 
 locally (else lexical retrieval).
 
 **Jobs vs agents** — Jobs (deterministic): valuation/scoring (`engine.cli refresh`, weekly),
-data pipeline (`engine.datapipeline`, daily, `--agents` in CI). Agents (LLM, infrequent):
-source-discovery, sector-KPI research — they *improve* jobs. See [AGENTS.md](AGENTS.md).
+data pipeline (`engine.datapipeline`, daily, `--agents` in CI). **All 5 agents are now
+built** (2026-07-23): source-discovery + sector-KPI research (active in CI today),
+quality-triage (hooked into the daily pipeline, on findings), analyst + model-upgrade
+(built, gated behind `refresh --agent`/`--model-upgrade`, both default off pending the
+`refresh.yml` activation decision below). See [AGENTS.md](AGENTS.md).
 
 **CI** — GitHub secrets: `DATABASE_URL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `SEC_USER_AGENT`.
 Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
@@ -208,17 +211,43 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   initial setup — needs the user to generate new keys), a minor LLM-output
   disclosure-marker gap in `llm.py::_fallback_tag`.
 
+## Phase B: the last 3 agents shipped (2026-07-23)
+User directive (2026-07-10): "the product is DONE only when all the agents are
+built." Quality-Triage (`engine/qualitytriage.py`), Model-Upgrade
+(`engine/modelupgrade.py`, ADR-019 — deliberately scoped-down v1, no
+`models.yaml`/golden-eval), and Analyst (`engine/agent/` package, ADR-020/021
+— bounded ReAct loop, MAX_STEPS=4, 5 whitelisted tools, new `theses` table
+via migration 0010, reflection-based grading) are all built, following the
+existing `discover.py`/`research.py` pattern exactly. Full detail in
+docs/PLAN.md's "Phase B" section and docs/JOURNAL.md's 2026-07-23 entry.
+
+Scratch-tested (no local Postgres in this session): every no-DB/no-LLM
+degradation path, react-loop step-budget/parse-failure/tool-dispatch
+mechanics, Model-Upgrade's threshold logic both directions — all passing.
+**Not yet done:** a real end-to-end run against the live DB + a configured
+model (actual `theses`/`taxonomy_changes` rows, actual LLM tool selection).
+
+**Open decision, flagged to the user, not made unilaterally:** `refresh.yml`
+(the weekly production refresh) runs `--no-cache --no-llm` and doesn't export
+`OLLAMA_API_KEY`/`GROQ_API_KEY` — so the already-built `cheap_tags`/
+`smart_brief` narrative path (and now Analyst/Model-Upgrade) do nothing in
+production until that changes. This is a bigger call than "add 3 agents" (it
+turns on a previously-dormant feature in the weekly cron) — needs an explicit
+go/no-go rather than being bundled into the PR.
+
 ## Immediate next step
-1. Confirm the 5th `corpactions-backfill.yml` attempt (per-page persistence +
-   ~13mo window) actually completes, then re-run `backtest.yml` —
-   `dividend_yield` now feeding `value_score` (real data, not always-0.0)
-   could shift its rank-IC.
-2. Let more history accumulate (daily incremental price ingestion is live)
-   and re-run `backtest.yml` periodically — `n_periods >= 12` is what's
-   needed to clear the significance gate on the strongest signal.
-3. Then: Quality-Triage agent (Massive MCP as a tool), surface bottom-up in
-   the dashboard. Decide on a paid Massive tier (Starter $29/mo, 5y) for more
-   usable periods per horizon once growth stabilizes.
+1. **Decide on the `refresh.yml` LLM-activation question above** — without
+   it, Analyst/Model-Upgrade are built but silent in production.
+2. Merge Phase B, then confirm a real CI run: `data-pipeline.yml`'s
+   `--agents` step should show `quality_triage` firing next time
+   `quality.run()` raises issues; a manually-dispatched `refresh --agent`
+   run should produce real `theses` rows.
+3. Re-run `backtest.yml` periodically as more price history accumulates —
+   `n_periods >= 12` is what's needed to clear the significance gate on the
+   strongest signal (`opportunity_score`).
+4. Then: surface bottom-up (stock-level) results in the dashboard (Phase C).
+   Decide on a paid Massive tier (Starter $29/mo, 5y) for more usable periods
+   per horizon once growth stabilizes.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
@@ -267,4 +296,5 @@ python -m engine.modelrouting                     # model reliability scorecard
 python -m engine.sources.prices ingest --full     # full-history price backfill (Massive)
 python -m engine.sources.corpactions ingest --full # full-history dividends + splits (Massive)
 python -m engine.backtest run                     # walk-forward stock backtest
+python -m engine.cli refresh --agent --model-upgrade  # valuation run + Analyst + Model-Upgrade
 ```
