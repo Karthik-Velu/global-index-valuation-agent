@@ -87,6 +87,45 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   reporters), forward (analyst-estimate) growth at stock level,
   continuous/live prediction-ledger grading (vs. today's historical-only harness).
 
+## Phase B — the last 3 agents  ✅ BUILT 2026-07-23
+User directive (2026-07-10, CLAUDE.md): "the product is DONE only when all the
+agents are built" — Analyst, Quality-Triage, Source-Discovery, Sector-KPI,
+Model-Upgrade. Source-Discovery + Sector-KPI Research already shipped and are
+active in production; this phase built the remaining 3.
+- ✅ **Quality-Triage** (`engine/qualitytriage.py`) — explains root causes for
+  the data-quality checks firing most this run, proposes one new deterministic
+  check per firing check (`taxonomy_changes`, kind='quality_check') + feeds
+  semantic memory. Hooked into `datapipeline.py` step 7, gated on
+  `quality.run()` actually raising issues ("on findings," no new schedule).
+- ✅ **Model-Upgrade** (`engine/modelupgrade.py`, ADR-019 — scoped-down v1) —
+  pure-SQL threshold analysis over the already-populated `model_scorecard`
+  view; flags configured-chain models for demotion (low success rate / high
+  rate-limit-hit fraction) and strong out-of-chain models for promotion;
+  optional one-line LLM narrative. Advisory only — never mutates
+  `config.py`/env. Monthly gate (`--model-upgrade`, day-of-month ≤7, mirroring
+  `data-pipeline.yml`'s existing idiom) added to `refresh.yml`.
+- ✅ **Analyst** (`engine/agent/` package, ADR-020/021 — Pillar 1) — deterministic
+  gate (`select.py`) picks 3-8 genuinely ambiguous markets (value traps, thin-
+  coverage GARP, big rank movers, theses due for re-check); a bounded, hand-
+  rolled ReAct loop (`react.py`, MAX_STEPS=4 — no tool-use API exists in
+  `llm.py`, see ADR-020) over 5 whitelisted tools (`tools.py`: `query_ledger`,
+  `get_market_detail`, `fill_growth_gap`, `fetch_news` via Google News RSS,
+  `write_thesis` as the only mutation) writes falsifiable theses (new `theses`
+  table, migration 0010) to Postgres; `reflect.py` grades matured theses
+  against realized returns and feeds outcomes back into semantic memory.
+  Hooked into `pipeline.py` between surfacing and brief generation
+  (`--agent` flag, default off). Advises only — never writes into scores.
+- ✅ Scratch-tested (no local Postgres available this session): every no-DB/
+  no-LLM degradation path, the react loop's step-budget/JSON-parse-failure/
+  tool-dispatch/duplicate-kwarg-safety mechanics via a monkeypatched
+  `llm.call`, and the Model-Upgrade threshold logic in both directions —
+  all passing. Real end-to-end verification pending a live CI run (next step).
+- ⬜ **Decision needed, not yet made:** `refresh.yml` currently runs
+  `--no-llm` — the already-built `cheap_tags`/`smart_brief` path (and now
+  Analyst) do nothing in production until `OLLAMA_API_KEY`/`GROQ_API_KEY` are
+  added to that workflow and `--no-llm` is dropped. Flagged to the user as an
+  explicit go/no-go, not bundled silently into this PR.
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F

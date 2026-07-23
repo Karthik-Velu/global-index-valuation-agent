@@ -207,7 +207,15 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         res = research_thin_subsectors()
         steps["agents"] = {"active": True, "model": config.MODEL_AGENT,
                           "discovery": disc, "research": res}
-        print(f"   agents: ran source-discovery + sector-KPI research on {config.MODEL_AGENT}")
+        ran = "source-discovery + sector-KPI research"
+        if q["n_issues"] > 0:
+            try:
+                from .qualitytriage import triage_issues
+                steps["agents"]["quality_triage"] = triage_issues(q)
+                ran += " + quality-triage"
+            except Exception as e:
+                steps["agents"]["quality_triage"] = {"error": str(e)[:160]}
+        print(f"   agents: ran {ran} on {config.MODEL_AGENT}")
     elif with_agents:
         steps["agents"] = {"active": False, "note": "no model configured — set up Ollama or a provider key"}
         print("   agents: requested but no model configured (Ollama not running / no key)")

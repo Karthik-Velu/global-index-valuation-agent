@@ -8,8 +8,9 @@
 > The agents are the *developers*; the jobs are the *workers*. An agent does not sit
 > in the hot path of every run — it periodically reviews how the jobs are doing and
 > evolves their rules/config (and, eventually, their code). This keeps the frequent
-> work free and the intelligent work rare. **Today there are 0 active agents** (no
-> model configured) and several jobs.
+> work free and the intelligent work rare. **All 5 agents are now built** (2026-07-23)
+> and activate automatically once a model is configured — each one degrades to a
+> clean no-op without a key, so the deterministic jobs never depend on them.
 
 ---
 
@@ -26,22 +27,32 @@ job's role.
 
 ---
 
-## Agents (LLM — to be set up later)
+## Agents (LLM — all built, dormant without a model)
 
-Each below is wired as a dormant hook; it activates when a model is configured (an
+Each below is wired as a hook that no-ops cleanly without a model configured (an
 API key today, or a self-hosted model via the provider abstraction — see
-[ARCHITECTURE.md](ARCHITECTURE.md#2-the-model-routing-strategy-the-cost-lever)). The
-model tier follows the frequency × stakes routing (cheap/owned for frequent, frontier
-for rare).
+[ARCHITECTURE.md](ARCHITECTURE.md#2-the-model-routing-strategy-the-cost-lever)).
+Note the real routing gap this table used to gloss over: `engine/llm.py::chain_for()`
+only has THREE actual chains (`cheap`, `smart`, and everything-else → the "agent"
+chain, `MODEL_AGENT_CHAIN`) — there's no separate T2 tier today, so the "T1→T2"
+entries below collapse onto the shared agent chain in practice, same as the
+already-shipped Source-Discovery/Sector-KPI Research always have.
 
 | Agent | Expected work (improves which job) | Model tier | Cadence | Hook |
 |---|---|---|---|---|
 | **Source-Discovery** | Research new/better data sources for coverage gaps the data-pipeline flags; propose adapters to build | T1 cheap (Qwen/GLM/DeepSeek) | monthly | `dataagent/discover.py` |
-| **Sector-KPI Research** | For new/emerging or thin-coverage sub-sectors, research the KPIs that drive them; propose catalog additions + sub-sector tag refinements | T1→T2 | monthly | `sectoragent/research.py` |
-| **Quality-Triage** | Read the data-quality warnings; explain root causes, propose fixes and **new deterministic checks** to add | T1 cheap | on findings | (to build) |
-| **Analyst** | Investigate the handful of markets the scoring job flags; fetch news/fill gaps via tools; write falsifiable theses; self-grade (reflection) | T2 | per valuation run | (Pillar 1, to build) |
+| **Sector-KPI Research** | For new/emerging or thin-coverage sub-sectors, research the KPIs that drive them; propose catalog additions + sub-sector tag refinements | T1→T2 (agent chain) | monthly | `sectoragent/research.py` |
+| **Quality-Triage** | Read the data-quality warnings; explain root causes, propose fixes and **new deterministic checks** to add | T1 cheap | on findings | `qualitytriage.py`, hooked into `datapipeline.py` step 7 |
+| **Analyst** | Investigate the handful of markets the scoring job flags; fetch news/fill gaps via tools; write falsifiable theses; self-grade (reflection) | T2 (agent chain) | per valuation run | `agent/agent.py` (Pillar 1), hooked into `pipeline.py` between surfacing and brief |
 | **Strategist brief** | The 1-paragraph headline read on the scoreboard | T3 frontier | weekly | `llm.smart_brief` |
-| **Model-Upgrade** | Eval a candidate model vs champion; promote if better/cheaper | — | monthly | (Pillar 5, to build) |
+| **Model-Upgrade** | Eval models in `model_scorecard` vs their configured chain; propose promote/demote | — (cheap tier for the optional narrative only) | monthly | `modelupgrade.py` (Pillar 5, v1 — see ADR), hooked into `pipeline.py` |
+
+Analyst and Model-Upgrade are gated behind `engine.cli refresh --agent` /
+`--model-upgrade` (both default off); Quality-Triage runs automatically whenever
+`data-pipeline.yml`'s `--agents` flag is on AND `quality.run()` raised issues this
+run — no separate flag needed. Whether `refresh.yml`'s production cron actually
+passes `--agent`/`--model-upgrade` (and turns the LLM path back on there at all —
+it currently runs `--no-llm`) is a separate decision; see `docs/STATUS.md`.
 
 **The meta-loop:** an agent's output is a *proposal* (a new KPI + its XBRL tag, a new
 source, a new quality check). A human or a follow-up step turns the proposal into a

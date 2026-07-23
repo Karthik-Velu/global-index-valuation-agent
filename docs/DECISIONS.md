@@ -9,6 +9,89 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-021 · `fetch_news` reads headlines transiently — a narrower reading than ADR-003's redistribution rule
+- **Context:** the Analyst agent's whitelisted `fetch_news` tool (ADR-020) needed
+  a free, keyless headline source. ADR-003 (implicit throughout this codebase,
+  restated in CLAUDE.md) says "redistribute only public-domain data" — written
+  about what the **public dashboard serves** (Yahoo ETF holdings data, EDGAR
+  filings). `fetch_news` is a different shape of use: Google News RSS headlines
+  (title/url/timestamp/source) read into ONE LLM prompt per investigation, never
+  rendered raw to a user, stored only inside `theses.evidence` (an internal
+  research artifact a human can inspect, not a public API response).
+- **Choice:** treat "an LLM transiently reads a few headlines to inform one
+  sentence it writes" as materially different from "redistributing a dataset,"
+  and build `fetch_news` on Google News RSS on that basis.
+- **Why:** no existing precedent in this codebase rules on this specific
+  question — ADR-003/ADR-017's "never republish raw bars" language is about bulk
+  data the product re-serves, not an ephemeral research read. Recording this
+  explicitly so it's a decision a future session can re-litigate on its own
+  terms, not an implicit choice buried in `engine/agent/tools.py`.
+- **Rejected:** GDELT's DOC API (name-checked in ARCHITECTURE.md's Pillar 6) —
+  more complex query grammar and observed reliability issues; RSS needs zero
+  registration and returns exactly the 4 fields `fetch_news` needs. Also
+  rejected: skipping `fetch_news` / stubbing it to always return `[]` until this
+  is settled — would leave the Analyst agent short one of its 5 mandated tools
+  for no forcing reason.
+- **Date:** 2026-07-23.
+
+### ADR-020 · Analyst agent: a manual ReAct loop, not a tool-use API
+- **Context:** building the Analyst agent (ARCHITECTURE.md Pillar 1 — a bounded
+  ReAct loop, MAX_STEPS=4, over `query_ledger`/`get_market_detail`/
+  `fill_growth_gap`/`fetch_news`/`write_thesis`). Checked `engine/llm.py::_call`
+  for a function-calling / tool-use parameter to hang this off of: there isn't
+  one, on EITHER provider path (Anthropic or the OpenAI-compatible branch
+  covering Ollama/Groq/DeepSeek/GLM/OpenRouter) — `_call` sends only
+  `model`/`max_tokens`/`messages`/optional `response_format`.
+- **Choice:** a hand-rolled loop (`engine/agent/react.py`) — one `llm.call(...,
+  json_mode=True)` per step, the tool menu described in the system prompt as
+  text, the model replies with one JSON object `{"thought","tool","args"}`, the
+  chosen tool executes and its result is appended to a scratchpad fed into the
+  next step's prompt. `role="analyst"` for every step (both tool-selection and
+  the final `write_thesis` step) — `chain_for()` maps any non-cheap/non-smart
+  role to the single shared `MODEL_AGENT_CHAIN` anyway, so there's no real T1/T2
+  split to route between; using `smart` (frontier) per-market up to 8×/week
+  would blow past the stated <$0.05/week budget.
+- **Why:** zero changes to `llm.py`, the one entrypoint every other agent in
+  this codebase depends on and whose waterfall/cooldown/scorecard-logging
+  behavior is load-bearing. Adding real tool-use support is a change to shared,
+  proven infrastructure — worth doing only when an agent genuinely needs
+  parallel/native tool calls, not preemptively for one caller.
+- **Known limitation, accepted:** `TOKEN_BUDGET` (2200) is a cap on *requested*
+  `max_tokens` summed across steps, not true consumption accounting — `llm.py`
+  doesn't surface actual token usage today. Caller-side discipline, not real
+  metering; stated here so it isn't mistaken for the latter later.
+- **Rejected:** adding a `tools=` parameter to `_call`'s OpenAI-compat branch —
+  real scope creep for this task, revisit if/when an agent needs it badly enough
+  to justify touching shared plumbing.
+- **Date:** 2026-07-23.
+
+### ADR-019 · Model-Upgrade v1 is a `model_scorecard` threshold advisory, not full Pillar 5
+- **Context:** ARCHITECTURE.md's Pillar 5 vision is a `models.yaml` provider
+  registry + a golden-eval gate + an upgrade controller. None of that exists;
+  building it is a new subsystem, not "finish the agent that's supposed to
+  exist." What DOES already exist: `model_invocations`/`model_scorecard`
+  (migration 0006), populated automatically by every single `llm.call()` since
+  it shipped — exactly the input a threshold-based advisory needs, with zero
+  new ingestion.
+- **Choice:** `engine/modelupgrade.py` v1 — pure SQL/threshold analysis over
+  `model_scorecard` (flag a configured-chain model for demotion below 70%
+  success rate or >15% rate-limit-hit fraction; flag an out-of-chain model for
+  promotion above 95% success with ≥20 attempts of evidence), writes advisory
+  proposals to `taxonomy_changes` + `lessons`, optional one-line LLM narrative
+  over the proposals (role="cheap"). **Never auto-mutates `config.py`/env** — a
+  human hand-edits `MODEL_<ROLE>_CHAIN`.
+- **Why:** delivers the actual value docs/AGENTS.md's table promises ("eval a
+  candidate model vs champion; promote if better/cheaper") using data that's
+  free and already flowing, without inventing a registry/eval-harness subsystem
+  nothing else in the codebase needs yet.
+- **Rejected:** blocking Model-Upgrade until full Pillar 5 lands — would leave
+  it permanently unbuilt against the user's "all 5 agents" bar (CLAUDE.md,
+  directive 2026-07-10). Revisit the full vision if/when the model roster
+  outgrows manual `.env` chain edits.
+- **Date:** 2026-07-23.
+
+---
+
 ### ADR-018 · Corporate actions (dividends + splits) via Massive reference endpoints
 - **Context:** stockvaluation.py shipped (ADR-016) with `dividend_yield` **hardcoded
   to 0.0 for every stock** — documented as a known gap ("no dividend data yet"),

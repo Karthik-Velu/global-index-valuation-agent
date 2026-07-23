@@ -22,6 +22,10 @@ def main(argv=None):
     r = sub.add_parser("refresh", help="run the full pipeline")
     r.add_argument("--no-cache", action="store_true", help="force re-fetch from source")
     r.add_argument("--no-llm", action="store_true", help="skip LLM tags/brief")
+    r.add_argument("--agent", action="store_true",
+                   help="also run the Analyst agent (bounded ReAct loop over ambiguous markets)")
+    r.add_argument("--model-upgrade", action="store_true",
+                   help="also run the Model-Upgrade agent (advisory chain-health proposals)")
     r.add_argument("--asof", default=None, help="YYYY-MM-DD (default today)")
 
     f = sub.add_parser("feedback", help="record user feedback")
@@ -35,7 +39,8 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     if args.cmd == "refresh":
-        run(asof=args.asof, use_cache=not args.no_cache, with_llm=not args.no_llm)
+        run(asof=args.asof, use_cache=not args.no_cache, with_llm=not args.no_llm,
+            with_agent=args.agent, with_model_upgrade=args.model_upgrade)
         print(f"\nDashboard JSON ready: {DASHBOARD_JSON}")
     elif args.cmd == "feedback":
         ledger.add_feedback(args.kind, args.target, args.signal, args.note)

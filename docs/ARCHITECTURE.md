@@ -175,7 +175,17 @@ batch; frequent cheap LLM (chat) runs on the owned model.
 
 ## 4. The eight pillars (concise)
 
-### P1 — The LLM Agent Brain (tools + memory + reflection)
+### P1 — The LLM Agent Brain (tools + memory + reflection)  ✅ LANDED, v1 (2026-07-23)
+`engine/agent/` (`select.py`/`tools.py`/`react.py`/`reflect.py`/`agent.py`) — bounded
+ReAct loop, 5 whitelisted tools, thesis writing + reflection-based grading, all shipped
+as designed below. Gated behind `engine.cli refresh --agent` (default off — see
+docs/STATUS.md for the `refresh.yml` activation decision still pending). Real
+deviations from the original spec, recorded in ADR-020/021: no tool-use API exists in
+`llm.py`, so tool selection is a manual JSON-action loop, not native function-calling;
+`role="analyst"` runs on the shared agent chain (T1≈T2 in practice — see §2's note),
+not a distinct T2 tier; `fetch_news` is Google News RSS, not GDELT. Still missing:
+personalization, a real T2/T3 model-tier split once a provider abstraction exists.
+
 A new optional `engine/agent/` stage runs **between** surfacing and brief generation.
 The deterministic engine **gates** it: it picks 3–8 genuinely ambiguous markets per
 run (value-trap candidates, thin-coverage GARP, big rank moves, theses due for
@@ -217,7 +227,14 @@ record (**no real trading**). Plus the compliance scaffold: **LICENSE**, persist
 **"not investment advice"** disclaimer, "experimental/unvalidated" framing until the
 backtest exists, and **auth + rate-limit** on any write endpoint.
 
-### P5 — Ownable model + Auto-Upgrade  *(see §2)*
+### P5 — Ownable model + Auto-Upgrade  *(see §2)*  ⚠️ LANDED, scoped-down v1 only (2026-07-23)
+`engine/modelupgrade.py` ships a threshold advisory over the already-populated
+`model_scorecard` view (flags weak configured-chain models for demotion, strong
+out-of-chain models for promotion; never auto-mutates config — see ADR-019). Still
+UNBUILT: the `models.yaml` provider registry, the golden-eval gate, and any upgrade
+controller that actually swaps models — this is a scorecard-threshold advisory, not
+the full pillar. Revisit if/when the model roster outgrows manual `.env` chain edits.
+
 Provider abstraction + `models.yaml` registry + golden-eval gate + upgrade
 controller. Ollama locally now ($0), vLLM-on-Modal (scale-to-zero) later. Honest
 training stance: **RAG over your own thesis/outcome ledger first**, lightweight
@@ -352,19 +369,27 @@ We can claim "agentic" (not "automated") when **all** of these are true. Use it 
 measure progress, not vibes:
 
 - [ ] **Perceives** beyond a fixed pull — ingests events/news that it didn't schedule.
-- [ ] **Decides its own method** — at least one real branch (e.g. "coverage thin →
-      fetch more data"; "anomaly → investigate") rather than a fixed pipeline.
-- [ ] **Uses tools to investigate** — the LLM calls tools to gather evidence on the
-      markets it flags, not just narrates a finished table.
-- [ ] **Has memory + reflection** — writes falsifiable theses with a *fixed* eval
-      date and grades them against outcomes, feeding lessons forward.
+      (`fetch_news` fetches on-demand, but only inside an already-scheduled run —
+      not a standing perception loop. Partial, left unchecked.)
+- [x] **Decides its own method** — `engine/agent/select.py`'s gate is a real branch
+      (value trap / thin-coverage GARP / big rank move / thesis due → investigate,
+      else skip), and the ReAct loop's per-step tool choice is real branching too.
+- [x] **Uses tools to investigate** — the Analyst agent (P1, landed 2026-07-23) calls
+      `query_ledger`/`get_market_detail`/`fill_growth_gap`/`fetch_news` to gather
+      evidence before concluding, not just narrating a finished table.
+- [x] **Has memory + reflection** — `write_thesis` records claim + direction + FIXED
+      eval date + confidence; `reflect.py` grades matured theses against realized
+      returns and feeds outcomes into semantic memory for future prompts.
 - [ ] **Acts in the world** — at least one real action (alert / paper-portfolio
       trade) that affects something beyond the dashboard.
 - [ ] **Learns, validated** — a backtested model (not 4 hand weights) whose skill is
-      measured out-of-sample and gated for significance.
+      measured out-of-sample and gated for significance. (The mechanism landed
+      2026-07-22 and ran against real data; not re-assessed as part of this pass.)
 - [ ] **Closes the user loop** — per-user feedback reconciled with realized outcomes.
 
-Today: 0–1 of 7. After Phases 0–5: 5–6 of 7. Phase 6 (backtest) closes the last.
+Today (2026-07-23): 3 of 7 confirmed (tools / branching / memory+reflection, all from
+the Analyst agent). Phase 5 (alerts + paper portfolio) and Phase 2/6 (per-user
+feedback) are what's left to close the remaining 4.
 
 ---
 

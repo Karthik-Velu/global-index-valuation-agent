@@ -8,6 +8,61 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-23 — Phase B: the last 3 agents (Quality-Triage, Model-Upgrade, Analyst)
+
+User said "let's start phase B" after the Phase A hardening wrapped. Researched
+first (docs/AGENTS.md, docs/ARCHITECTURE.md's Pillar 1/5 specs, docs/MEMORY.md,
+existing agent code — `discover.py`/`research.py` — and the DB schema) before
+writing any code, then had a Plan subagent turn that research into a concrete
+design, verified its more surprising claims by reading the actual files myself
+(all confirmed correct), then built all 3.
+
+**What shipped:** `engine/qualitytriage.py`, `engine/modelupgrade.py`, and a
+new `engine/agent/` package (`select.py`/`tools.py`/`react.py`/`reflect.py`/
+`agent.py`) plus migration `0010_theses.sql`. Full design rationale lives in
+ADR-019/020/021 and docs/PLAN.md's new "Phase B" section — not repeating it
+here. Two things worth a future session re-reading before touching this code:
+
+1. **No tool-use API exists anywhere in `engine/llm.py`** — checked both the
+   Anthropic and OpenAI-compat branches of `_call()`; neither sends a
+   `tools=`/function-calling parameter. The Analyst's ReAct loop is therefore a
+   manual JSON-action-per-turn loop (model replies `{"thought","tool","args"}`,
+   we dispatch and feed the result back), not a call into a real tool-use
+   API. This was a deliberate choice (ADR-020), not an oversight — extending
+   `llm.py` to support real tool-use is real scope creep against "build the 3
+   agents" and would touch infrastructure every other agent depends on.
+2. **`fetch_news` (Google News RSS, no key) is a genuine licensing judgment
+   call**, not settled precedent — ADR-003's "redistribute only public-domain
+   data" was written about what the public dashboard serves, and I read
+   "an LLM transiently reads a few headlines to inform one sentence" as a
+   different shape of use. Recorded explicitly as ADR-021 so it's a decision a
+   future session (or the user) can revisit on its own terms rather than an
+   implicit choice buried in `tools.py`.
+
+**Testing:** no local Postgres was available this session (unlike the
+corpactions work, which had one), so verification is scratch-tested against
+the no-DB/no-LLM degradation paths every agent in this codebase is held to,
+plus the DB-independent pure-Python logic (react loop step budget, JSON-parse-
+failure handling, tool dispatch, a duplicate-kwarg-safety check for when the
+model hallucinates a protected arg name, and Model-Upgrade's threshold logic
+in both directions) via monkeypatched `llm.call`/`modelrouting.scorecard`. All
+passing. Real end-to-end verification (actual `theses`/`taxonomy_changes` rows
+landing, actual LLM tool selection) is still pending a live CI run against the
+real DB and a configured model — flagged as the natural next check once this
+merges, not claimed as already proven.
+
+**Left open, flagged to the user rather than decided unilaterally:**
+`refresh.yml` (the weekly production refresh) currently runs
+`engine.cli refresh --no-cache --no-llm` and doesn't export
+`OLLAMA_API_KEY`/`GROQ_API_KEY` at all — so the already-built `cheap_tags`/
+`smart_brief` LLM path has been dark in production this whole time, not just
+the new agents. Wiring in `--agent`/`--model-upgrade` accomplishes nothing
+there until that's turned on. That's a bigger call than "add 3 agents" (it
+activates a previously-dormant feature in the weekly cron), so it's a PR-review
+question for the user rather than something bundled in silently.
+
+---
+
 ## 2026-07-22 (even later) — corpactions-backfill.yml: 4 real CI failures, 4 real fixes
 
 After PR #10 went up, subscribed to its activity and babysat `corpactions-backfill.yml`

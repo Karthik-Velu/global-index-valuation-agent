@@ -57,7 +57,10 @@ jobs:
           retention-days: 90
 
       - name: Refresh data (engine runs deterministically; no API key needed)
-        run: python -m engine.cli refresh --no-cache --no-llm
+        run: |
+          MU=""
+          if [ "$(date -u +%-d)" -le 7 ]; then MU="--model-upgrade"; fi
+          python -m engine.cli refresh --no-cache --no-llm $MU
 
       - name: Publish snapshot to the static dir
         run: cp data/dashboard_data.json dashboard/dashboard_data.json
