@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}   # ledger/predictions now live in Postgres
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}   # Ollama Cloud — tier-1 for cheap_tags/smart_brief/agents
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # Groq — cross-provider rate-limit fallback
     steps:
       - uses: actions/checkout@v4
 
@@ -56,11 +58,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
-      - name: Refresh data (engine runs deterministically; no API key needed)
+      # LLM path is ON: cheap_tags/smart_brief narrative + the Analyst agent (--agent,
+      # per-valuation-run cadence per docs/AGENTS.md) run every week; Model-Upgrade
+      # (--model-upgrade, monthly cadence) only on the first 7 days of the month. All
+      # three degrade gracefully to the deterministic path if OLLAMA_API_KEY/GROQ_API_KEY
+      # are ever unset or every model tier is unavailable — never a hard failure here.
+      - name: Refresh data (LLM narrative + agents on; degrades to deterministic if no model)
         run: |
           MU=""
           if [ "$(date -u +%-d)" -le 7 ]; then MU="--model-upgrade"; fi
-          python -m engine.cli refresh --no-cache --no-llm $MU
+          python -m engine.cli refresh --no-cache --agent $MU
 
       - name: Publish snapshot to the static dir
         run: cp data/dashboard_data.json dashboard/dashboard_data.json
