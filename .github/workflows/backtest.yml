@@ -22,6 +22,11 @@ name: Stock backtest — walk-forward (Pillar 2)
 # Re-fired 2026-07-22: backtest_runs.metrics now also persists per-period
 # detail (not just the aggregate summary) so results are fully
 # introspectable from Postgres without needing a CI artifact download.
+# Re-fired 2026-07-24: recalibration has recommended full_rebacktest for two
+# consecutive daily-pipeline runs (37 corrections on 07-23, 58 on 07-24 —
+# catalog/source/data-error corrections accumulated since backtest_runs id=2,
+# 2026-07-22) — re-running against the now-corrected history, and picking up
+# more price/dividend history than the maiden 9-period run had.
 
 on:
   workflow_dispatch:

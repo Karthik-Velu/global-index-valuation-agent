@@ -8,6 +8,48 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-24 (later) — Verified Phase B agents produced real output; re-ran backtest, found a real bug in recalibration's counter
+
+Two things closed out today, both started from the user asking "did agents work?"
+and "let's get to next steps" — genuine verification led to a genuine finding.
+
+**Agents verified end-to-end, not just "didn't crash."** Queried Postgres directly
+(user explicitly authorized this after I'd flagged I couldn't reach the CI artifact
+— its download URL is Azure blob storage, blocked by this sandbox's egress policy,
+confirmed via a live 403). `model_invocations` showed 100% success (4/4 quality_triage,
+4/4 sector_research, 3/3 source_discovery, all `ollamacloud:gpt-oss:120b`).
+`taxonomy_changes`/`lessons` had real, substantive content: Quality-Triage's 4 root-
+cause diagnoses (one correctly identified that financial-institution filers don't
+use a universal `TotalRevenue` XBRL tag), Sector-KPI Research's 20 real KPI proposals
+across 4 thin sub-sectors. This closes the loop PR #11/#12 had left open ("scratch-
+tested, not live-verified").
+
+**Re-ran `backtest.yml`** (recalibration had flagged `full_rebacktest` twice, 37→58
+corrections). Real result: numbers came back nearly IDENTICAL to the 2026-07-22 run
+(`opportunity_score` rank-IC 0.008/0.024/0.043/0.032 vs 0.009/0.026/0.042/0.031 —
+noise-level difference), window barely moved (+4 days, still 9 periods), still not
+significant (`n_periods=9 < 12`), `growth_score`'s 0%-hit-rate anomaly unchanged.
+
+That near-identical result was itself the signal: 58 "material corrections" in 2
+days should have moved *something*, and it didn't. Investigated and found a real
+bug: `recalibration.py` counts every `taxonomy_changes` row with `kind='catalog'`
+as a correction that invalidates the last backtest — but `research.py`'s Sector-KPI
+Research agent (daily as of Phase B, was monthly) writes its UNAPPLIED KPI
+*proposals* under that same `kind`, indistinguishable from `validate.py`'s actually-
+applied catalog fixes. A proposal nobody's reviewed yet cannot have moved a score.
+Fixed by giving proposals their own `kind='catalog_proposal'` (`research.py`) —
+confirmed via grep that no other code path reads `kind='catalog'`, so this is a
+pure precision fix, not a behavior change anywhere else. Quality-Triage
+(`kind='quality_check'`) and Model-Upgrade (`kind='model_routing'`) were already
+correctly excluded from the count; Sector-KPI Research was the one gap, and it
+only became a live problem once its cadence went from monthly to daily.
+
+Lesson for next time: when a "material corrections" counter and a re-run's actual
+numeric delta disagree, trust the numbers and go looking in the counter, not the
+other way around.
+
+---
+
 ## 2026-07-23 (later) — LLM path switched on in production
 
 Right after PR #11 merged, the user gave the explicit go-ahead on the open

@@ -58,6 +58,16 @@ def run() -> dict:
         last = cur.fetchone()
         last_ts = last[0] if last else None
 
+        # kind='catalog' = APPLIED catalog mutations that change computed values
+        # (validate.py's suspect-tag demotions/auto-fixes). Deliberately excludes
+        # kind='catalog_proposal' (sector-research agent's inert KPI suggestions —
+        # a human hasn't added them to the catalog yet, so they can't have moved
+        # any score) and 'quality_check'/'model_routing' (other agents' advisory
+        # proposals). Conflating proposals with applied fixes here would make this
+        # counter climb every day the daily-pipeline agents run, regardless of
+        # whether anything that actually affects scores changed — confirmed as a
+        # real bug 2026-07-24 (58 "corrections" in 2 days, but a re-backtest run
+        # against them was numerically indistinguishable from the prior run).
         cat_since = _count_since(cur, "taxonomy_changes", last_ts, "kind='catalog'")
         src_since = _count_since(cur, "source_decisions", last_ts)
         dq_since = _count_since(cur, "data_quality_issues", last_ts, "severity='error'")

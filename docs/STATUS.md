@@ -163,6 +163,35 @@ Workflows: `data-pipeline.yml` (daily, runs `--agents`), `refresh.yml` (weekly).
   latest-FY-only fundamentals (not TTM), no transaction costs, single
   9-period window. This is a first look, not a validated edge.
 
+## Backtest re-run (2026-07-24, `backtest_runs` id=3) — numbers essentially unchanged
+Re-fired after recalibration flagged `full_rebacktest` twice (37 then 58 "material
+corrections" since id=2). Window barely moved (2024-10-20 .. **2025-07-21**, still
+9 monthly rebalances — 4 more days of price history wasn't enough to add a 10th
+period) and the real numbers are nearly identical to the 2026-07-22 run:
+`opportunity_score` mean rank-IC **0.0079 / 0.0239 / 0.0433 / 0.0323** at
+1m/3m/6m/12m (was 0.009/0.026/0.042/0.031), hit-rate 78% / 89% / **100%** / 89%
+(12m dipped slightly from 100%, still strong), t-stats 1.10 / 3.76 / **5.91** /
+5.25 — still **not `significant: true`** (same `n_periods=9 < 12` gate). The
+`growth_score` anomaly **persists unchanged**: 0% hit-rate at 6m AND 12m despite
+positive mean rank-IC in both (0.028 @ 6m, though 12m flipped to -0.002).
+
+**Real finding from re-running this, not just a "still not significant" result:**
+the recalibration trigger's "material corrections" counter was double-counting.
+`engine/recalibration.py` counts every `taxonomy_changes` row with `kind='catalog'`
+as a correction — but `engine/sectoragent/research.py`'s Sector-KPI Research agent
+(now running DAILY as part of Phase B, previously monthly) was writing its inert
+KPI *proposals* under that same `kind='catalog'`, indistinguishable from
+`validate.py`'s actually-applied catalog fixes. A proposal a human hasn't reviewed
+yet cannot have moved any computed score, so it should never count toward "the
+data changed, redo the backtest." This is exactly why 58 "corrections" in 2 days
+produced a backtest that's numerically indistinguishable from the prior one.
+**Fixed**: `research.py` now writes proposals under `kind='catalog_proposal'`
+instead, so `recalibration.py`'s `kind='catalog'` filter naturally excludes them
+going forward (only Quality-Triage's `kind='quality_check'` and Model-Upgrade's
+`kind='model_routing'` were already correctly excluded — Sector-KPI Research was
+the one gap). No schema change, no other reader depended on the old value
+(checked via a full-repo grep for `kind='catalog'`).
+
 ## Phase A hardening (2026-07-22)
 - **Corporate actions shipped (ADR-018), hardened through 4 real CI failures:**
   `engine/sources/corpactions.py` pulls dividends + splits from Massive's v3
