@@ -48,11 +48,12 @@ already-shipped Source-Discovery/Sector-KPI Research always have.
 | **Model-Upgrade** | Eval models in `model_scorecard` vs their configured chain; propose promote/demote | — (cheap tier for the optional narrative only) | monthly | `modelupgrade.py` (Pillar 5, v1 — see ADR), hooked into `pipeline.py` |
 
 Analyst and Model-Upgrade are gated behind `engine.cli refresh --agent` /
-`--model-upgrade` (both default off); Quality-Triage runs automatically whenever
-`data-pipeline.yml`'s `--agents` flag is on AND `quality.run()` raised issues this
-run — no separate flag needed. Whether `refresh.yml`'s production cron actually
-passes `--agent`/`--model-upgrade` (and turns the LLM path back on there at all —
-it currently runs `--no-llm`) is a separate decision; see `docs/STATUS.md`.
+`--model-upgrade` (both default off at the CLI level); Quality-Triage runs
+automatically whenever `data-pipeline.yml`'s `--agents` flag is on AND
+`quality.run()` raised issues this run — no separate flag needed. In
+production, `refresh.yml` passes `--agent` on every weekly run and
+`--model-upgrade` on the first 7 days of the month (2026-07-23 — see
+`docs/STATUS.md`), with `OLLAMA_API_KEY`/`GROQ_API_KEY` now exported there too.
 
 **The meta-loop:** an agent's output is a *proposal* (a new KPI + its XBRL tag, a new
 source, a new quality check). A human or a follow-up step turns the proposal into a

@@ -227,21 +227,20 @@ mechanics, Model-Upgrade's threshold logic both directions — all passing.
 **Not yet done:** a real end-to-end run against the live DB + a configured
 model (actual `theses`/`taxonomy_changes` rows, actual LLM tool selection).
 
-**Open decision, flagged to the user, not made unilaterally:** `refresh.yml`
-(the weekly production refresh) runs `--no-cache --no-llm` and doesn't export
-`OLLAMA_API_KEY`/`GROQ_API_KEY` — so the already-built `cheap_tags`/
-`smart_brief` narrative path (and now Analyst/Model-Upgrade) do nothing in
-production until that changes. This is a bigger call than "add 3 agents" (it
-turns on a previously-dormant feature in the weekly cron) — needs an explicit
-go/no-go rather than being bundled into the PR.
+**LLM path switched ON in production (2026-07-23, user go-ahead).** `refresh.yml`
+now exports `OLLAMA_API_KEY`/`GROQ_API_KEY` (mirroring `data-pipeline.yml`) and
+runs `engine.cli refresh --no-cache --agent $MU` (dropped `--no-llm`) — so
+`cheap_tags`/`smart_brief`, the Analyst agent (every run — "per valuation run"
+cadence), and Model-Upgrade (`--model-upgrade`, first 7 days of the month) are
+all live. Every one of the three still degrades gracefully to the deterministic
+path if a model tier is ever unavailable — this was never a hard dependency.
 
 ## Immediate next step
-1. **Decide on the `refresh.yml` LLM-activation question above** — without
-   it, Analyst/Model-Upgrade are built but silent in production.
-2. Merge Phase B, then confirm a real CI run: `data-pipeline.yml`'s
-   `--agents` step should show `quality_triage` firing next time
-   `quality.run()` raises issues; a manually-dispatched `refresh --agent`
-   run should produce real `theses` rows.
+1. Confirm the first real `refresh.yml` run with the LLM path on: check for a
+   real `smart_brief` narrative (not the `_fallback_brief` deterministic text)
+   in `dashboard_data.json`, and real `theses` rows from the Analyst agent.
+2. `data-pipeline.yml`'s `--agents` step should show `quality_triage` firing
+   next time `quality.run()` raises issues.
 3. Re-run `backtest.yml` periodically as more price history accumulates —
    `n_periods >= 12` is what's needed to clear the significance gate on the
    strongest signal (`opportunity_score`).

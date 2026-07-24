@@ -8,6 +8,22 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-23 (later) — LLM path switched on in production
+
+Right after PR #11 merged, the user gave the explicit go-ahead on the open
+decision flagged in that PR: turn the LLM path back on in `refresh.yml`.
+Added `OLLAMA_API_KEY`/`GROQ_API_KEY` to the workflow's `env:` (mirroring
+`data-pipeline.yml`), dropped `--no-llm`, and added `--agent` (the Analyst
+agent now runs every weekly refresh, matching its "per valuation run"
+cadence in docs/AGENTS.md) alongside the already-conditional
+`--model-upgrade` gate. `cheap_tags`/`smart_brief` — built long ago but dark
+in production this whole time — are live now too. Everything still degrades
+to the deterministic path if a model tier is ever unavailable; nothing here
+is a hard dependency. Next real check: confirm the first live `refresh.yml`
+run actually produces a non-fallback `smart_brief` and real `theses` rows.
+
+---
+
 ## 2026-07-23 — Phase B: the last 3 agents (Quality-Triage, Model-Upgrade, Analyst)
 
 User said "let's start phase B" after the Phase A hardening wrapped. Researched

@@ -120,11 +120,11 @@ active in production; this phase built the remaining 3.
   tool-dispatch/duplicate-kwarg-safety mechanics via a monkeypatched
   `llm.call`, and the Model-Upgrade threshold logic in both directions —
   all passing. Real end-to-end verification pending a live CI run (next step).
-- ⬜ **Decision needed, not yet made:** `refresh.yml` currently runs
-  `--no-llm` — the already-built `cheap_tags`/`smart_brief` path (and now
-  Analyst) do nothing in production until `OLLAMA_API_KEY`/`GROQ_API_KEY` are
-  added to that workflow and `--no-llm` is dropped. Flagged to the user as an
-  explicit go/no-go, not bundled silently into this PR.
+- ✅ **LLM path switched on in production (2026-07-23, user go-ahead):**
+  `refresh.yml` now exports `OLLAMA_API_KEY`/`GROQ_API_KEY` and runs
+  `--agent` every week + `--model-upgrade` on the first 7 days of the month;
+  `--no-llm` dropped. `cheap_tags`/`smart_brief`/Analyst/Model-Upgrade are all
+  live in production now, not just built.
 
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
