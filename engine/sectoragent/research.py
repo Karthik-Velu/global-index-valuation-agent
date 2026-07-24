@@ -38,7 +38,7 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
                 for d in data:
                     cur.execute(
                         "insert into taxonomy_changes(kind,target,change,reason,auto) "
-                        "values('catalog',%s,%s,'LLM sub-sector KPI proposal',true)",
+                        "values('catalog_proposal',%s,%s,'LLM sub-sector KPI proposal',true)",
                         (d.get("metric_code", ""), f"propose for {sub}: {d.get('label', '')}"))
                 c.commit()
             # Feed semantic memory: each proposed KPI becomes a candidate lesson.

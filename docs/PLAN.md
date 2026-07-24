@@ -78,6 +78,20 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   pipeline (step 2d) + a one-time `corpactions-backfill.yml` for ~2y history.
   Self-healing migrations added as a side effect (datapipeline step 0 —
   no CI step previously applied `engine/migrations/*.sql` automatically).
+- ✅ **Backtest re-run confirmed** (`backtest_runs` id=3, 2026-07-24) — numbers
+  essentially unchanged from id=2 (`opportunity_score` rank-IC 0.008/0.024/0.043/0.032
+  vs 0.009/0.026/0.042/0.031, still n_periods=9, not significant; `growth_score`
+  anomaly unchanged). Found + fixed a real bug along the way: `recalibration.py`
+  was counting Sector-KPI Research's unapplied KPI proposals as "material
+  corrections" (same `kind='catalog'` as actually-applied fixes) — now
+  `kind='catalog_proposal'`, excluded from the count. Still needs `n_periods >= 12`
+  to clear the significance gate (accumulate more monthly price history).
+- ✅ **Phase B agents verified producing real output in production** (2026-07-24) —
+  queried Postgres directly: `model_invocations` 100% success (11/11 calls across
+  source-discovery/sector-research/quality-triage), real proposals in
+  `taxonomy_changes`/`lessons` (4 quality-check root-causes, 20 sub-sector KPIs).
+  Analyst/Model-Upgrade still pending their first live `refresh.yml` firing
+  (next: 2026-07-27).
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company
