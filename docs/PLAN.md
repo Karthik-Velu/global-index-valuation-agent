@@ -102,7 +102,21 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
 - 🔜 **Manual test-fire of `refresh.yml` with Analyst + Model-Upgrade forced on**
   (2026-07-25) — in progress; will confirm real `theses` rows and a real
   Model-Upgrade proposal/no-proposal verdict once complete.
-- ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
+- ✅ **Phase C v1 — surface bottom-up in the dashboard** (2026-07-25) —
+  `stockvaluation.market_breakdown()`: reuses the (ticker, weight) top-holdings
+  `datasource.py` already fetches for the index-level growth calc, matches
+  against our EDGAR-tracked stock universe, scores the matched stocks with the
+  SAME `score_frame()`/`metrics.compute()` used everywhere else (one
+  universe-wide call, sliced per market — not N calls), ranks by
+  `opportunity_score`. Wired into `pipeline.py` (new `stock_breakdown` payload
+  key, best-effort/non-fatal, needs Postgres) and `dashboard/app.js` (a new
+  "Top stocks within this market" section in the market drill-down drawer,
+  reusing existing `scoreColor`/`fmt` helpers). Scratch-tested with synthetic
+  data (no local DB) — caught and fixed a real bug (`set_index("ticker")`
+  silently drops the ticker column from each row's dict; needed `drop=False`).
+  Coverage will vary by market (only holdings we've actually EDGAR-ingested get
+  a breakdown; foreign/thin markets may show nothing) — that's expected, not a
+  bug, given the current ~2,983-company US-heavy universe.
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company
   is invisible to the whole backtest), transaction costs, benchmark-relative Sharpe

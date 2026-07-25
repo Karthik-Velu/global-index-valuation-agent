@@ -163,6 +163,58 @@ def _universe(security_ids: list[int] | None) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["security_id", "ticker", "name", "sector", "country"])
 
 
+def market_breakdown(asof, market_holdings: dict[str, list[tuple[str, float]]],
+                     top_n: int = 5) -> dict[str, list[dict]]:
+    """Phase C — bottom-up: for each index-level market, which of its actual
+    holdings are we tracking at stock level (EDGAR-ingested), and how do THOSE
+    stocks score. `market_holdings` = {market_key: [(ticker, weight), ...]} —
+    the same (symbol, weight) top-holdings datasource.py already fetches for the
+    index-level growth calc, reused here rather than a second data pull.
+
+    One score_frame() call across every matched ticker (not one call per
+    market) — the same universe-wide-then-slice pattern the backtest already
+    uses, so this stays cheap even across ~150 markets.
+
+    A market absent from the result simply has no stock-level breakdown this
+    run (no matched holdings, or none scored) — the dashboard treats that as
+    "nothing to show here" and degrades gracefully, same as every other
+    optional field in the payload."""
+    all_tickers = {t for holdings in market_holdings.values() for t, _w in (holdings or [])}
+    if not all_tickers:
+        return {}
+    uni = _universe(None)
+    if uni.empty:
+        return {}
+    ticker_to_sid = dict(zip(uni["ticker"], uni["security_id"]))
+    matched_ids = [ticker_to_sid[t] for t in all_tickers if t in ticker_to_sid]
+    if not matched_ids:
+        return {}
+
+    scored = score_frame(asof, security_ids=matched_ids)
+    if scored.empty:
+        return {}
+    # drop=False: "ticker" must survive as a column too, not just become the
+    # index key — set_index(drop=True) silently drops it from each row's dict,
+    # which previously left every output row's "ticker" field None.
+    by_ticker = scored.set_index("ticker", drop=False).to_dict(orient="index")
+
+    out: dict[str, list[dict]] = {}
+    for mkey, holdings in market_holdings.items():
+        rows = [by_ticker[t] for t, _w in (holdings or []) if t in by_ticker]
+        if not rows:
+            continue
+        rows.sort(key=lambda r: r.get("opportunity_score") if r.get("opportunity_score") is not None else -1,
+                  reverse=True)
+        out[mkey] = [{
+            "ticker": r.get("ticker"), "name": r.get("name"), "sector": r.get("sector"),
+            "opportunity_score": r.get("opportunity_score"), "value_score": r.get("value_score"),
+            "growth_score": r.get("growth_score"), "pe": r.get("pe"),
+            "garp": bool(r.get("garp")), "value_trap": bool(r.get("value_trap")),
+            "overvalued": bool(r.get("overvalued")),
+        } for r in rows[:top_n]]
+    return out
+
+
 def score_frame(asof, security_ids: list[int] | None = None) -> pd.DataFrame:
     """The bottom-up scoreboard as of `asof` — one row per stock, scored with the
     SAME value/growth/momentum/opportunity math as the index-level product,

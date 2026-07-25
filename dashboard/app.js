@@ -298,6 +298,25 @@ function renderTable() {
   $$('#tbody tr').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.mk));
 }
 
+// ---- bottom-up: stocks within this market (Phase C) ----
+function stockRow(s) {
+  return `<div class="flex items-center justify-between gap-2 py-1.5 border-b border-line/50">
+    <div class="min-w-0">
+      <div class="text-[13px] text-slate-100">${s.ticker}${s.garp ? ' <span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span>' : ''}</div>
+      <div class="text-[10px] text-slate-500 truncate">${s.name || ''}${s.sector ? ' · ' + s.sector : ''}</div>
+    </div>
+    <div class="text-right shrink-0">
+      <div class="text-[13px] font-semibold tabular-nums" style="color:${scoreColor(s.opportunity_score)}">${fmt(s.opportunity_score, 0)}</div>
+      <div class="text-[10px] text-slate-500">P/E ${fmt(s.pe)}</div>
+    </div></div>`;
+}
+function stockBreakdownBlock(key) {
+  const rows = STATE.data.stock_breakdown && STATE.data.stock_breakdown[key];
+  if (!rows || !rows.length) return '';
+  return `<div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">Top stocks within this market (bottom-up)</div>
+    ${rows.map(stockRow).join('')}`;
+}
+
 // ---- drill-down drawer ----
 function openDrawer(key) {
   const m = STATE.rows.find(x => x.key === key); if (!m) return;
@@ -325,6 +344,7 @@ function openDrawer(key) {
       ${row('3m / 6m / 12m', pct(m.ret_3m) + ' / ' + pct(m.ret_6m) + ' / ' + pct(m.ret_12m))}
       ${row('vs 200d MA', pct(m.ma200_ratio))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
       ${row('Flags', flagPills(m))}
+      ${stockBreakdownBlock(key)}
     </div>
     <div class="mt-4">
       <div class="text-xs text-slate-400 mb-1.5">Does this call look right to you?</div>
