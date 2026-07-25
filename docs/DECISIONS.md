@@ -9,6 +9,44 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-022 · Backtest rebalance cadence: weekly (`W-FRI`), not monthly — user-directed tradeoff
+- **Context:** the backtest's significance gate needs `n_periods >= 12`; two real runs
+  (2026-07-22, 2026-07-24) both had exactly 9 monthly periods, capped by the ~9-month
+  usable window (`window_end = latest_price - 12mo` minus `window_start = earliest_price
+  + 90d`, with `earliest_price` bounded by Massive's free-tier entitlement). User asked
+  why we couldn't just backfill 2 more years to reach further back — confirmed in code
+  (`engine/sources/prices.py:363-375`) that the `403 NOT_AUTHORIZED` floor is a ROLLING,
+  server-side, plan-level entitlement check evaluated fresh per request against *today's*
+  date, not a function of how far our own walk has gone — so re-requesting older dates
+  today hits the identical 403 immediately. No workaround exists on the free tier; only
+  a paid plan upgrade (Starter, $29/mo, 5y) changes the actual entitlement.
+- **Choice:** presented the user with three real options (paid tier / finer rebalance
+  cadence / keep waiting ~3mo for organic monthly accumulation — the window DOES grow
+  over time since already-ingested history is durably stored in Tier B and doesn't roll
+  off, only the *newly requestable* floor rolls). User chose finer cadence: switched
+  `REBALANCE_FREQ` from `"MS"` (month-start) to `"W-FRI"` (weekly, Friday-anchored) —
+  same ~9-month window now yields ~39 rebalance dates instead of 9, clearing the
+  significance gate's `n_periods` threshold with real margin, at $0 and immediately.
+- **The real tradeoff, made explicit in code and output, not just here:** weekly
+  rebalances make forward-return windows overlap heavily between adjacent periods (a
+  1m-forward return measured a week apart shares 3/4 of its window with the previous
+  one), which makes the per-period IC series serially correlated — the existing t-stat/
+  `significant` gate assumes independent samples and does NOT adjust for this. This
+  isn't a NEW class of problem (the 3/6/12m horizons already overlapped at monthly
+  cadence, per the module's pre-existing "known gaps" list) — it makes an existing,
+  already-documented weakness quantitatively worse across all horizons in exchange for
+  more data sooner. `result["significance_caveat"]` is now populated whenever cadence
+  isn't `"MS"` and gets printed alongside any `significant=true` result, and `cadence`
+  is persisted in `backtest_runs.metrics` — so this can't be silently misread as a
+  rigorous result downstream.
+- **Rejected:** the paid tier (real ongoing cost, needs the user's billing action —
+  left as a documented option, not taken without being asked); doing nothing / waiting
+  (correct but slow, ~3 months to reach n=12 organically); a proper Newey-West-adjusted
+  effective-sample-size correction (would need scipy/statsmodels, a new dependency, and
+  is real future work — flagged, not built, to keep this change scoped to what the user
+  actually asked for).
+- **Date:** 2026-07-25.
+
 ### ADR-021 · `fetch_news` reads headlines transiently — a narrower reading than ADR-003's redistribution rule
 - **Context:** the Analyst agent's whitelisted `fetch_news` tool (ADR-020) needed
   a free, keyless headline source. ADR-003 (implicit throughout this codebase,

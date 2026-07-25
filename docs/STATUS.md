@@ -192,6 +192,25 @@ going forward (only Quality-Triage's `kind='quality_check'` and Model-Upgrade's
 the one gap). No schema change, no other reader depended on the old value
 (checked via a full-repo grep for `kind='catalog'`).
 
+## Backtest rebalance cadence: weekly, not monthly (ADR-022, 2026-07-25)
+User asked why we can't just backfill 2 more years of price history to unblock the
+`n_periods >= 12` significance gate faster. Investigated and confirmed in code
+(`engine/sources/prices.py`): Massive's `403 NOT_AUTHORIZED` floor is a ROLLING,
+server-side entitlement check against *today's* date — re-requesting older dates
+hits the identical 403 immediately, no matter how we ask. Only a paid tier upgrade
+changes that. Given the choice (paid tier / finer cadence / keep waiting), the user
+chose **finer rebalance cadence**: `engine/backtest.py`'s `REBALANCE_FREQ` is now
+`"W-FRI"` (weekly) instead of `"MS"` (monthly) — the same ~9-month window now
+yields **~39 rebalance dates instead of 9**, clearing the significance gate with
+real margin, at $0. The real tradeoff (made explicit in code/output, not buried):
+weekly windows overlap heavily between adjacent periods, so the per-period IC
+series is serially correlated in a way the current t-stat gate doesn't adjust
+for — `result["significance_caveat"]` now populates whenever cadence isn't
+monthly and prints alongside any `significant=true` result; `cadence` is
+persisted in `backtest_runs.metrics` so this can never be silently misread as
+a fully rigorous result downstream. Re-firing `backtest.yml` under the new
+cadence is the next step — real numbers to follow once that lands.
+
 ## Phase A hardening (2026-07-22)
 - **Corporate actions shipped (ADR-018), hardened through 4 real CI failures:**
   `engine/sources/corpactions.py` pulls dividends + splits from Massive's v3

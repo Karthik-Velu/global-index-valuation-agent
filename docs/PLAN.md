@@ -91,7 +91,17 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   source-discovery/sector-research/quality-triage), real proposals in
   `taxonomy_changes`/`lessons` (4 quality-check root-causes, 20 sub-sector KPIs).
   Analyst/Model-Upgrade still pending their first live `refresh.yml` firing
-  (next: 2026-07-27).
+  (next: 2026-07-27; also test-fired manually 2026-07-25, see below).
+- ✅ **Backtest rebalance cadence: weekly, not monthly** (ADR-022, 2026-07-25) —
+  user-directed: investigated why n_periods was stuck at 9 (confirmed Massive's
+  `403` floor is a rolling per-request entitlement check, not workaroundable by
+  re-asking), presented paid-tier/finer-cadence/wait options, user chose finer
+  cadence. `REBALANCE_FREQ` now `"W-FRI"` — same window, ~39 periods instead of
+  9. Tradeoff (overlapping-window serial correlation) made explicit in code
+  output (`significance_caveat` field), not just docs. Re-fire pending.
+- 🔜 **Manual test-fire of `refresh.yml` with Analyst + Model-Upgrade forced on**
+  (2026-07-25) — in progress; will confirm real `theses` rows and a real
+  Model-Upgrade proposal/no-proposal verdict once complete.
 - ⬜ **Surface bottom-up** in the dashboard (which stocks within a cheap/growing market)
 - ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
   control (universe = current SEC filers only — a delisted-before-ingestion company

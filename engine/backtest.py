@@ -1,14 +1,15 @@
 """Walk-forward backtest — does the value/growth/GARP score predict forward returns?
 
-At each historical MONTHLY rebalance date t, scores the whole stock universe using
-ONLY data knowable as of t (stockvaluation.score_frame -> tierb.metrics_asof +
-prices <= t, no look-ahead), then measures each signal's forward return at FIXED
-horizons (1/3/6/12 months) against price data already sitting in Tier B — never
-fetched fresh for a specific horizon, which is an easy way to open a look-ahead
-door by accident. Aggregates rank-IC (does the score predict the return?), hit-rate
-(top quartile beat bottom quartile?), and decile spread across all rebalance dates,
-with an IC-population guard (a period only counts with enough cross-sectional
-breadth) and a lightweight significance check (t-stat on the per-period IC series).
+At each historical rebalance date t (WEEKLY, see REBALANCE_FREQ below), scores the
+whole stock universe using ONLY data knowable as of t (stockvaluation.score_frame ->
+tierb.metrics_asof + prices <= t, no look-ahead), then measures each signal's
+forward return at FIXED horizons (1/3/6/12 months) against price data already
+sitting in Tier B — never fetched fresh for a specific horizon, which is an easy
+way to open a look-ahead door by accident. Aggregates rank-IC (does the score
+predict the return?), hit-rate (top quartile beat bottom quartile?), and decile
+spread across all rebalance dates, with an IC-population guard (a period only
+counts with enough cross-sectional breadth) and a lightweight significance check
+(t-stat on the per-period IC series).
 
 This is Pillar 2 / ROADMAP.md's "Initial (historical, walk-forward, point-in-time)"
 backtest. Known gaps (documented, not silent):
@@ -19,6 +20,21 @@ backtest. Known gaps (documented, not silent):
   * The significance check is a simple one-sample t-stat on the period-IC series,
     not a formal Newey-West/autocorrelation-adjusted test (no scipy/statsmodels
     dependency yet) — treat `significant` as a rough gate, not a rigorous p-value.
+  * REBALANCE_FREQ="W-FRI" (ADR-022, 2026-07-25): weekly, not monthly. Adjacent
+    periods' forward-return windows overlap heavily (a 1m-forward return measured
+    a week apart shares 3/4 of its window with the previous one; 3/6/12m horizons
+    overlap even more, and already did at monthly cadence) — this makes the
+    per-period IC series SERIALLY CORRELATED, which the t-stat/`significant` gate
+    does NOT account for (it assumes independent samples). `n_periods` at weekly
+    cadence is a count of overlapping windows, not independent trials — treat
+    `significant: true` here as a WEAKER signal than it would be at true-monthly
+    cadence with the same n_periods, not a stronger one just because n is bigger.
+    Chosen anyway (over waiting ~3 months for organic monthly-period accumulation,
+    or a paid data-tier upgrade) because it's free, immediate, and the existing
+    gate was already not adjusting for autocorrelation at 3/6/12m horizons even
+    at monthly cadence — this doesn't introduce a new class of problem, it makes
+    an existing documented one quantitatively worse in exchange for more data to
+    look at sooner. A real fix (Newey-West-adjusted effective-N) is future work.
 
   python -m engine.backtest run
 """
@@ -41,6 +57,9 @@ HORIZONS = {"1m": 30, "3m": 91, "6m": 182, "12m": 365}
 SIGNALS = ("opportunity_score", "value_score", "growth_score", "momentum_score")
 MIN_CROSS_SECTION = 20        # a rebalance date's IC only counts with this many names
 PRICE_MATCH_SLACK_DAYS = 10   # how stale a "price near target date" may be
+# Weekly (not monthly) — see the module docstring's ADR-022 note for why, and the
+# real statistical tradeoff (overlapping-window serial correlation) this accepts.
+REBALANCE_FREQ = "W-FRI"
 
 
 def _spearman(a: np.ndarray, b: np.ndarray) -> float | None:
@@ -69,7 +88,7 @@ def _price_near(con, security_ids: list[int], target_date, slack_days=PRICE_MATC
 
 
 def _rebalance_dates(start: str, end: str) -> list[str]:
-    return [d.date().isoformat() for d in pd.date_range(start=start, end=end, freq="MS")]
+    return [d.date().isoformat() for d in pd.date_range(start=start, end=end, freq=REBALANCE_FREQ)]
 
 
 def _default_window() -> tuple[str, str]:
@@ -155,7 +174,7 @@ def run(start: str | None = None, end: str | None = None,
         auto_start, auto_end = _default_window()
         start, end = start or auto_start, end or auto_end
     dates = _rebalance_dates(start, end)
-    print(f"   window {start} .. {end} — {len(dates)} monthly rebalance dates")
+    print(f"   window {start} .. {end} — {len(dates)} rebalance dates ({REBALANCE_FREQ} cadence)")
 
     con = tierb.connect()
     periods: list[dict] = []
@@ -174,6 +193,7 @@ def run(start: str | None = None, end: str | None = None,
 
     if len(periods) < 3:
         result = {"status": "insufficient_data", "window": [start, end], "usable_periods": len(periods),
+                  "cadence": REBALANCE_FREQ,
                   "reason": f"only {len(periods)} rebalance date(s) had enough cross-sectional "
                            f"breadth (>= {MIN_CROSS_SECTION} names with both a score and a "
                            f"forward return) — need at least 3 to say anything about skill."}
@@ -183,6 +203,12 @@ def run(start: str | None = None, end: str | None = None,
 
     summary = _aggregate([{k: v for k, v in p.items() if k != "asof"} for p in periods])
     result = {"status": "completed", "window": [start, end], "usable_periods": len(periods),
+              "cadence": REBALANCE_FREQ,
+              "significance_caveat": ("n_periods counts OVERLAPPING weekly windows, not "
+                                      "independent trials — the t-stat/significant gate does not "
+                                      "adjust for the resulting serial correlation. See ADR-022 / "
+                                      "this module's docstring before treating significant=true "
+                                      "as rigorous.") if REBALANCE_FREQ != "MS" else None,
               "summary": summary, "periods": periods}
     _persist(result, start, end)
     best = max(((h, s, summary[h][s]["mean_rank_ic"]) for h in HORIZONS for s in SIGNALS
@@ -191,6 +217,8 @@ def run(start: str | None = None, end: str | None = None,
         h, s, ic = best
         print(f"   strongest signal: {s} @ {h} — mean rank-IC {ic:.3f} over "
               f"{summary[h][s]['n_periods']} periods (significant={summary[h][s]['significant']})")
+        if summary[h][s]["significant"] and result.get("significance_caveat"):
+            print(f"   NOTE: {result['significance_caveat']}")
     return result
 
 
@@ -208,13 +236,17 @@ def _persist(result: dict, start: str, end: str) -> None:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select id from data_versions order by ts desc limit 1")
         row = cur.fetchone()
+        cadence = result.get("cadence", "MS")
         cur.execute(
             """insert into backtest_runs (data_version_id, window_start, window_end, status, metrics, note)
                values (%s,%s,%s,%s,%s,%s)""",
             (row[0] if row else None, start, end, result["status"],
              json.dumps({"summary": result.get("summary", {}),
-                        "periods": result.get("periods", [])}, default=str),
-             f"stock-level walk-forward backtest, {result.get('usable_periods', 0)} periods"))
+                        "periods": result.get("periods", []),
+                        "cadence": cadence,
+                        "significance_caveat": result.get("significance_caveat")}, default=str),
+             f"stock-level walk-forward backtest, {result.get('usable_periods', 0)} periods "
+             f"({cadence} cadence)"))
         conn.commit()
 
 
