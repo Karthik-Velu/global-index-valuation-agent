@@ -8,6 +8,13 @@ on:
   schedule:
     - cron: "0 7 * * 1"   # Mondays 07:00 UTC
   workflow_dispatch: {}
+  # Manual test-fire trigger (this session's GitHub integration lacks actions:write
+  # for API dispatch, so push-to-this-file is the only lever — same idiom as
+  # backtest.yml/corpactions-backfill.yml). Scoped to the feature branch + this
+  # file only, so it never fires from an unrelated commit.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/refresh.yml"]
 
 permissions:
   contents: write

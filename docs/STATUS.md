@@ -192,6 +192,72 @@ going forward (only Quality-Triage's `kind='quality_check'` and Model-Upgrade's
 the one gap). No schema change, no other reader depended on the old value
 (checked via a full-repo grep for `kind='catalog'`).
 
+## Backtest rebalance cadence: weekly, not monthly (ADR-022, 2026-07-25)
+User asked why we can't just backfill 2 more years of price history to unblock the
+`n_periods >= 12` significance gate faster. Investigated and confirmed in code
+(`engine/sources/prices.py`): Massive's `403 NOT_AUTHORIZED` floor is a ROLLING,
+server-side entitlement check against *today's* date — re-requesting older dates
+hits the identical 403 immediately, no matter how we ask. Only a paid tier upgrade
+changes that. Given the choice (paid tier / finer cadence / keep waiting), the user
+chose **finer rebalance cadence**: `engine/backtest.py`'s `REBALANCE_FREQ` is now
+`"W-FRI"` (weekly) instead of `"MS"` (monthly) — the same ~9-month window now
+yields **~39 rebalance dates instead of 9**, clearing the significance gate with
+real margin, at $0. The real tradeoff (made explicit in code/output, not buried):
+weekly windows overlap heavily between adjacent periods, so the per-period IC
+series is serially correlated in a way the current t-stat gate doesn't adjust
+for — `result["significance_caveat"]` now populates whenever cadence isn't
+monthly and prints alongside any `significant=true` result; `cadence` is
+persisted in `backtest_runs.metrics` so this can never be silently misread as
+a fully rigorous result downstream.
+
+**Real results landed** (`backtest_runs` id=4, 2026-07-25, same window
+2024-10-20..2025-07-21, now 39 W-FRI periods): **`opportunity_score` clears
+`significant: true` at all four horizons for the first time** — mean rank-IC
+0.0122 / 0.0296 / 0.0437 / 0.0272 at 1m/3m/6m/12m, hit-rate 79.5% / 92.3% /
+**100%** / 94.9%, t-stats 3.07 / **8.08** / **15.39** / 8.88. `value_score`
+clears significance at 6m/12m (t 2.39/3.31) but not 1m/3m. **Read every one of
+these WITH the significance_caveat** (overlapping weekly windows are serially
+correlated — the t-stat gate doesn't adjust for that, so these are real,
+encouraging numbers but a weaker statistical guarantee than 39 truly
+independent monthly periods would give). `momentum_score` stays null/negative
+throughout, consistent with this project's "growth means fundamentals, never
+momentum" stance. **The `growth_score` anomaly is now more clearly a red
+flag, not less**: it clears `significant: true` at 3m (t=2.09) and 6m
+(t=2.31) — rank-IC of 0.031/0.027 — while hit-rate stays **0% at 6m AND 12m**.
+A metric that's "significantly correlated" by rank-IC while its top-quartile
+picks lose to its bottom-quartile picks every single period is exactly the
+profile of a real construction problem (likely latest-FY-only fundamentals
+going stale, the documented hypothesis), not noise — the extra periods didn't
+resolve the mystery, they sharpened it. Not chasing further this session;
+flagged as the clearest concrete next investigation.
+
+## Phase B agents: Analyst + Model-Upgrade verified live (2026-07-25)
+Manually test-fired `refresh.yml` with both forced on (bypassing the monthly
+gate for Model-Upgrade) rather than waiting for Monday's cron. Verified
+directly against Postgres (not just "the step didn't crash"):
+- **Analyst**: 24 real, successful LLM calls (`ollamacloud:gpt-oss:120b`,
+  100% success) across its ReAct loop, investigating the run's flagged
+  markets. **Wrote zero theses this run** — a legitimate first-run outcome,
+  not a failure: the playbook explicitly instructs "no thesis beats a bad
+  one," and 4 steps is a tight budget for a genuinely novel task. Worth
+  watching whether it ever converges to a written thesis in future runs; not
+  alarming yet.
+- **Model-Upgrade**: correctly found zero proposals (`taxonomy_changes` where
+  `kind='model_routing'` is empty) — expected, since no model/role pairing
+  has yet accumulated the `MIN_N=20` evidence threshold this young into the
+  system running. The deterministic gate worked correctly; there was nothing
+  to flag.
+- **`smart_brief`**: fell through 2 failing tiers (`ollamacloud:gpt-oss:120b`,
+  `ollamacloud:deepseek-v3.2`) before succeeding on `groq:llama-3.3-70b-versatile`
+  — the waterfall did exactly what it's designed to do.
+- **Real incident, not a code bug**: the run's final "commit dashboard
+  snapshot" step failed with a git `non-fast-forward` rejection — this
+  session pushed 3 more commits to the same branch while the ~19-minute run
+  had an already-stale checkout. The actual data-producing work (Postgres
+  writes) all completed successfully before that; only the redundant static
+  JSON commit was lost. Reverted the temporary `--model-upgrade` force back
+  to its date-gated form once verification was complete.
+
 ## Phase A hardening (2026-07-22)
 - **Corporate actions shipped (ADR-018), hardened through 4 real CI failures:**
   `engine/sources/corpactions.py` pulls dividends + splits from Massive's v3

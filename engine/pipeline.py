@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 import numpy as np
 import pandas as pd
 
-from . import datasource, ledger, llm, metrics, surfacing, tuning
+from . import datasource, db, ledger, llm, metrics, surfacing, tuning
 from .config import DASHBOARD_JSON
 
 
@@ -104,6 +104,22 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         except Exception as e:
             model_upgrade_result = {"error": str(e)[:160]}
 
+    # 5d. Phase C — bottom-up: which stocks within each market are we tracking
+    # at stock level, and how do THEY score (reuses the same holdings
+    # datasource.py already fetched for the index-level growth calc; one
+    # universe-wide score_frame() call, sliced per market, not N calls).
+    # Needs Postgres (securities/dividends) — best-effort, never blocks the
+    # index-level refresh that's the actual product.
+    stock_breakdown = {}
+    if db.have_db():
+        try:
+            from . import stockvaluation
+            market_holdings = {s.key: (s.holdings or []) for s in snaps}
+            stock_breakdown = stockvaluation.market_breakdown(asof, market_holdings)
+            print(f"   stock breakdown: {len(stock_breakdown)} markets with bottom-up data")
+        except Exception as e:
+            print(f"   WARNING: stock breakdown failed: {str(e)[:160]}")
+
     payload = {
         "asof": asof,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -116,6 +132,7 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         "tuning": tuning.status(),
         "analyst": analyst_result,
         "model_upgrade": model_upgrade_result,
+        "stock_breakdown": stock_breakdown,
         "kinds": sorted(df["kind"].unique().tolist()),
         "meta": {
             "data_source": "Yahoo Finance ETF holdings (single-methodology proxies)",

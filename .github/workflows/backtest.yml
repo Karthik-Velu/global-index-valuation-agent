@@ -27,6 +27,10 @@ name: Stock backtest — walk-forward (Pillar 2)
 # catalog/source/data-error corrections accumulated since backtest_runs id=2,
 # 2026-07-22) — re-running against the now-corrected history, and picking up
 # more price/dividend history than the maiden 9-period run had.
+# Re-fired 2026-07-25: REBALANCE_FREQ changed monthly -> weekly (ADR-022) —
+# same ~9mo window, ~39 rebalance dates instead of 9, should clear the
+# n_periods>=12 significance gate for the first time. See ADR-022 for the
+# real tradeoff this accepts (overlapping-window serial correlation).
 
 on:
   workflow_dispatch:
