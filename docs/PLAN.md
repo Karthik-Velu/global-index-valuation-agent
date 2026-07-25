@@ -98,10 +98,23 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   re-asking), presented paid-tier/finer-cadence/wait options, user chose finer
   cadence. `REBALANCE_FREQ` now `"W-FRI"` — same window, ~39 periods instead of
   9. Tradeoff (overlapping-window serial correlation) made explicit in code
-  output (`significance_caveat` field), not just docs. Re-fire pending.
-- 🔜 **Manual test-fire of `refresh.yml` with Analyst + Model-Upgrade forced on**
-  (2026-07-25) — in progress; will confirm real `theses` rows and a real
-  Model-Upgrade proposal/no-proposal verdict once complete.
+  output (`significance_caveat` field), not just docs.
+  **Re-fired, real results landed (`backtest_runs` id=4):** `opportunity_score`
+  clears `significant: true` at all 4 horizons for the first time (t-stats
+  3.07/8.08/15.39/8.88); `value_score` at 6m/12m. `growth_score`'s anomaly is
+  now sharper, not resolved: significant rank-IC at 3m/6m alongside 0% hit-rate
+  at 6m/12m — a real construction-problem signature, flagged as the clearest
+  next investigation, not chased further this session.
+- ✅ **Manual test-fire of `refresh.yml` with Analyst + Model-Upgrade forced on**
+  (2026-07-25) — both verified working against real Postgres data: Analyst made
+  24 successful LLM calls investigating markets but wrote zero theses this run
+  (legitimate — "no thesis beats a bad one" is in its own playbook); Model-Upgrade
+  correctly found zero proposals (no model/role has 20+ accumulated calls yet).
+  `smart_brief` fell through 2 tiers before succeeding on Groq — waterfall working
+  as designed. One real incident (not a code bug): the final dashboard-snapshot
+  git commit failed with a non-fast-forward rejection from concurrent pushes
+  during the ~19min run — the actual Postgres writes all succeeded regardless.
+  Temporary `--model-upgrade` force reverted back to its monthly date gate.
 - ✅ **Phase C v1 — surface bottom-up in the dashboard** (2026-07-25) —
   `stockvaluation.market_breakdown()`: reuses the (ticker, weight) top-holdings
   `datasource.py` already fetches for the index-level growth calc, matches

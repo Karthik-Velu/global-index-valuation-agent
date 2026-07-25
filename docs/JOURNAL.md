@@ -8,6 +8,80 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-25 — Weekly rebalance cadence gives the first `significant: true` results; Analyst/Model-Upgrade verified live; Phase C shipped
+
+Three real threads today, all started from direct user follow-ups on
+yesterday's work.
+
+**1. "What about the other two agents?"** Manually test-fired `refresh.yml`
+(added a push trigger mirroring `backtest.yml`'s, temporarily forced
+`--model-upgrade` past its monthly gate) instead of waiting for Monday.
+Verified against Postgres directly, not just "the step didn't crash": Analyst
+made 24 real successful LLM calls but wrote zero `theses` — legitimate, not a
+bug (its own playbook says "no thesis beats a bad one," and 4 ReAct steps is
+tight for a genuinely novel task). Model-Upgrade correctly found nothing to
+flag (no model/role has 20+ accumulated calls yet — the deterministic gate
+working as designed, not a failure). `smart_brief` fell through 2 failing
+tiers before succeeding on Groq. One real, boring incident: the run's final
+git-commit step failed with a `non-fast-forward` rejection because this
+session pushed 3 more commits to the branch while the ~19-minute run had an
+already-stale checkout — the Postgres writes (the actual verification target)
+were unaffected. Reverted the temporary force once done.
+
+**2. "Why do we need to wait for time to pass?"** — a sharp catch. Recalibration
+had been stuck at 9 backtest periods for days; I'd been telling the user to
+just wait for more history to accumulate. They asked why we couldn't just
+backfill 2 more years. Investigated and confirmed in `engine/sources/prices.py`:
+Massive's `403 NOT_AUTHORIZED` floor is a ROLLING entitlement evaluated fresh
+against *today's* date on every request — re-requesting older dates today
+hits the identical 403 immediately, no workaround exists on the free tier.
+Presented three real options (paid tier / finer rebalance cadence / keep
+waiting); user chose finer cadence. `REBALANCE_FREQ` went from `"MS"`
+(monthly) to `"W-FRI"` (weekly) — same ~9-month window, ~39 periods instead
+of 9. Made the real tradeoff (overlapping windows → serially correlated IC
+series → the t-stat gate doesn't adjust for it) explicit in the DATA itself
+(`significance_caveat` field, `cadence` persisted in `backtest_runs.metrics`),
+not just in comments, so a "significant: true" downstream can never be
+silently misread as fully rigorous. Documented as ADR-022.
+
+Re-fired `backtest.yml` under the new cadence — real result: **`opportunity_score`
+clears `significant: true` at ALL FOUR horizons for the first time**
+(t-stats 3.07/8.08/15.39/8.88, mean rank-IC 0.012/0.030/0.044/0.027,
+hit-rate up to 100% at 6m). `value_score` clears it at 6m/12m. And — this is
+the part worth remembering — **the extra data didn't resolve the growth_score
+mystery, it sharpened it**: growth_score now clears `significant: true` at 3m
+AND 6m by rank-IC, while its hit-rate is STILL 0% at 6m and 12m. A metric
+that's "significantly correlated" while its top-quartile picks lose to its
+bottom-quartile picks every single period is exactly what a real signal-
+construction bug (not noise) looks like. Flagged as the clearest concrete
+next investigation; not chased further this session — today's job was to
+unblock the significance gate, not re-litigate growth_score.
+
+**3. "Let's do Phase C changes as well."** Built `stockvaluation.market_breakdown()`
+— reuses the (ticker, weight) top-holdings `datasource.py` already fetches
+for the index-level growth calc, matches against the EDGAR-tracked stock
+universe, scores matches with the same `score_frame()` used everywhere else
+(one universe-wide call, sliced per market — not N calls), ranks by
+`opportunity_score`. Wired into `pipeline.py` (new `stock_breakdown` payload
+key, best-effort/non-fatal) and `dashboard/app.js` (a new "Top stocks within
+this market" section in the drill-down drawer). Scratch-tested with synthetic
+data and caught a real bug before it shipped: `scored.set_index("ticker")`
+silently drops the ticker column from each row's dict (it becomes the index
+key instead, not a field) — every breakdown row's `ticker` was coming back
+`None`. Fixed with `drop=False`. Coverage will be uneven across markets (only
+holdings we've actually EDGAR-ingested show up) — expected given the current
+US-heavy universe, not a bug.
+
+**Process note for a future session**: when firing a long-running CI job
+(15-20+ min) from this branch, avoid pushing MORE commits to the same branch
+while it's in flight if that workflow ends in a `git push` step — it doesn't
+break the actual work (Postgres writes succeed independently), but it does
+reliably lose the final "commit results back to git" step to a
+non-fast-forward rejection. Either batch pushes before firing, or accept the
+snapshot-commit loss on genuinely concurrent runs.
+
+---
+
 ## 2026-07-24 (later) — Verified Phase B agents produced real output; re-ran backtest, found a real bug in recalibration's counter
 
 Two things closed out today, both started from the user asking "did agents work?"
