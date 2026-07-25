@@ -8,6 +8,13 @@ on:
   schedule:
     - cron: "0 7 * * 1"   # Mondays 07:00 UTC
   workflow_dispatch: {}
+  # Manual test-fire trigger (this session's GitHub integration lacks actions:write
+  # for API dispatch, so push-to-this-file is the only lever — same idiom as
+  # backtest.yml/corpactions-backfill.yml). Scoped to the feature branch + this
+  # file only, so it never fires from an unrelated commit.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/refresh.yml"]
 
 permissions:
   contents: write
@@ -65,8 +72,12 @@ jobs:
       # are ever unset or every model tier is unavailable — never a hard failure here.
       - name: Refresh data (LLM narrative + agents on; degrades to deterministic if no model)
         run: |
-          MU=""
-          if [ "$(date -u +%-d)" -le 7 ]; then MU="--model-upgrade"; fi
+          # TEMPORARY: forcing --model-upgrade unconditionally for a one-off manual
+          # verification fire (2026-07-24) so Analyst AND Model-Upgrade both get a
+          # real end-to-end production test today rather than waiting for the
+          # monthly window / next Monday's cron. Reverting to the date-gated
+          # version in a follow-up commit once this run is confirmed.
+          MU="--model-upgrade"
           python -m engine.cli refresh --no-cache --agent $MU
 
       - name: Publish snapshot to the static dir
