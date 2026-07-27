@@ -149,10 +149,16 @@ def _dividend_features(asof, security_ids: list[int]) -> pd.DataFrame:
 
 
 def _universe(security_ids: list[int] | None) -> pd.DataFrame:
-    """(security_id, ticker, name, sector, country) for the stock universe."""
+    """(security_id, ticker, name, sector, country, currency) for the stock
+    universe. `currency` isn't populated at ingest time (edgar.py never sets
+    it — every tracked security is US-ticker-listed, see universescan.py), so
+    it's coalesced to 'USD' here rather than left null: our prices (Massive
+    grouped-daily) are USD-denominated, so that default reflects reality
+    rather than papering over a gap."""
     from . import db
 
-    q = "select id, ticker, name, sector, country from securities where kind='stock'"
+    q = ("select id, ticker, name, sector, country, coalesce(currency, 'USD') "
+         "from securities where kind='stock'")
     params: list = []
     if security_ids:
         q += " and id in (select unnest(%s::bigint[]))"
@@ -160,7 +166,7 @@ def _universe(security_ids: list[int] | None) -> pd.DataFrame:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute(q, params)
         rows = cur.fetchall()
-    return pd.DataFrame(rows, columns=["security_id", "ticker", "name", "sector", "country"])
+    return pd.DataFrame(rows, columns=["security_id", "ticker", "name", "sector", "country", "currency"])
 
 
 def market_breakdown(asof, market_holdings: dict[str, list[tuple[str, float]]],
@@ -211,6 +217,11 @@ def market_breakdown(asof, market_holdings: dict[str, list[tuple[str, float]]],
             "growth_score": r.get("growth_score"), "pe": r.get("pe"),
             "garp": bool(r.get("garp")), "value_trap": bool(r.get("value_trap")),
             "overvalued": bool(r.get("overvalued")),
+            # Investability panel (Phase D, ADR-024) — "can I actually buy this,
+            # and what does it cost": the only genuinely currency-denominated
+            # fields in the whole product, USD-native (see _universe()).
+            "price": r.get("price"), "market_cap": r.get("market_cap"),
+            "currency": r.get("currency"), "country": r.get("country"),
         } for r in rows[:top_n]]
     return out
 

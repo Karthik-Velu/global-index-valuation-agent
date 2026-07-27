@@ -52,3 +52,22 @@ in `engine/sources/seed_catalog.json` and the data-ingestion agent).
 
 The value of investments can go down as well as up, and you may get back less than you
 invested. Past performance is not indicative of future results.
+
+## Currency conversion is indicative only
+
+The optional display-currency selector converts USD-native figures (stock price, market
+cap) using **daily reference rates** (Frankfurter/ECB), for **readability only**. These are
+**not** live, tradable, or execution rates, do not include any spread, fee, or slippage a
+broker would apply, and may be stale by up to a day. Every score, ranking, and ratio (P/E,
+P/B, dividend yield, etc.) is computed in the underlying USD figures regardless of the
+currency displayed — converting the display currency **never** changes a score. Do not use
+these figures to price a trade.
+
+## Accounts, watchlists, and your data
+
+Signing in and saving a personal watchlist are **optional** and **not required** to use the
+dashboard. If you sign in, your email and watchlist selections are stored by our
+authentication and database provider, [Supabase](https://supabase.com), under its own terms
+of service and privacy policy. A saved watchlist is a personal organizational tool only —
+it is **not** a recommendation, disclosed holding, or any form of investment advice, and
+carries no obligation on our part to notify you of anything about the markets you save.

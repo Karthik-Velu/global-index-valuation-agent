@@ -178,6 +178,18 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         steps["corp_actions"] = {"error": str(e)[:160]}
         print(f"   WARNING: corp actions ingestion failed: {str(e)[:160]}")
 
+    # 2e. FX reference rates (Frankfurter, free/keyless) — powers the dashboard's
+    #     optional display-currency conversion (Phase D, ADR-023). One row/currency
+    #     per day; best-effort, never blocks ingestion (the dashboard just stays
+    #     USD-only if this fails).
+    try:
+        from .sources import fx
+        steps["fx"] = fx.ingest()
+        print(f"   fx: {steps['fx']}")
+    except Exception as e:
+        steps["fx"] = {"error": str(e)[:160]}
+        print(f"   WARNING: fx ingestion failed: {str(e)[:160]}")
+
     # 3. Tag securities (deterministic).
     steps["tagging"] = tagging.tag_securities()
 

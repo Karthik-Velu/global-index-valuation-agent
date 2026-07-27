@@ -9,6 +9,113 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-026 · Auth: Supabase magic-link (email OTP), client-side only, no server session
+- **Context:** Phase D needs a real per-user identity for `user_watchlist` (migration
+  0011, `auth.uid()`-scoped RLS) — the dashboard's existing feedback loop is anonymous
+  (localStorage + an insert-only `feedback` table). The frontend is deliberately no-build
+  (plain HTML/JS, `dashboard/app.js`) with no server to hold sessions.
+- **Choice:** `dashboard/auth.js` wraps `supabase-js` (loaded from a CDN `<script>` tag,
+  no bundler) and uses `signInWithOtp` (magic link — an email with a sign-in link, no
+  password to choose, store, or leak). `engine/pipeline.py` embeds `SUPABASE_URL` /
+  `SUPABASE_ANON_KEY` into `dashboard_data.json`'s `meta.supabase` (read from `.env` via
+  `engine/config.py`) rather than hardcoding them into checked-in HTML, so an operator
+  configures Supabase the same way as every other credential in this project.
+- **Why:** the anon/publishable key is *designed* to be public (Supabase's own docs: it's
+  an RLS-scoped client key, not a secret) — embedding it in a published JSON is no
+  different from embedding it in HTML, and going through the JSON keeps `index.html`
+  free of environment-specific values. Magic-link avoids building password reset/hashing
+  entirely. Both `SUPABASE_URL`/`SUPABASE_ANON_KEY` empty is a valid, common state (no
+  Supabase configured) — `Auth.init()` resolves `false` without throwing, and the whole
+  sign-in/watchlist UI hides itself (`Auth.available()`), leaving the existing anonymous
+  pin/dismiss flow as the only path — no regression for operators who don't set this up.
+- **Rejected:** password auth (more surface: reset flows, breach risk, worse UX for a
+  low-stakes hobby dashboard); a server-side session/cookie (would require standing up a
+  backend this project doesn't have — the whole point of Tier A/B + a static frontend is
+  no server to operate); OAuth-only (adds per-provider app registration for a feature
+  meant to be optional and low-friction).
+- **Date:** 2026-07-27.
+
+### ADR-025 · Per-user watchlist: new `user_watchlist` table, not a retrofit of `feedback`
+- **Context:** `docs/ARCHITECTURE.md`'s P3 roadmap calls out "fixing the localStorage
+  dead-end" — pins made anonymously (via `feedback`, an insert-only signal log that
+  drives `feedback_weights()` re-tuning) don't survive a cleared browser or follow a user
+  across devices. `feedback` already has an unused `user_id text` column from Phase 1.
+- **Choice:** migration 0011 adds a dedicated `user_watchlist(user_id uuid, market_key,
+  note, created_at)` table with `auth.uid()`-scoped RLS (owner select/insert/delete, no
+  UPDATE policy in v1, no anon policy at all) — the first table in this schema with real
+  RLS policies rather than `rls_enabled` + zero policies.
+- **Why:** `feedback` is an anonymous, insert-only, append-mostly event log (a market can
+  be pinned by nobody, one person, or logged repeatedly — it's a signal stream, not a
+  membership set) feeding a re-tuning function; a per-user watchlist is a real
+  upsert/delete membership relation with a different lifecycle, different access pattern
+  (RLS-scoped reads), and a different consumer (the signed-in user's own UI, not
+  `feedback_weights()`). Overloading `feedback.user_id` would mean teaching that
+  re-tuning function to distinguish "signal" rows from "membership" rows — more coupling
+  for no real code reuse, since almost nothing about the query shape is shared.
+- **Rejected:** reusing/populating `feedback.user_id` (conflates two different access
+  patterns and consumers, see above); storing the watchlist as a JSON blob on a `users`
+  profile table (loses row-level RLS granularity and natural-key `on conflict` semantics
+  for pin/unpin idempotency).
+- **Date:** 2026-07-27 (migration written earlier in this session; entry added now
+  alongside the rest of Phase D so the decision record isn't split across sessions).
+
+### ADR-024 · Investability panel: surface price/market_cap in Phase C's stock breakdown
+- **Context:** Phase C's bottom-up stock breakdown (`stockvaluation.market_breakdown()`,
+  rendered in the dashboard drawer) showed only ratios and scores (P/E, opportunity
+  score, GARP flag) — genuinely useful for *ranking* stocks but silent on the more basic
+  question a user actually has after seeing a top pick: "can I buy this, and roughly what
+  does it cost?" Every other figure in the product (P/E, dividend yield %, growth %) is
+  dimensionless by design (index-level scores are cross-sectional ratios) — price and
+  market cap are the *only* genuinely currency-denominated numbers anywhere in the
+  product, and they weren't being surfaced at all.
+- **Choice:** `market_breakdown()` now includes `price`, `market_cap`, `currency`, and
+  `country` per stock (sourced from `stockvaluation.score_frame()`'s existing
+  `price`/`market_cap` columns and `_universe()`'s now-selected `currency`/`country`).
+  The dashboard renders these as a compact line under each stock ("investability"),
+  including a "US-listed" note, since every tracked security requires a US ticker (see
+  `universescan.py`) regardless of the underlying company's domicile.
+- **Why:** cheap to add (the columns were already computed by `score_frame()` for the P/E
+  calc, just not passed through to the output dict) and directly answers a question the
+  scores alone can't: two stocks with the same opportunity score can be a $50 and a
+  $50,000 share price, or a $2B and a $2T company — context that changes what "investable"
+  means for a given user, without pretending to be a broker integration.
+- **Rejected:** a separate API call for price lookups on demand (adds latency + a second
+  round-trip for something already computed in the same DataFrame); leaving price/market
+  cap out entirely and only linking out to an external quote page (adds a dependency on a
+  third party we don't control and can't degrade gracefully with).
+- **Date:** 2026-07-27.
+
+### ADR-023 · Display-currency conversion: client-side only, Frankfurter reference rates
+- **Context:** ADR-024 surfaces USD-native price/market_cap in the dashboard. The
+  project's user base (and the "global" in the product name) isn't US-only, so a raw
+  USD-only number is less readable for a non-US user trying to build intuition for scale.
+  But every SCORE the product computes is deliberately USD/dimensionless — there was a
+  real risk of over-engineering a full multi-currency fundamentals pipeline (re-deriving
+  `pe`/`pb`/etc. per currency) for what is, on inspection, a pure display convenience.
+- **Choice:** `engine/sources/fx.py` is a new adapter pulling daily USD-base reference
+  rates from Frankfurter (ECB rates, free, keyless — no new API key to manage, consistent
+  with preferring free/public sources). Rates land in a new small Postgres table
+  (`fx_rates`, migration 0012) via `engine.datapipeline`'s daily run; `engine/pipeline.py`
+  reads the latest snapshot back and embeds it in `dashboard_data.json`'s `meta.fx`. The
+  dashboard (`app.js`) does the actual multiplication client-side (`convertUSD()`) purely
+  for display — it never touches `value_score`/`growth_score`/any ratio, and the DB never
+  stores a re-derived non-USD fundamentals row.
+- **Why:** keeps the currency-conversion surface area to exactly the two fields that are
+  actually currency-denominated (ADR-024), instead of retrofitting currency-awareness
+  into `stockvaluation.py`'s ratio math where it isn't needed. Frankfurter needs no key
+  and has a generous free tier, matching every other data source's "$0, deterministic
+  fallback if unavailable" bar — if the fetch fails, the dashboard just stays USD-only
+  (`meta.fx` is `null`), same degrade-gracefully contract as `stock_breakdown`.
+- **Rejected:** normalizing `fundamentals.currency` end-to-end so P/E etc. could be
+  computed and stored in multiple currencies (real work with no real payoff — the ratios
+  are dimensionless already, converting them would be a no-op multiplied by 1); a paid
+  FX API (no need — reference-rate accuracy, not real-time execution pricing, is exactly
+  what this use case calls for, and the DISCLAIMER.md addition makes that explicit to
+  users); computing conversion server-side and shipping N pre-converted payloads (wasteful
+  — one small rates table lets the client convert any figure to any offered currency on
+  the fly, and currency switches don't need a network round-trip).
+- **Date:** 2026-07-27.
+
 ### ADR-022 · Backtest rebalance cadence: weekly (`W-FRI`), not monthly — user-directed tradeoff
 - **Context:** the backtest's significance gate needs `n_periods >= 12`; two real runs
   (2026-07-22, 2026-07-24) both had exactly 9 monthly periods, capped by the ~9-month

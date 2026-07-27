@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from . import datasource, db, ledger, llm, metrics, surfacing, tuning
-from .config import DASHBOARD_JSON
+from .config import DASHBOARD_JSON, SUPABASE_ANON_KEY, SUPABASE_URL
 
 
 def _clean(obj):
@@ -120,6 +120,18 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         except Exception as e:
             print(f"   WARNING: stock breakdown failed: {str(e)[:160]}")
 
+    # 5e. FX reference rates (Phase D, ADR-023) — read-only lookup of whatever
+    # engine.datapipeline last ingested; a pure display-currency convenience for
+    # the dashboard, never a pipeline dependency. None (dashboard stays
+    # USD-only) if Postgres isn't configured or nothing's been ingested yet.
+    fx = None
+    if db.have_db():
+        try:
+            from .sources import fx as fx_source
+            fx = fx_source.latest_from_db()
+        except Exception as e:
+            print(f"   WARNING: fx lookup failed: {str(e)[:160]}")
+
     payload = {
         "asof": asof,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -139,6 +151,8 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
             "growth_signal": "fundamental: revenue + earnings growth of top-10 holdings, "
                              "weighted, blended with forward analyst estimates",
             "note": "Scores are cross-sectional within each kind (countries vs countries, etc.).",
+            "fx": fx,
+            "supabase": {"url": SUPABASE_URL, "anon_key": SUPABASE_ANON_KEY},
         },
     }
     payload = _clean(payload)

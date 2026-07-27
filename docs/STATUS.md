@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-23.
+> Last updated: 2026-07-27.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -330,17 +330,47 @@ cadence), and Model-Upgrade (`--model-upgrade`, first 7 days of the month) are
 all live. Every one of the three still degrades gracefully to the deterministic
 path if a model tier is ever unavailable — this was never a hard dependency.
 
+## Phase D: auth, per-user watchlist, display currency, investability panel (2026-07-27)
+Closes the P3 "localStorage dead-end" (ARCHITECTURE.md) with real per-user identity, and
+adds the practical "can I buy this, what does it cost" context Phase C's stock breakdown
+was missing. Full detail in `docs/PLAN.md`'s "Phase D" section and ADR-023..026.
+- **FX rates** (`engine/sources/fx.py`) — Frankfurter (ECB, free, keyless), new
+  `fx_rates` table (migration 0012), wired into `datapipeline.py` + read back into
+  `dashboard_data.json`'s `meta.fx` by `pipeline.py`. Display-only — never touches a score.
+- **Investability panel** — `stockvaluation.market_breakdown()` now includes
+  `price`/`market_cap`/`currency`/`country` per stock (previously ratios/scores only);
+  `_universe()` coalesces the never-populated `securities.currency` to `'USD'` (every
+  tracked security is US-ticker-listed).
+- **Display-currency selector** (`dashboard/app.js`) — converts the investability
+  panel's USD-native figures client-side using `meta.fx.rates`.
+- **Supabase Auth + watchlist** (`dashboard/auth.js`, migration 0011) — magic-link
+  sign-in via CDN `supabase-js`; a ★ toggle in the market drawer writes/deletes
+  `user_watchlist` rows (RLS-scoped). `SUPABASE_URL`/`SUPABASE_ANON_KEY` both empty
+  (the default until an operator sets them) hides the whole feature — zero regression
+  for the existing anonymous localStorage pin/dismiss flow.
+- `DISCLAIMER.md` — 2 new clauses (FX rates are indicative/display-only; watchlist data
+  is user-generated, not advice, stored by Supabase under its own terms).
+- **Not done, deliberately** (see ADR-023/P3): a multi-currency fundamentals pipeline,
+  and turning the watchlist into a learning signal (`user_vector`/`user_predictions`) —
+  today it's a saved list, not personalisation yet.
+
 ## Immediate next step
-1. Confirm the first real `refresh.yml` run with the LLM path on: check for a
+1. **Operator action needed to activate Phase D in production:** add `SUPABASE_URL` /
+   `SUPABASE_ANON_KEY` (Settings → API in the Supabase dashboard — the anon/publishable
+   key, not the service-role key) as **GitHub repo secrets**, then update
+   `.github/workflows/refresh.yml`'s `env:` block to pass them through (done — see
+   ADR-025/026). The static dashboard has no build step, so `pipeline.py` bakes both
+   into the published `dashboard_data.json`'s `meta.supabase` at refresh time; until the
+   secrets exist, that field stays empty and the feature stays correctly hidden.
+2. Confirm the first real `refresh.yml` run with the LLM path on: check for a
    real `smart_brief` narrative (not the `_fallback_brief` deterministic text)
    in `dashboard_data.json`, and real `theses` rows from the Analyst agent.
-2. `data-pipeline.yml`'s `--agents` step should show `quality_triage` firing
+3. `data-pipeline.yml`'s `--agents` step should show `quality_triage` firing
    next time `quality.run()` raises issues.
-3. Re-run `backtest.yml` periodically as more price history accumulates —
+4. Re-run `backtest.yml` periodically as more price history accumulates —
    `n_periods >= 12` is what's needed to clear the significance gate on the
    strongest signal (`opportunity_score`).
-4. Then: surface bottom-up (stock-level) results in the dashboard (Phase C).
-   Decide on a paid Massive tier (Starter $29/mo, 5y) for more usable periods
+5. Decide on a paid Massive tier (Starter $29/mo, 5y) for more usable periods
    per horizon once growth stabilizes.
 
 ## Superseded (kept for context): the original proving-window plan
