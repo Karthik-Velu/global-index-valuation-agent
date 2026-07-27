@@ -173,7 +173,18 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
                         metric_rows.setdefault(key, (
                             sec_id, end, fp, mc, f.get("val"), unit, form, audited, filed,
                             f"{ns}:{concept}"))
-                        if accn and accn not in filing_rows:
+                        # A single accession's facts mix the filing's OWN primary period
+                        # with prior-period comparatives (e.g. a 10-Q balance sheet shows
+                        # this quarter-end AND last fiscal year-end for context).
+                        # Comparatives always have an EARLIER `end` than the filing's own
+                        # period, so keep the fact with the LATEST end seen so far for this
+                        # accession — not whichever happened to be iterated first (facts
+                        # arrive in XBRL concept order, not period order, so "first" could
+                        # arbitrarily stamp a comparative period onto the whole filing's
+                        # period_end/fiscal_period; confirmed in prod: three real CMCSA
+                        # 10-Qs filed months apart all recorded period_end='2024-12-31',
+                        # a comparative FY-end, not their actual quarter).
+                        if accn and (accn not in filing_rows or end > filing_rows[accn][2]):
                             filing_rows[accn] = (sec_id, form, end, fp, filed, accn, audited)
 
                     if metric_rows and pg_metrics:

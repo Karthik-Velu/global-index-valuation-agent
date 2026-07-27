@@ -62,7 +62,34 @@ already existed one function-return away from being shipped).
 ratios are dimensionless, re-deriving them per currency would be a no-op); turning the
 watchlist into a learning signal / `user_vector` (still P3's unbuilt half — a watchlist
 is a saved list today, not personalisation yet). Operator action still needed to
-activate in production: set `SUPABASE_URL`/`SUPABASE_ANON_KEY` as a Vercel env var.
+activate in production: add `SUPABASE_URL`/`SUPABASE_ANON_KEY` as GitHub repo secrets
+(refresh.yml is already wired to pass them through — no build step to inject client-side
+config otherwise).
+
+**Addendum, same day — the investability panel immediately found a real bug.** The
+user spotted Comcast (CMCSA) showing an implausible P/E (2.46x) in the just-shipped
+panel. Investigated with the tools actually available in this sandbox (Postgres via
+Supabase MCP; SEC EDGAR and Tier B's Parquet store were both unreachable — the proxy
+blocks `data.sec.gov`, and Tier B only exists in CI): confirmed `market_cap` implies
+only ~2.06B CMCSA shares vs. Comcast's real multi-billion count, and found two real
+code issues by reading `engine/sources/edgar.py` and cross-checking production data:
+(1) **confirmed & fixed** — `filing_rows[accn]` took whichever XBRL fact was iterated
+first as the filing's `period_end`/`fiscal_period`, not necessarily the filing's own
+primary period (a 10-Q's comparative prior-year figures can be iterated first); proven
+via prod query: 3 real CMCSA 10-Qs filed months apart all recorded
+`period_end='2024-12-31'`. Fixed to keep the fact with the latest `end` per accession.
+(2) **suspected, not fixed** — `shares_outstanding` merges 3 XBRL concepts into one
+metric_code with no per-class dedup key; `metric_catalog.json`'s own notes say
+multi-class issuers' per-class facts should be summed, but no code does that. Rather
+than guess a fix I couldn't verify without live data, added a new quality.py check
+(`shares_concept_disagreement`, comparing `raw_tag` variants) to surface this class of
+issue going forward, and recorded a `lessons` row (id 807, scope
+`quality:shares_concept_disagreement`) with the full investigation so a future session
+with real Tier B/EDGAR access can finish the diagnosis without re-deriving it. This is
+exactly the Quality-Triage feedback loop (`engine/qualitytriage.py`) working as
+designed — the new check will fire on the next ingest, triage will explain root cause
++ propose a follow-up check via LLM, and it'll land in the same `lessons` table
+alongside this manual entry.
 
 ---
 
