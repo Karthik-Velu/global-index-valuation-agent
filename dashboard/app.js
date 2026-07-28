@@ -5,7 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const api = (p, opts) => fetch(p, opts).then(r => r.json());
 
-let STATE = { data: null, rows: [], focus: 'Country', hasApi: false, sort: { key: 'opportunity_score', dir: -1 } };
+let STATE = { data: null, rows: [], focus: 'Country', hasApi: false, sort: { key: 'opportunity_score', dir: -1 }, currency: 'USD', openDrawerKey: null };
 
 // Feedback persistence: writes to the engine API when present, and always mirrors
 // to localStorage so pins/dismissals survive on the static (Vercel) deployment.
@@ -31,6 +31,32 @@ const scoreColor = s => s == null ? '#475569'
   : `hsl(${Math.round((s / 100) * 140)} 65% 55%)`; // red(0)->green(140)
 const retColor = v => v == null ? '#94a3b8' : v >= 0 ? '#34d399' : '#f87171';
 
+// ---- display-currency conversion (Phase D, ADR-023) ----
+// Pure presentation: converts the investability panel's USD-native price/
+// market_cap for display only. Every SCORE stays USD/dimensionless — nothing
+// here ever touches value_score/growth_score/etc.
+const convertUSD = v => {
+  if (v == null || STATE.currency === 'USD') return v;
+  const rate = STATE.data?.meta?.fx?.rates?.[STATE.currency];
+  return rate ? v * rate : v;
+};
+// usdValue in, converted + formatted in STATE.currency out.
+function money(usdValue) {
+  const v = convertUSD(usdValue);
+  if (v == null || isNaN(v)) return '—';
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: STATE.currency, maximumFractionDigits: v >= 1000 ? 0 : 2 }).format(v); }
+  catch { return `${fmt(v, 2)} ${STATE.currency}`; }
+}
+function marketCap(usdValue) {
+  const v = convertUSD(usdValue);
+  if (v == null || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  const [div, suf] = abs >= 1e12 ? [1e12, 'T'] : abs >= 1e9 ? [1e9, 'B'] : abs >= 1e6 ? [1e6, 'M'] : [1, ''];
+  const scaled = v / div;
+  try { return `${new Intl.NumberFormat(undefined, { style: 'currency', currency: STATE.currency, maximumFractionDigits: 1 }).format(scaled)}${suf}`; }
+  catch { return `${fmt(scaled, 1)} ${STATE.currency}${suf}`; }
+}
+
 function scoreBar(s) {
   return `<span class="scorebar"><i style="width:${s ?? 0}%;background:${scoreColor(s)}"></i></span>
           <span class="ml-1 tabular-nums text-slate-300">${fmt(s, 0)}</span>`;
@@ -55,8 +81,16 @@ async function load() {
   }
   STATE.data = d;
   STATE.rows = d.scoreboard;
+  // Best-effort — Auth.init resolves false (never throws) when Supabase isn't
+  // configured or the CDN script didn't load; the dashboard works either way.
+  // Re-init is safe (load() re-runs on manual refresh): Auth.init() just
+  // re-creates the client and re-checks the session.
+  try { await Auth.init(d.meta?.supabase); } catch { /* auth UI just stays hidden */ }
   render();
 }
+// Registered once (not inside load(), which re-runs on manual refresh) so
+// repeated refreshes don't accumulate duplicate listeners.
+Auth.onChange(() => { renderAuthUI(); if (STATE.openDrawerKey) openDrawer(STATE.openDrawerKey); });
 
 function render() {
   const d = STATE.data;
@@ -67,6 +101,8 @@ function render() {
   $('#meta').textContent = `${d.meta.data_source} · growth: ${d.meta.growth_signal} · ${d.meta.note}`;
   renderTrackRecord(d.accuracy);
   renderTuning(d.tuning);
+  renderCurrencySelector();
+  renderAuthUI();
   renderFocus(d.kinds || []);
   renderFilters();
   renderFocusedViews();
@@ -82,6 +118,40 @@ function renderFocusedViews() {
   renderScatter();
   renderHeatmap();
   renderTable();
+}
+
+// ---- display currency (Phase D, ADR-023) ----
+function renderCurrencySelector() {
+  const el = $('#currency');
+  const rates = STATE.data.meta?.fx?.rates || {};
+  const options = ['USD', ...Object.keys(rates).sort()];
+  el.innerHTML = options.map(c => `<option value="${c}" ${c === STATE.currency ? 'selected' : ''}>${c}</option>`).join('');
+  el.title = STATE.data.meta?.fx
+    ? `Indicative reference rates as of ${STATE.data.meta.fx.asof} (Frankfurter/ECB) — display only, not a live execution rate.`
+    : 'Display currency (USD only — no FX rates in this snapshot)';
+  el.onchange = () => {
+    STATE.currency = el.value;
+    if (STATE.openDrawerKey) openDrawer(STATE.openDrawerKey);
+  };
+}
+
+// ---- auth (Phase D, ADR-026) ----
+function renderAuthUI() {
+  const el = $('#authBox');
+  if (!Auth.available()) { el.innerHTML = ''; return; }
+  const u = Auth.currentUser();
+  el.innerHTML = u
+    ? `<span class="text-xs text-slate-400 truncate max-w-[160px]" title="${u.email}">${u.email}</span>
+       <button id="signOutBtn" class="ctrl">Sign out</button>`
+    : `<button id="signInBtn" class="ctrl">Sign in</button>`;
+  const inBtn = $('#signInBtn'), outBtn = $('#signOutBtn');
+  if (inBtn) inBtn.onclick = async () => {
+    const email = prompt('Email for a magic sign-in link:');
+    if (!email) return;
+    try { await Auth.signInWithEmail(email); alert(`Check ${email} for a sign-in link.`); }
+    catch (e) { alert(`Sign-in failed: ${e.message || e}`); }
+  };
+  if (outBtn) outBtn.onclick = async () => { await Auth.signOut(); };
 }
 
 const KIND_LABEL = { Country: 'Countries', Sector: 'Sectors', Style: 'Styles', Region: 'Regions', Broad: 'Broad' };
@@ -299,11 +369,22 @@ function renderTable() {
 }
 
 // ---- bottom-up: stocks within this market (Phase C) ----
+// "Investability" line (Phase D, ADR-024) — the practical "can I actually buy
+// this, and what does it cost" complement to the score: price/market cap
+// converted to the selected display currency (money()/marketCap() convert
+// from the USD-native value the engine computed), plus how to buy it.
+function investability(s) {
+  if (s.price == null && s.market_cap == null) return '';
+  return `<div class="text-[10px] text-slate-500 mt-0.5">
+    ${money(s.price)} · mkt cap ${marketCap(s.market_cap)}
+    <span class="text-slate-600">· US-listed (${s.currency || 'USD'} native)</span></div>`;
+}
 function stockRow(s) {
   return `<div class="flex items-center justify-between gap-2 py-1.5 border-b border-line/50">
     <div class="min-w-0">
       <div class="text-[13px] text-slate-100">${s.ticker}${s.garp ? ' <span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span>' : ''}</div>
       <div class="text-[10px] text-slate-500 truncate">${s.name || ''}${s.sector ? ' · ' + s.sector : ''}</div>
+      ${investability(s)}
     </div>
     <div class="text-right shrink-0">
       <div class="text-[13px] font-semibold tabular-nums" style="color:${scoreColor(s.opportunity_score)}">${fmt(s.opportunity_score, 0)}</div>
@@ -318,14 +399,27 @@ function stockBreakdownBlock(key) {
 }
 
 // ---- drill-down drawer ----
+function watchStarBtn(key) {
+  const signedIn = Auth.available() && Auth.currentUser();
+  const on = signedIn && Auth.isWatched(key);
+  const title = Auth.available()
+    ? (signedIn ? (on ? 'Remove from watchlist' : 'Add to watchlist') : 'Sign in to save a personal watchlist')
+    : 'Watchlist needs Supabase configured (see .env.example)';
+  return `<button id="watchStarBtn" class="text-xl leading-none ${signedIn ? '' : 'opacity-40 cursor-not-allowed'}"
+    style="color:${on ? '#fbbf24' : '#64748b'}" title="${title}">${on ? '★' : '☆'}</button>`;
+}
 function openDrawer(key) {
   const m = STATE.rows.find(x => x.key === key); if (!m) return;
+  STATE.openDrawerKey = key;
   const row = (l, v) => `<div class="flex justify-between py-1.5 border-b border-line/50"><span class="text-slate-400">${l}</span><span class="text-slate-100 tabular-nums">${v}</span></div>`;
   $('#drawer').innerHTML = `
     <div class="flex items-start justify-between mb-3">
       <div><div class="text-lg font-semibold text-white">${m.name}</div>
         <div class="text-xs text-slate-500">${m.kind} · ${m.country} · ${m.region} · ${m.development} · proxy ${m.symbol}</div></div>
-      <button id="closeDrawer" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+      <div class="flex items-center gap-2">
+        ${watchStarBtn(key)}
+        <button id="closeDrawer" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+      </div>
     </div>
     <div class="text-[13px] text-slate-300 italic mb-3">${m.tag || ''}</div>
     <div class="grid grid-cols-3 gap-2 mb-4">
@@ -355,6 +449,12 @@ function openDrawer(key) {
       </div>
     </div>`;
   $('#closeDrawer').onclick = closeDrawer;
+  $('#watchStarBtn').onclick = async () => {
+    if (!Auth.available()) return;
+    if (!Auth.currentUser()) { alert('Sign in (top right) to save a personal watchlist.'); return; }
+    try { await Auth.toggleWatch(key); openDrawer(key); }
+    catch (e) { alert(`Watchlist update failed: ${e.message || e}`); }
+  };
   $$('#drawer [data-fb]').forEach(b => b.onclick = () => { sendFeedback('market', key, b.dataset.fb); b.classList.add('active'); });
   $('#drawer').classList.remove('translate-x-full');
   $('#scrim').classList.remove('hidden');
@@ -364,7 +464,7 @@ function scoreTile(label, s) {
     <div class="text-[10px] text-slate-500 uppercase">${label}</div>
     <div class="text-xl font-bold" style="color:${scoreColor(s)}">${fmt(s, 0)}</div></div>`;
 }
-function closeDrawer() { $('#drawer').classList.add('translate-x-full'); $('#scrim').classList.add('hidden'); }
+function closeDrawer() { STATE.openDrawerKey = null; $('#drawer').classList.add('translate-x-full'); $('#scrim').classList.add('hidden'); }
 $('#scrim').onclick = closeDrawer;
 
 // ---- feedback + refresh ----

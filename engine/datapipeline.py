@@ -115,7 +115,7 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
             st = edgar.ingest_tickers(tks, country_by_ticker=countries)
             steps["ingest"] = {"mode": mode, "candidates": len(tks)}
             steps["ingest"].update({k: st[k] for k in ("securities", "metrics", "filings")})
-            steps["ingest"].update({k: st[k] for k in ("tierb_metrics", "tierb_error")
+            steps["ingest"].update({k: st[k] for k in ("tierb_metrics", "tierb_error", "tierb_only")
                                     if k in st})
             print(f"   ingest: {steps['ingest']}")
         else:
@@ -177,6 +177,18 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         # any security with no rows yet — never blocks ingestion of record.
         steps["corp_actions"] = {"error": str(e)[:160]}
         print(f"   WARNING: corp actions ingestion failed: {str(e)[:160]}")
+
+    # 2e. FX reference rates (Frankfurter, free/keyless) — powers the dashboard's
+    #     optional display-currency conversion (Phase D, ADR-023). One row/currency
+    #     per day; best-effort, never blocks ingestion (the dashboard just stays
+    #     USD-only if this fails).
+    try:
+        from .sources import fx
+        steps["fx"] = fx.ingest()
+        print(f"   fx: {steps['fx']}")
+    except Exception as e:
+        steps["fx"] = {"error": str(e)[:160]}
+        print(f"   WARNING: fx ingestion failed: {str(e)[:160]}")
 
     # 3. Tag securities (deterministic).
     steps["tagging"] = tagging.tag_securities()

@@ -11,6 +11,11 @@
       cheap: '#34d399', rich: '#f87171', warn: '#fbbf24', accent: '#60a5fa' } } } }
   </script>
   <link rel="stylesheet" href="styles.css" />
+  <!-- Supabase Auth + watchlist (Phase D) — no-build, UMD build exposes window.supabase.
+       Loaded synchronously (like the Tailwind CDN script above) so it's defined
+       before auth.js runs at the bottom of body; auth.js degrades gracefully
+       (checks typeof window.supabase) if this CDN is blocked. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="bg-ink text-slate-200 antialiased">
   <div id="app" class="max-w-[1400px] mx-auto px-5 py-6">
@@ -25,6 +30,8 @@
         <div id="tuning" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
         <div id="trackrecord" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-300"></div>
         <div id="asof" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
+        <select id="currency" class="ctrl" title="Display currency"></select>
+        <div id="authBox" class="flex items-center gap-2"></div>
         <button id="refreshBtn" class="px-3 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition">Refresh</button>
       </div>
     </header>
@@ -112,6 +119,7 @@
   <div id="drawer" class="fixed inset-y-0 right-0 w-[380px] bg-panel2 border-l border-line p-5 translate-x-full transition-transform duration-200 overflow-y-auto z-50"></div>
   <div id="scrim" class="fixed inset-0 bg-black/50 hidden z-40"></div>
 
+  <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

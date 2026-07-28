@@ -209,14 +209,19 @@ gates**. `tuning.py` is repurposed as a thin online layer that only nudges withi
 gates. *This is the model "trained in your environment" that actually moves returns —
 and it trains in seconds on CPU.*
 
-### P3 — Multi-user backend (closing the user loop)
-**Supabase** (hosted Postgres + Auth + Row-Level-Security). `engine.publish` writes
-each run to Postgres; serverless functions serve **per-user personalised re-rank**
-(a `user_vector` learned from that user's pins/dismissals) and persist feedback
-*server-side* (fixing the localStorage dead-end). Pins become `user_predictions`
-graded by the same outcome plumbing — so user feedback is **reconciled with reality**,
-not just collected. Frontend stays no-build (supabase-js via CDN); anonymous users
-keep the free static path.
+### P3 — Multi-user backend (closing the user loop)  ⚠️ LANDED, scoped-down v1 only (2026-07-27)
+**Supabase Auth + RLS** landed (`dashboard/auth.js`, migration 0011, ADR-025/026):
+magic-link sign-in, a real per-user `user_watchlist` (`auth.uid()`-scoped RLS,
+insert/delete only) — this is real, working **server-side persistence, fixing the
+localStorage dead-end** for the specific case of "save a market." Frontend stayed
+no-build (supabase-js via CDN) exactly as planned; anonymous users keep the free
+static path (`SUPABASE_URL`/`SUPABASE_ANON_KEY` both empty → the whole feature
+hides itself, zero regression). Still UNBUILT: **personalised re-rank** (a
+`user_vector` learned from pins/dismissals), and **`user_predictions`** — pins
+graded against realized returns the way the market-feedback loop grades the
+engine's own calls. A watchlist is a saved-list feature today, not yet a learning
+signal. Revisit once enough signed-in usage exists to make a `user_vector` worth
+building.
 
 ### P4 — Actuation, Safety & the Public Path
 The "**act in the world**" layer: `engine/alerts.py` (transition-based threshold

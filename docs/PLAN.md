@@ -177,6 +177,38 @@ active in production; this phase built the remaining 3.
   `--no-llm` dropped. `cheap_tags`/`smart_brief`/Analyst/Model-Upgrade are all
   live in production now, not just built.
 
+## Phase D — auth, per-user watchlist, display currency, investability panel  ✅ BUILT 2026-07-27
+Closes the "localStorage dead-end" called out in `docs/ARCHITECTURE.md` P3 (anonymous-only
+pin/dismiss) with a real, optional per-user identity, and adds the "can I actually buy
+this, and what does it cost" context Phase C's stock breakdown was missing. See
+ADR-023..026.
+- ✅ **FX reference rates** (`engine/sources/fx.py`, ADR-023) — Frankfurter (ECB, free,
+  keyless) daily USD-base rates for 17 major currencies; new `fx_rates` table (migration
+  0012); wired into `datapipeline.py`'s daily run and read back by `pipeline.py` into
+  `dashboard_data.json`'s `meta.fx`. Pure display convenience — never touches a score.
+- ✅ **Investability panel** (`stockvaluation.market_breakdown()`, ADR-024) — Phase C's
+  stock breakdown now carries `price`/`market_cap`/`currency`/`country` per stock (was
+  ratios/scores only); `_universe()` coalesces `securities.currency` to `'USD'` (never
+  populated at ingest — every tracked security is US-ticker-listed, see
+  `universescan.py`). Rendered as a compact line under each stock in the drawer.
+- ✅ **Display-currency selector** (`dashboard/app.js`) — `convertUSD()`/`money()`/
+  `marketCap()` convert the investability panel's USD-native figures into the selected
+  currency client-side using `meta.fx.rates`; a header `<select>` populated from whatever
+  currencies the latest FX snapshot has. Falls back to USD-only if `meta.fx` is null.
+- ✅ **Supabase Auth + per-user watchlist** (`dashboard/auth.js`, migration 0011,
+  ADR-025/026) — magic-link (email OTP) sign-in via `supabase-js` (CDN, no build step);
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY` read from `.env`, embedded in `meta.supabase` by
+  `pipeline.py`. A ★ toggle in the market drawer writes/deletes `user_watchlist` rows
+  (RLS-scoped to `auth.uid()`). Both env vars empty → the whole auth/watchlist UI hides
+  itself; the existing anonymous localStorage pin/dismiss flow is unaffected either way.
+- ✅ `DISCLAIMER.md` — two new clauses: FX rates are indicative/display-only (not
+  execution rates), and account/watchlist data is user-generated (not advice) and stored
+  by Supabase under its own terms.
+- ⬜ Not done this phase (documented gap, not a bug): a full multi-currency fundamentals
+  pipeline (re-deriving P/E etc. in non-USD) — deliberately out of scope, see ADR-023;
+  the pre-existing multi-currency 20-F PK-collision issue below is a separate, unrelated
+  problem (fundamentals ingestion, not display).
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F

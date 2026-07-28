@@ -8,6 +8,91 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-27 — Phase D: auth + per-user watchlist, display currency, investability panel
+
+Closed the P3 "localStorage dead-end" (ARCHITECTURE.md) and gave Phase C's stock
+breakdown the "can I actually buy this" context it was missing since it shipped
+(2026-07-25) with ratios/scores only.
+
+**Investigated before building anything.** Grepped the whole ingestion path for
+`currency` handling before assuming what "currency" in the task scope meant: found
+`securities.currency` exists in the schema (migration 0001) but `edgar.py` never sets
+it on insert — every tracked security is US-ticker-listed by construction
+(`universescan.py`), so it's silently always NULL today. Also confirmed
+`dashboard_data.json` had genuinely zero currency-denominated fields anywhere — every
+number the dashboard shows (P/E, dividend yield %, growth %) is dimensionless by
+design. That ruled out "fix a currency bug" as the scope and pointed at the real gap:
+Phase C's `market_breakdown()` computes `price`/`market_cap` internally (needed for the
+P/E calc) but never passed them through to the dashboard. Built the feature around that
+actual gap rather than a guessed one.
+
+**Shipped**, in dependency order (full detail: `docs/PLAN.md` Phase D, ADR-023..026):
+1. `engine/sources/fx.py` — Frankfurter (ECB, free, keyless) daily rates, new
+   `fx_rates` table (migration 0012), wired into `datapipeline.py`'s daily run.
+2. `pipeline.py` reads the latest FX snapshot back into `dashboard_data.json`'s
+   `meta.fx`, and embeds `SUPABASE_URL`/`SUPABASE_ANON_KEY` (new `engine/config.py`
+   constants, read from `.env`) into `meta.supabase` — the no-build frontend has
+   nowhere else to safely get config without hardcoding it into checked-in HTML.
+3. `stockvaluation.py`: `_universe()` now selects `currency` (coalesced to `'USD'` —
+   see investigation above) and `market_breakdown()`'s per-stock output gained
+   `price`/`market_cap`/`currency`/`country` — the investability panel's data.
+4. `dashboard/auth.js` (new) — thin `supabase-js` wrapper: magic-link sign-in,
+   `user_watchlist` CRUD (migration 0011, written earlier this session but never
+   wired to any UI until now). Degrades to `Auth.available() === false` (never
+   throws) when Supabase isn't configured or the CDN script didn't load.
+5. `dashboard/app.js` — `convertUSD()`/`money()`/`marketCap()` for client-side
+   display-currency conversion (never touches a score); a ★ toggle in the market
+   drawer wired to `Auth.toggleWatch`; sign-in/sign-out header controls.
+6. `index.html` — supabase-js CDN script (loaded synchronously, *not* `defer` —
+   first draft used `defer` and would have raced `auth.js`, which runs unde­ferred
+   at the bottom of body and executes before a deferred head script does; caught
+   before shipping, not in review).
+7. `DISCLAIMER.md` — FX rates are indicative/display-only; watchlist data is
+   user-generated, not advice, stored by Supabase under its own terms.
+
+**Learned:** the biggest risk on a loosely-specified task list (task names like "Update
+dashboard/app.js: currency, investability panel, watchlist star, auth UI" with no
+further spec) wasn't the implementation — it was guessing the wrong feature shape.
+Reading the actual data contract (`dashboard_data.json`, `market_breakdown()`'s output
+dict) before writing any frontend code turned "currency" from an ambiguous word into a
+concrete, small, correctly-scoped feature (display-only conversion of two fields that
+already existed one function-return away from being shipped).
+
+**Not done, deliberately:** a multi-currency fundamentals pipeline (ADR-023 — the
+ratios are dimensionless, re-deriving them per currency would be a no-op); turning the
+watchlist into a learning signal / `user_vector` (still P3's unbuilt half — a watchlist
+is a saved list today, not personalisation yet). Operator action still needed to
+activate in production: add `SUPABASE_URL`/`SUPABASE_ANON_KEY` as GitHub repo secrets
+(refresh.yml is already wired to pass them through — no build step to inject client-side
+config otherwise).
+
+**Addendum, same day — the investability panel immediately found a real bug.** The
+user spotted Comcast (CMCSA) showing an implausible P/E (2.46x) in the just-shipped
+panel. Investigated with the tools actually available in this sandbox (Postgres via
+Supabase MCP; SEC EDGAR and Tier B's Parquet store were both unreachable — the proxy
+blocks `data.sec.gov`, and Tier B only exists in CI): confirmed `market_cap` implies
+only ~2.06B CMCSA shares vs. Comcast's real multi-billion count, and found two real
+code issues by reading `engine/sources/edgar.py` and cross-checking production data:
+(1) **confirmed & fixed** — `filing_rows[accn]` took whichever XBRL fact was iterated
+first as the filing's `period_end`/`fiscal_period`, not necessarily the filing's own
+primary period (a 10-Q's comparative prior-year figures can be iterated first); proven
+via prod query: 3 real CMCSA 10-Qs filed months apart all recorded
+`period_end='2024-12-31'`. Fixed to keep the fact with the latest `end` per accession.
+(2) **suspected, not fixed** — `shares_outstanding` merges 3 XBRL concepts into one
+metric_code with no per-class dedup key; `metric_catalog.json`'s own notes say
+multi-class issuers' per-class facts should be summed, but no code does that. Rather
+than guess a fix I couldn't verify without live data, added a new quality.py check
+(`shares_concept_disagreement`, comparing `raw_tag` variants) to surface this class of
+issue going forward, and recorded a `lessons` row (id 807, scope
+`quality:shares_concept_disagreement`) with the full investigation so a future session
+with real Tier B/EDGAR access can finish the diagnosis without re-deriving it. This is
+exactly the Quality-Triage feedback loop (`engine/qualitytriage.py`) working as
+designed — the new check will fire on the next ingest, triage will explain root cause
++ propose a follow-up check via LLM, and it'll land in the same `lessons` table
+alongside this manual entry.
+
+---
+
 ## 2026-07-25 — Weekly rebalance cadence gives the first `significant: true` results; Analyst/Model-Upgrade verified live; Phase C shipped
 
 Three real threads today, all started from direct user follow-ups on

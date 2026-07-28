@@ -111,6 +111,17 @@ ZAI_API_KEY = os.getenv("ZAI_API_KEY", "").strip()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "").strip()  # set for Ollama Cloud (remote endpoint)
 
+# --- Supabase (client-side) — Phase D auth + per-user watchlist ---
+# The anon/publishable key is DESIGNED to be public — it's an RLS-scoped client
+# key, not a secret (supabase.com/docs/guides/api/api-keys); DATABASE_URL above
+# stays the only credential that must never leave the server. Embedded into
+# dashboard_data.json's meta so the no-build static frontend (dashboard/auth.js)
+# can init supabase-js without a value hardcoded into checked-in HTML. Both
+# empty -> the frontend hides the auth/watchlist UI and degrades to the existing
+# anonymous localStorage-only pin/dismiss flow.
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "").strip()
+
 
 def sec_user_agent() -> str:
     """SEC EDGAR's fair-use policy requires a descriptive User-Agent identifying

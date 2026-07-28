@@ -156,6 +156,11 @@ python -m engine.datapipeline            # probe -> ingest (EDGAR) -> tag -> val
 python -m engine.datapipeline --agents   # also run the LLM agents (needs a model)
 ```
 
+Optional — sign-in + a per-user watchlist (otherwise the dashboard stays fully usable,
+anonymous, pin/dismiss via localStorage): set `SUPABASE_URL` / `SUPABASE_ANON_KEY` in
+`.env` (Settings → API in your Supabase project — the anon/publishable key, safe to
+expose client-side). See `docs/DECISIONS.md` ADR-025/026.
+
 ## Project structure
 
 ```

@@ -30,6 +30,13 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}   # ledger/predictions now live in Postgres
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}   # Ollama Cloud — tier-1 for cheap_tags/smart_brief/agents
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # Groq — cross-provider rate-limit fallback
+      # Phase D (ADR-025/026) — the anon/publishable key is DESIGNED to be public
+      # (RLS-scoped, not a secret) but still comes from a repo secret so it isn't
+      # hardcoded in this file; pipeline.py embeds both into the published JSON,
+      # since the static dashboard has no build step to inject env vars otherwise.
+      # Both unset (until an operator adds them) -> auth/watchlist UI stays hidden.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 

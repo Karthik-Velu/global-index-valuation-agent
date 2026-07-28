@@ -137,6 +137,28 @@ def _checks(cur) -> list[dict]:
             issues.append({"check_name": "source_disagreement", "severity": "warn", "scope": "metric",
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
+
+    # 7. Concept disagreement within XBRL itself: shares_outstanding merges THREE
+    #    different tags (dei:EntityCommonStockSharesOutstanding, us-gaap:CommonStock-
+    #    SharesOutstanding, us-gaap:CommonStockSharesIssued — see metric_catalog.json)
+    #    into one metric_code, and multi-class issuers (e.g. dual-class share
+    #    structures) can report per-class facts under `us-gaap:CommonStockShares-
+    #    Outstanding` that this codebase's own catalog notes say should be SUMMED but
+    #    aren't (found investigating a wrong Comcast P/E, 2026-07-27 — see JOURNAL).
+    #    `source_disagreement` above only compares across `source` (xbrl vs simfin
+    #    etc.), not across DIFFERENT xbrl CONCEPTS sharing one metric_code — this
+    #    catches that gap using the `raw_tag` column captured at ingest.
+    cur.execute("""select s.ticker, fm.period_end, min(fm.value), max(fm.value),
+                          count(distinct fm.raw_tag)
+                   from fundamental_metrics fm join securities s on s.id=fm.security_id
+                   where fm.metric_code='shares_outstanding' and fm.value > 0
+                   group by s.ticker, fm.period_end having count(distinct fm.raw_tag) > 1""")
+    for tk, pe, lo, hi, ntag in cur.fetchall():
+        if hi / lo > 1.5:
+            issues.append({"check_name": "shares_concept_disagreement", "severity": "warn",
+                           "scope": "metric", "entity": tk, "metric_code": "shares_outstanding",
+                           "detail": f"{ntag} xbrl concepts disagree on shares_outstanding {pe}: "
+                                     f"{lo:,.0f} vs {hi:,.0f} — likely an unsummed multi-class fact"})
     return issues
 
 
@@ -227,6 +249,19 @@ def _checks_tierb(duck, cur) -> list[dict]:
             issues.append({"check_name": "source_disagreement", "severity": "warn", "scope": "metric",
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
+
+    # 7. Concept disagreement within XBRL itself — same reasoning as the Postgres twin.
+    for tk, pe, lo, hi, ntag in duck.execute(
+            """select s.ticker, fm.period_end, min(fm.value), max(fm.value),
+                      count(distinct fm.raw_tag)
+               from fundamental_metrics fm join securities_live s on s.id=fm.security_id
+               where fm.metric_code='shares_outstanding' and fm.value > 0
+               group by s.ticker, fm.period_end having count(distinct fm.raw_tag) > 1""").fetchall():
+        if hi / lo > 1.5:
+            issues.append({"check_name": "shares_concept_disagreement", "severity": "warn",
+                           "scope": "metric", "entity": tk, "metric_code": "shares_outstanding",
+                           "detail": f"{ntag} xbrl concepts disagree on shares_outstanding {pe}: "
+                                     f"{lo:,.0f} vs {hi:,.0f} — likely an unsummed multi-class fact"})
     return issues
 
 
