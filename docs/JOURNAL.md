@@ -8,6 +8,44 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-29 — Daily health check: tierb_only visibility fix confirmed live; shares_outstanding tie-break fixed
+
+Two consecutive daily health checks (07-28, 07-29) confirmed the `tierb_only` fix
+shipped in PR #15 is working — `'tierb_only': True` now appears in the ingest stats
+line for the first time since cutover. No `tierb_error`, tierb reconcile clean no-op
+both days. Recurring, non-actionable pattern: `data-pipeline.yml`'s 06:00 UTC cron has
+fired 2-3 hours late for 3 days running (platform-side GitHub Actions scheduling,
+confirmed via YAML/config review — not a repo issue).
+
+**The `shares_concept_disagreement` check (shipped 07-27) found a real, widespread
+problem, not a one-off.** It fired 421 times out of 1,005 securities in the 07-28 run
+(~42%) — the single largest issue category, pulling quality score from 93→86/100 (still
+well above collapse). Quality-Triage ran on it automatically twice (07-28, 07-29) but
+both proposals were too generic to act on. Couldn't verify real per-ticker XBRL data
+this session either (Tier B is CI-only, not present locally; `data.sec.gov` returned
+403 from this sandbox) — so traced the actual bug by reading code instead:
+`stockvaluation.py::_nth_per_security()` picks the latest `period_end` per
+(security_id, metric_code) via a plain sort+`tail(1)`, with **no tie-break** when
+multiple XBRL concepts (dei vs us-gaap tags) report `shares_outstanding` for the exact
+same `period_end` — common (e.g. a 10-K cover-page date matching fiscal year end). The
+winner was whichever row happened to be inserted last — an ingest-order accident, not a
+choice. That's the real mechanism behind the wrong CMCSA P/E.
+
+**Fixed:** added `_resolve_shares_concept()` — deterministically prefers
+`dei:EntityCommonStockSharesOutstanding` > `us-gaap:CommonStockSharesOutstanding` >
+`us-gaap:CommonStockSharesIssued`, per `metric_catalog.json`'s own documented guidance
+("dei:... is the cleanest for current market cap"). Verified with a synthetic fixture
+reproducing the CMCSA shape (two concepts, same period_end, ~2x value gap) plus a
+shuffled-row-order run to confirm the pick is order-independent, and confirmed it
+composes correctly with the existing latest-period selection. **Still open:** true
+per-class summing (Class A + Class B reported separately under the SAME concept via
+XBRL dimensional members) is a different failure mode this does NOT fix — needs
+per-class dimensional data `fundamental_metrics` doesn't carry today. Recorded as an
+update to lesson 807 (now `active`, confidence 0.65) rather than a new lesson, so the
+investigation trail stays in one place.
+
+---
+
 ## 2026-07-27 — Phase D: auth + per-user watchlist, display currency, investability panel
 
 Closed the P3 "localStorage dead-end" (ARCHITECTURE.md) and gave Phase C's stock

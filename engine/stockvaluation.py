@@ -39,6 +39,40 @@ FLOW_CODES = ("total_revenue", "net_income", "operating_cash_flow")
 INSTANT_CODES = ("total_equity", "shares_outstanding")
 ALL_CODES = FLOW_CODES + INSTANT_CODES
 
+# shares_outstanding is the one INSTANT metric where "freshest wins" isn't enough:
+# EDGAR reports it under three different XBRL concepts (see metric_catalog.json),
+# and it's common for two of them to land on the exact same period_end (e.g. a
+# 10-K cover-page date matching the fiscal year end) — so a tie on date alone
+# leaves the choice to whichever row happened to be inserted last, an accident of
+# ingest ordering, not a deliberate one. That silently corrupted market_cap/P/E
+# for CMCSA (found 2026-07-27, JOURNAL) and turned out to be widespread — the
+# shares_concept_disagreement quality check fired on ~42% of ingested securities
+# the next two daily runs (JOURNAL 2026-07-29). Break same-date ties using the
+# catalog's own documented preference instead of insertion order.
+_SHARES_TAG_PRIORITY = {
+    "dei:EntityCommonStockSharesOutstanding": 0,   # catalog: "cleanest for current market cap"
+    "us-gaap:CommonStockSharesOutstanding": 1,
+    "us-gaap:CommonStockSharesIssued": 2,
+}
+
+
+def _resolve_shares_concept(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse multiple XBRL concepts reporting shares_outstanding for the same
+    (security_id, period_end) down to one row, by catalog-documented preference.
+    Leaves every other metric_code (incl. total_equity) untouched. This does NOT
+    fix true multi-class summing (e.g. Class A + Class B counted separately under
+    the SAME concept) — that needs per-class dimensional data this table doesn't
+    carry; still open, tracked in the shares_concept_disagreement lesson."""
+    is_shares = df["metric_code"] == "shares_outstanding"
+    if not is_shares.any():
+        return df
+    shares = df[is_shares].copy()
+    shares["_pri"] = shares["raw_tag"].map(_SHARES_TAG_PRIORITY).fillna(99)
+    shares = (shares.sort_values(["security_id", "period_end", "_pri"])
+                    .drop_duplicates(["security_id", "period_end"], keep="first")
+                    .drop(columns="_pri"))
+    return pd.concat([df[~is_shares], shares], ignore_index=True)
+
 
 def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
     """Pivot to security_id x metric_code, taking the nth-most-recent period_end
@@ -66,7 +100,7 @@ def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
     fm["value"] = pd.to_numeric(fm["value"], errors="coerce")
 
     flow = fm[fm["metric_code"].isin(FLOW_CODES) & (fm["fiscal_period"] == "FY")]
-    instant = fm[fm["metric_code"].isin(INSTANT_CODES)]
+    instant = _resolve_shares_concept(fm[fm["metric_code"].isin(INSTANT_CODES)])
     latest_flow, prior_flow = _nth_per_security(flow, 0), _nth_per_security(flow, 1)
     latest_instant = _nth_per_security(instant, 0)
     if latest_flow.empty and latest_instant.empty:
