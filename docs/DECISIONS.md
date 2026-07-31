@@ -9,6 +9,38 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-027 · "How to invest": issuer root-domain links + an LRS access route, never a broker or a guessed URL
+- **Context:** user feedback (2026-07-31), and the sharpest of three UI gaps: *"there is no
+  link to find the way to invest in the recommendations — which is most important, and for
+  an Indian investor."* True — the dashboard ranked 132 markets and said nothing about how
+  to act on any of them. The investability line (ADR-024) showed price/market-cap but was
+  static text with no link anywhere in the app.
+- **Choice:** new `engine/investing.py` emitting three things into `dashboard_data.json`:
+  per-row `issuer` (display name + **root domain only**, `None` when unconfirmed), a single
+  `meta.access_route` describing the India/LRS route, and `meta.issuer_coverage`. Rendered
+  in the drawer as a "How to invest" block. New DISCLAIMER section covers it.
+- **Why the three hard constraints:**
+  1. **No fabricated URLs.** Issuer deep links are *not* derivable from a ticker — EWY's
+     iShares page is `/products/239681/`, and nothing in "EWY" yields `239681`. Issuer
+     sites also 403 automated lookups (verified: `ishares.com` returns 403 to WebFetch), so
+     a generated deep link cannot be checked before shipping. Root domains always resolve;
+     the ticker is displayed prominently so the user's own search is one step. Deep links
+     are a follow-up needing an id-resolver run from an environment with issuer-site access.
+  2. **No issuer guessing.** `_ISSUERS` covers the families we are sure of (113/132 = 85.6%);
+     the other 19 render "issuer not attributed" rather than a plausible-looking guess.
+     Wrong attribution is a factual error shown to someone making a money decision.
+  3. **No broker recommendation.** We name the *mechanism* (LRS + any SEBI-registered
+     platform offering US investing), never a provider — picking one is advice we are
+     neither positioned nor licensed to give, and the user's own platform choice is theirs.
+- **Rejected alternatives:** *INDmoney deep links* — closest to what was asked, but its MCP
+  connector dropped mid-session and its URL scheme was unverifiable; shipping dead links is
+  worse than shipping none (user chose this trade-off explicitly when asked). *Generic quote
+  pages (Yahoo/Google Finance)* — a research page, not a buy path, so it doesn't answer the
+  question. *Ticker-only with no link* — honest but thin.
+- **Date:** 2026-07-31
+
+---
+
 ### ADR-026 · Auth: Supabase magic-link (email OTP), client-side only, no server session
 - **Context:** Phase D needs a real per-user identity for `user_watchlist` (migration
   0011, `auth.uid()`-scoped RLS) — the dashboard's existing feedback loop is anonymous
