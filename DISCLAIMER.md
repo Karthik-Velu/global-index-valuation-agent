@@ -71,3 +71,32 @@ authentication and database provider, [Supabase](https://supabase.com), under it
 of service and privacy policy. A saved watchlist is a personal organizational tool only —
 it is **not** a recommendation, disclosed holding, or any form of investment advice, and
 carries no obligation on our part to notify you of anything about the markets you save.
+
+## "How to invest" is route information, not advice or a recommendation
+
+Each market on the scoreboard is tracked via a **US-listed ETF proxy**, and the drawer
+shows that proxy's ticker, its issuer (where we have confirmed it), and a plain-language
+description of the **access route** an India-based investor would use — the RBI Liberalised
+Remittance Scheme (LRS). This is provided so you can understand *how a position of this
+kind would be established*, and is **not**:
+
+- a recommendation to buy, sell, or hold that ETF or any other instrument;
+- an endorsement of, or affiliation with, any fund issuer, broker, or platform. We
+  deliberately name **no** broker or investing platform. Any SEBI-registered platform
+  offering US equity investing under LRS could execute such a trade; choosing among them,
+  and the diligence that requires, is entirely yours;
+- an offer or solicitation in any jurisdiction, or a statement that any listed instrument
+  is suitable, available, or lawful for you to purchase.
+
+Issuer links point to the **issuer's home page only** — we do not deep-link to individual
+fund pages, and we do not host, mirror, or vouch for issuer content. The ETF proxy is our
+*measurement instrument* for a market's valuation, chosen for methodological consistency;
+its appearance here is not a judgement that it is the best, cheapest, or most suitable
+vehicle for that exposure.
+
+**Regulatory and tax points are general, time-sensitive, and may be out of date.** LRS
+limits, TCS rates and thresholds, capital-gains treatment of foreign assets, ITR
+(Schedule FA) reporting duties, and US estate-tax exposure on US-situs assets all change,
+and their application depends on your individual circumstances and residency. Nothing here
+is tax, legal, or financial advice. **Confirm current rules with a qualified adviser before
+acting.**

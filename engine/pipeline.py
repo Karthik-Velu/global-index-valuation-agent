@@ -132,6 +132,23 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         except Exception as e:
             print(f"   WARNING: fx lookup failed: {str(e)[:160]}")
 
+    # 5f. Investability (ADR-027) — "how do I act on this". Issuer attribution
+    # rides per-row (small: name + root domain, None when unconfirmed); the
+    # access-route explainer is emitted ONCE in meta rather than duplicated
+    # across 132 rows.
+    from . import investing
+    for row in scoreboard:
+        row["issuer"] = investing.issuer_for(row.get("symbol") or "")
+
+    # Which markets have NO bottom-up stock rows, and why — so the UI can say
+    # "no US-listed constituents tracked for this market" instead of rendering
+    # a silent blank (the Phase C gap the user hit: 61 of 132 markets show
+    # nothing with no explanation). The reason is structural, not a failure:
+    # our stock universe is EDGAR-derived, i.e. US filers only, so a market
+    # whose constituents don't file with the SEC has nothing to break down.
+    missing_breakdown = sorted(r["key"] for r in scoreboard
+                               if not stock_breakdown.get(r["key"]))
+
     payload = {
         "asof": asof,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -153,6 +170,16 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
             "note": "Scores are cross-sectional within each kind (countries vs countries, etc.).",
             "fx": fx,
             "supabase": {"url": SUPABASE_URL, "anon_key": SUPABASE_ANON_KEY},
+            "access_route": investing.ACCESS_ROUTES.get("IN"),
+            "issuer_coverage": investing.coverage(),
+            "stock_coverage": {
+                "with_breakdown": len(scoreboard) - len(missing_breakdown),
+                "total": len(scoreboard),
+                "missing": missing_breakdown,
+                "why": "Bottom-up stock rows come from SEC EDGAR filings, so only "
+                       "markets with US-listed (SEC-filing) constituents have them. "
+                       "Foreign-domiciled markets without US filers show none.",
+            },
         },
     }
     payload = _clean(payload)

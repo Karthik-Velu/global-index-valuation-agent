@@ -347,6 +347,39 @@ function applyFilters() {
     (!reg || m.region === reg) && (!dev || m.development === dev) &&
     (!band || m.value_band === band) && (!hideRich || !m.overvalued));
 }
+// Why did this filter combination return nothing? A blank table reads as "the app
+// is broken" — most often it's a real, explainable coverage boundary. The common
+// one (reported by the user): focus=Sectors + region=Europe/Asia-Pacific, because
+// every sector proxy we track is a US or Global fund, so none carry a non-US
+// region tag. Name the actual cause and offer the way out.
+function emptyStateHTML() {
+  const reg = $('#fRegion').value, dev = $('#fDev').value, band = $('#fBand').value;
+  const q = $('#search').value.trim(), hideRich = $('#fHideRich').checked;
+  const focus = STATE.focus;
+  let why = 'No markets match this combination of filters.';
+
+  if (reg && focus !== 'All') {
+    // Which regions DO carry this kind? Derived from the data, not hardcoded, so
+    // it stays true as the universe grows.
+    const regionsForKind = [...new Set(STATE.rows.filter(m => m.kind === focus).map(m => m.region))].sort();
+    if (!regionsForKind.includes(reg)) {
+      why = `No <b>${KIND_LABEL[focus] || focus}</b> are tracked for <b>${reg}</b>.
+        ${KIND_LABEL[focus] || focus} coverage currently spans: ${regionsForKind.map(r => `<b>${r}</b>`).join(', ')}.
+        <span class="block mt-1 text-slate-500">Each ${focus.toLowerCase()} is tracked via a US-listed ETF proxy, and the
+        liquid ones are US- or globally-scoped — so a region-specific ${focus.toLowerCase()} view
+        needs regional ${focus.toLowerCase()} funds added to the universe (a known gap, not a bug).</span>`;
+    }
+  } else if (q) {
+    why = `Nothing matches “<b>${q}</b>” under the <b>${KIND_LABEL[focus] || focus}</b> lens.`;
+  } else if (band || hideRich || dev) {
+    why = `No <b>${KIND_LABEL[focus] || focus}</b> match these valuation filters right now.`;
+  }
+  return `<div class="text-center text-xs text-slate-400 leading-relaxed max-w-xl mx-auto">
+    <div class="text-2xl mb-1 opacity-40">⌀</div>
+    <div>${why}</div>
+    <button id="clearFilters" class="ctrl mt-3">Clear filters</button></div>`;
+}
+
 function renderTable() {
   $('#thead').innerHTML = COLS.map(([k, label]) => {
     const arrow = STATE.sort.key === k ? (STATE.sort.dir < 0 ? ' ↓' : ' ↑') : '';
@@ -364,8 +397,16 @@ function renderTable() {
     return dir * (((a[key] ?? -1) - (b[key] ?? -1)));
   });
   $('#rowcount').textContent = `${rows.length} of ${focusedRows().length} markets`;
-  $('#tbody').innerHTML = rows.map(m => `<tr data-mk="${m.key}">${COLS.map(([k, , f]) => `<td>${f(m)}</td>`).join('')}</tr>`).join('');
-  $$('#tbody tr').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.mk));
+  $('#tbody').innerHTML = rows.length
+    ? rows.map(m => `<tr data-mk="${m.key}">${COLS.map(([k, , f]) => `<td>${f(m)}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${COLS.length}" class="py-6">${emptyStateHTML()}</td></tr>`;
+  $$('#tbody tr[data-mk]').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.mk));
+  const clr = $('#clearFilters');
+  if (clr) clr.onclick = () => {
+    $('#search').value = ''; $('#fRegion').value = ''; $('#fDev').value = '';
+    $('#fBand').value = ''; $('#fHideRich').checked = false;
+    renderTable();
+  };
 }
 
 // ---- bottom-up: stocks within this market (Phase C) ----
@@ -393,9 +434,46 @@ function stockRow(s) {
 }
 function stockBreakdownBlock(key) {
   const rows = STATE.data.stock_breakdown && STATE.data.stock_breakdown[key];
-  if (!rows || !rows.length) return '';
-  return `<div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">Top stocks within this market (bottom-up)</div>
-    ${rows.map(stockRow).join('')}`;
+  const head = `<div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">Top stocks within this market (bottom-up)</div>`;
+  // An absent breakdown used to render as nothing at all — a silent blank for
+  // 61 of 132 markets. Say WHY: it's a structural coverage boundary (our stock
+  // universe is SEC/EDGAR-derived), not a glitch or a still-loading state.
+  if (!rows || !rows.length) {
+    const why = STATE.data.meta?.stock_coverage?.why
+      || 'Bottom-up stock rows come from SEC EDGAR filings, so only markets with US-listed constituents have them.';
+    return `${head}<div class="text-[11px] text-slate-500 leading-relaxed bg-panel2 border border-line rounded-lg p-2.5">
+      No stock-level breakdown for this market. ${why}</div>`;
+  }
+  return `${head}${rows.map(stockRow).join('')}`;
+}
+
+// ---- how to invest (ADR-027) ----
+// Answers "I like this call — now what?". Issuer links are ROOT domains only and
+// may be absent (engine/investing.py never guesses an issuer); the access route
+// names the LRS mechanism, never a broker.
+function investBlock(m) {
+  const access = STATE.data.meta?.access_route;
+  const issuer = m.issuer;
+  const issuerLine = issuer
+    ? `<a href="${issuer.url}" target="_blank" rel="noopener noreferrer"
+         class="text-accent hover:underline">${issuer.name} ↗</a>`
+    : `<span class="text-slate-500">issuer not attributed</span>`;
+  const points = access?.points?.length
+    ? `<ul class="list-disc pl-4 mt-1.5 space-y-0.5 text-slate-400">${access.points.map(p => `<li>${p}</li>`).join('')}</ul>`
+    : '';
+  return `
+    <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-4 mb-1">How to invest</div>
+    <div class="rounded-lg bg-panel2 border border-line p-3 text-xs leading-relaxed">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div><span class="text-slate-400">Ticker</span>
+             <span class="ml-1.5 font-semibold text-slate-100 tabular-nums">${m.symbol}</span>
+             <span class="ml-1.5 text-slate-500">· US-listed ETF</span></div>
+        <div>${issuerLine}</div>
+      </div>
+      ${access ? `<div class="text-slate-300 font-medium">${access.label}</div>
+        <div class="text-slate-400 mt-0.5">${access.summary}</div>${points}
+        <div class="text-slate-500 mt-2 pt-2 border-t border-line/60 italic">${access.note}</div>` : ''}
+    </div>`;
 }
 
 // ---- drill-down drawer ----
@@ -439,6 +517,7 @@ function openDrawer(key) {
       ${row('vs 200d MA', pct(m.ma200_ratio))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
       ${row('Flags', flagPills(m))}
       ${stockBreakdownBlock(key)}
+      ${investBlock(m)}
     </div>
     <div class="mt-4">
       <div class="text-xs text-slate-400 mb-1.5">Does this call look right to you?</div>

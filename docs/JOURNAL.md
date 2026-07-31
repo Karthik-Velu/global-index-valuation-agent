@@ -8,6 +8,53 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-31 — UI: "how to invest" (ADR-027) + two silent-blank fixes the user hit
+
+User feedback, three specific gaps — all reproduced against the real snapshot before
+touching anything, all real:
+
+1. **"No sectors when I click Europe or Asia-Pacific."** Confirmed, and it is a
+   *universe* gap, not a filter bug: all 37 sector proxies are tagged `Global` (14)
+   or `North America` (23). Zero non-US regional sectors exist, because the liquid
+   sector ETFs are US- or globally-scoped. Filtering to Europe correctly matched
+   nothing — and then rendered a completely blank table, which reads as breakage.
+2. **"No stock-level breakdown from a sector/index."** Partly a misread, mostly ours:
+   all 37 sectors *do* have breakdowns, but **61 of 132 markets don't** (41 countries,
+   10 regions, 5 broad, 5 style), and `stockBreakdownBlock()` returned `''` for them —
+   a silent blank with no explanation. The cause is structural: our stock universe is
+   EDGAR-derived (US filers), so a market with no SEC-filing constituents has nothing
+   to break down.
+3. **"No links on how to invest — most important, and for an Indian investor."**
+   Entirely true. There was no link anywhere in the app; the investability line was
+   static text.
+
+**Shipped.** New `engine/investing.py` → `meta.access_route` (India/LRS explainer),
+per-row `issuer`, `meta.issuer_coverage`, `meta.stock_coverage`; a "How to invest"
+block in the drawer; a real empty-state for the table that *names the actual reason*
+(derived from the data: "Sectors coverage currently spans Global, North America") with
+a Clear-filters escape hatch; and an explained empty-state for missing breakdowns.
+New DISCLAIMER section (route info ≠ advice; no broker endorsement; tax/LRS points are
+general and time-sensitive).
+
+**Three constraints held deliberately (ADR-027).** No fabricated URLs — issuer deep
+links aren't derivable from a ticker (EWY → `/products/239681/`) and issuer sites 403
+automated lookups, so deep links can't be verified pre-ship; root domains only. No
+issuer guessing — 113/132 (85.6%) attributed, the other 19 render "issuer not
+attributed" rather than a plausible guess. No broker named — the LRS *mechanism*, not
+a provider. The user was asked and explicitly chose this trade-off over INDmoney deep
+links (its MCP connector had dropped, so the URL scheme was unverifiable).
+
+Verified by rendering the actual HTML fragments against the live snapshot with a DOM
+stub (`scratchpad/render_test.js`) — empty state, both breakdown states, invest block
+with and without a known issuer — and asserting only root domains appear in `href`s.
+
+**Still open:** regional sector coverage needs real research into which regional sector
+ETFs exist and are liquid — that's a Source-Discovery agent job, not something to guess
+tickers for. Deep per-fund issuer links need an id-resolver run from an environment
+with issuer-site access. The 19 unattributed issuers need a verified source.
+
+---
+
 ## 2026-07-29 — Daily health check: tierb_only visibility fix confirmed live; shares_outstanding tie-break fixed
 
 Two consecutive daily health checks (07-28, 07-29) confirmed the `tierb_only` fix
