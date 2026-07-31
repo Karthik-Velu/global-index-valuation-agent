@@ -127,6 +127,20 @@ UNIVERSE: list[Index] = [
     _ix("gsec_indu", "Global Industrials", "EXI", "Global", "Global", "Global", "Sector"),
     _ix("gsec_util", "Global Utilities", "JXI", "Global", "Global", "Global", "Sector"),
     _ix("gsec_comm", "Global Communication", "IXP", "Global", "Global", "Global", "Sector"),
+    # -- Regional sectors --
+    # Only ONE exists that we can use, and that is a finding, not an oversight
+    # (researched 2026-07-31 after a user asked why filtering Sectors to Europe or
+    # Asia-Pacific returned nothing). US-listed REGIONAL sector ETFs barely exist:
+    # the iShares MSCI Europe sector family (ESIF financials, ESIH health care,
+    # ESIT infotech, ESIN industrials, ESIE energy) is **UCITS**, listed on LSE/
+    # Xetra — using it would break both the US-listed invariant this universe is
+    # built on and the LRS access route the dashboard documents (ADR-027). EUFN is
+    # the sole US-listed regional sector fund with real depth ($3.89B AUM, 99
+    # holdings, iShares since 2010). No liquid US-listed Asia-Pacific SECTOR ETF
+    # was found — the closest (KTEC) is China/HK tech, i.e. a country-tech slice,
+    # not an Asia-Pacific sector — so Asia-Pacific sector coverage stays at zero
+    # and the dashboard's empty state says so honestly rather than implying a bug.
+    _ix("sec_eu_fin", "Europe Financials", "EUFN", "Europe", "Europe", "Developed", "Sector"),
     # -- US industries (liquid, investable slices below the GICS sectors) --
     _ix("ind_software", "US Software", "IGV", "United States", "North America", "Developed", "Sector"),
     _ix("ind_regbanks", "US Regional Banks (KRE)", "KRE", "United States", "North America", "Developed", "Sector"),

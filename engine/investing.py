@@ -49,7 +49,7 @@ for _t in ("EWA", "EWC", "EWD", "EWG", "EWH", "EWI", "EWJ", "EWK", "EWL", "EWM",
            "ACWX", "URTH", "AIA", "INDA", "INDY", "SMIN", "THD", "TUR", "FXI",
            "MCHI", "IVV", "IVE", "IVW", "IJH", "IWM", "USMV", "QUAL", "MTUM",
            "ITA", "ITB", "IGV", "IYT", "IXC", "IXG", "IXJ", "IXN", "IXP", "JXI",
-           "KXI", "MXI", "RXI", "EXI"):
+           "KXI", "MXI", "RXI", "EXI", "EUFN"):
     _ISSUERS[_t] = _ISSUER_ISHARES
 
 # -- SPDR / State Street: Select Sector (XL*) + industry (X*/K*) families --

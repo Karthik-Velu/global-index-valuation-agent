@@ -8,6 +8,66 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-31 (later) — Questionnaire sweep: quality check narrowed, backtest HAC-corrected, regional sectors researched
+
+Ran an open-questions questionnaire past the user and worked the answers.
+
+**Corrected a stale claim of my own.** The questionnaire offered "extend backtest
+depth (only 9 periods, gate needs 12+)" — that was already solved on 07-25 by
+ADR-022's weekly cadence (39 periods; `opportunity_score` significant at all four
+horizons). The genuinely open weakness was the *uncorrected overlap*, which ADR-022
+had explicitly deferred as a caveat. Fixed that instead.
+
+**1. `shares_concept_disagreement` → `shares_multiclass_unsummed`.** The v1 check
+fired exactly 421× on three consecutive runs, unchanged even after the ADR-027
+tie-break shipped — because it flagged *normal EDGAR*: the three concepts behind
+`shares_outstanding` legitimately differ (cover-page date vs balance-sheet date vs
+issued-incl-treasury). Narrowed to the actually-broken case: the SAME concept
+carrying multiple values for one (security, period_end), i.e. an unsummed
+dual-class issuer. Verified on a DuckDB fixture — a CMCSA-shaped cross-concept
+spread no longer fires; a GOOG-shaped same-concept split does.
+
+**2. Newey-West (HAC) t-stat in the backtest.** Weekly rebalancing makes adjacent
+ICs serially correlated; the plain t-stat assumes independence and so overstates
+significance worst where overlap is worst. Added a Bartlett-kernel HAC SE with the
+lag derived from real window overlap; `significant` now gates on the corrected
+statistic, with `t_stat_naive` kept alongside (synthetic: 13.31 → 6.64).
+
+Two bugs found *by testing the estimator instead of trusting it* — worth
+remembering, since both would have silently produced confident-looking numbers:
+- At 12m/weekly the theoretical lag is 52 against n≈39. Bartlett HAC destabilises
+  as lag → n: measured, lag=25 gave a **smaller** SE than lag=0, which would have
+  made an overlapping series look *more* significant — the exact inverse of the
+  correction's purpose. Capped at n/4, with `lag_capped` reported so partial
+  correction stays visible.
+- The degenerate guard `gamma0 <= 0` let a constant series' float dust (~3e-17)
+  through, yielding an absurd t-stat off zero variance. Now a relative tolerance.
+
+**3. Regional sectors — researched, and the gap is mostly structural.** The user's
+"no sectors under Europe/Asia-Pacific" turns out to have a real, checkable answer:
+US-listed *regional sector* ETFs barely exist. The iShares MSCI Europe sector family
+(ESIF/ESIH/ESIT/ESIN/ESIE) is **UCITS**, listed on LSE/Xetra — adopting it would
+break both the US-listed invariant this universe rests on and the LRS access route
+ADR-027 documents. **EUFN** is the one usable addition (US-listed, $3.89B AUM, 99
+holdings, iShares since 2010) and is now in the universe, so Europe shows 1 sector
+instead of 0. No liquid US-listed **Asia-Pacific sector** ETF was found — the
+nearest, KTEC, is China/HK tech, a country-tech slice rather than a regional
+sector — so Asia-Pacific stays at zero and the empty state says so honestly.
+
+**Also:** fixed `~/.claude/stop-hook-git-check.sh` to skip commits committed by
+`GitHub <noreply@github.com>` (PR merge commits) — it had been flagging them every
+session, and its suggested `--reset-author` fix would have rewritten published
+`main` history *and* reattributed the user's merge commit to us. Verified against
+all four cases (GitHub merge, our signed commit, our unsigned commit, wrong email).
+
+**Still open:** the 19 unattributed issuers; deep per-fund links (need issuer-site
+access — `ishares.com` 403s automated fetches); the CI Tier-B sample-dump job the
+user approved; per-class share summing itself (the new check now *detects* it, but
+nothing sums yet); and the operator actions the user said they'd do — rotate
+`OLLAMA_API_KEY`/`GROQ_API_KEY` (repo is public) and set the Supabase secrets.
+
+---
+
 ## 2026-07-31 — UI: "how to invest" (ADR-027) + two silent-blank fixes the user hit
 
 User feedback, three specific gaps — all reproduced against the real snapshot before
