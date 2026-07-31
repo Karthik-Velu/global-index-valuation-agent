@@ -228,10 +228,37 @@ def any_available() -> bool:
 LLM_ENABLED = any_available()
 
 
+# Provenance for a market tag. `_fallback_brief` has always disclosed itself in
+# its own text ("LLM narrative disabled — ..."), but `_fallback_tag` returns
+# strings ("Cheap and growing — GARP sweet spot") that are indistinguishable from
+# model output, so a reader could not tell a generated label from a deterministic
+# one. Flagged in the 2026-07-22 production audit; closed here.
+#
+# Carried as STRUCTURED provenance rather than appended to the tag text: the tag
+# is user-facing UI copy, and "(deterministic)" glued onto 133 of them is noise.
+# A field lets the dashboard mark it subtly and lets any downstream consumer
+# filter on it.
+TAG_LLM = "llm"
+TAG_FALLBACK = "deterministic"
+
+
 def cheap_tags(markets: list[dict]) -> dict[str, str]:
-    """One short, plain-English tag per market. Batched into a single cheap call."""
+    """One short, plain-English tag per market. Tags only — use
+    `cheap_tags_with_provenance` when the caller needs to know which are real
+    model output (the published dashboard does)."""
+    return {k: v["tag"] for k, v in cheap_tags_with_provenance(markets).items()}
+
+
+def cheap_tags_with_provenance(markets: list[dict]) -> dict[str, dict]:
+    """{key: {"tag": str, "source": TAG_LLM | TAG_FALLBACK}} per market.
+
+    Note the PARTIAL-fallback case this exists to make visible: when the model
+    answers but omits some keys, those individual markets silently fall back, so
+    a single run can mix generated and deterministic tags. Per-key provenance is
+    the only way to tell them apart.
+    """
     if not LLM_ENABLED or not markets:
-        return {m["key"]: _fallback_tag(m) for m in markets}
+        return {m["key"]: {"tag": _fallback_tag(m), "source": TAG_FALLBACK} for m in markets}
     compact = [
         {
             "key": m["key"], "name": m["name"], "pe": m.get("pe"),
@@ -252,9 +279,14 @@ def cheap_tags(markets: list[dict]) -> dict[str, str]:
     try:
         out = call("cheap", system, json.dumps(compact), max_tokens=900, json_mode=True)
         data = json.loads(out[out.find("{"): out.rfind("}") + 1])
-        return {m["key"]: data.get(m["key"], _fallback_tag(m)) for m in markets}
+        # Per-key provenance: a model that answers but skips some keys leaves
+        # those markets on the deterministic path within an otherwise-LLM run.
+        return {m["key"]: ({"tag": data[m["key"]], "source": TAG_LLM}
+                           if isinstance(data.get(m["key"]), str) and data[m["key"]].strip()
+                           else {"tag": _fallback_tag(m), "source": TAG_FALLBACK})
+                for m in markets}
     except Exception:
-        return {m["key"]: _fallback_tag(m) for m in markets}
+        return {m["key"]: {"tag": _fallback_tag(m), "source": TAG_FALLBACK} for m in markets}
 
 
 def _countries(scoreboard: list[dict]) -> list[dict]:

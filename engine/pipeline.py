@@ -40,7 +40,7 @@ COLUMNS = [
     "rev_growth", "earnings_growth", "fwd_growth", "growth_cov",
     "value_score", "value_band", "momentum_score", "mean_reversion_score",
     "growth_score", "high_growth", "garp",
-    "opportunity_score", "overvalued", "value_trap", "tag",
+    "opportunity_score", "overvalued", "value_trap", "tag", "tag_source",
 ]
 
 
@@ -73,8 +73,22 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
 
     # 5. Surface insights (deterministic) + cheap LLM tags
     markets = df.to_dict(orient="records")
-    tags = llm.cheap_tags(markets) if with_llm else {m["key"]: "" for m in markets}
-    df["tag"] = df["key"].map(tags)
+    # Tags carry PROVENANCE (llm vs deterministic) so a generated label is never
+    # mistaken for a model's read — `_fallback_tag` used to be indistinguishable
+    # from real output, including in the partial-fallback case where a model
+    # answers but omits keys. `tag_source` is None when tagging was skipped
+    # entirely (--no-llm), which is a third state: no claim was made at all.
+    if with_llm:
+        tagged = llm.cheap_tags_with_provenance(markets)
+        df["tag"] = df["key"].map(lambda k: tagged.get(k, {}).get("tag", ""))
+        df["tag_source"] = df["key"].map(lambda k: tagged.get(k, {}).get("source"))
+    else:
+        df["tag"] = ""
+        df["tag_source"] = None
+    n_fb = int((df["tag_source"] == llm.TAG_FALLBACK).sum())
+    if n_fb:
+        print(f"   tags: {n_fb}/{len(df)} deterministic (no model output) — "
+              f"flagged as tag_source={llm.TAG_FALLBACK} in the published JSON")
 
     scoreboard = df[[c for c in COLUMNS if c in df.columns]].to_dict(orient="records")
     insights = surfacing.build_insights(df)

@@ -8,6 +8,52 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-31 (evening) — Closing two audit items: LLM tag provenance, issuer attribution 85.7% → 97%
+
+Picked off the unfinished items that did NOT need the live data access this
+sandbox lacks.
+
+**1. `_fallback_tag` disclosure gap (open since the 2026-07-22 audit).**
+`_fallback_brief` always disclosed itself in its own text ("LLM narrative
+disabled — ..."), but `_fallback_tag` returned strings like "Cheap and growing —
+GARP sweet spot" that are **indistinguishable from model output**. A reader
+couldn't tell a rule-derived label from a model's read.
+
+Fixed with structured provenance rather than by appending "(deterministic)" to
+the text — the tag is user-facing UI copy, and that suffix on 133 rows is noise.
+`cheap_tags_with_provenance()` returns `{tag, source}` per market; `tag_source`
+rides in the published JSON; the dashboard marks only the fallback ("· rule-based"
+with a tooltip), since labelling the normal case would be clutter.
+
+The case that made per-key provenance necessary rather than a single run-level
+flag: **partial fallback**. When the model answers but omits some keys (or
+returns a blank string for one), those individual markets silently fall back, so
+one run can mix generated and deterministic tags. Verified all four paths — LLM
+off, full answer, partial/blank answer, and call raising — plus that the legacy
+`cheap_tags()` still returns plain strings for any other caller.
+
+**2. Issuer attribution 114/133 → 129/133 (97%).** Researched the 19 unattributed
+proxies against primary sources instead of recall. Confirmed and added: the
+Global X single-country family (ARGT, GREK, PGAL, NORW, NGE, PAK, GXG — verified
+against Global X Funds SEC filings, CIK 1432353); four more iShares (**VLUE**,
+KSA, QAT, UAE — verified against ishares.com/blackrock.com product pages); plus
+KWEB (KraneShares), SCHD (Schwab), COWZ (Pacer), ASHR (Xtrackers/DWS).
+
+VLUE mattered most — it is the dashboard's current top-ranked pick, and was
+showing "issuer not attributed" on the one row a user is most likely to click.
+
+Two of the new entries carry `url=None`: the issuer NAME is confirmed but the
+root domain wasn't verified from here, so the UI renders the name as plain text
+rather than a link. That is a third UI state, now handled explicitly — a link we
+haven't checked is precisely what ADR-027 refuses to ship.
+
+**Still unattributed, deliberately: JETS, DXJ, DEM, GULF.** Plausible answers
+exist for each; none confirmed against a primary source in this sweep, so they
+render ticker-only. Guessing here would be a factual error shown to someone
+making a money decision.
+
+---
+
 ## 2026-07-31 (later) — Questionnaire sweep: quality check narrowed, backtest HAC-corrected, regional sectors researched
 
 Ran an open-questions questionnaire past the user and worked the answers.

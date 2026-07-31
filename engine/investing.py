@@ -35,6 +35,14 @@ _ISSUER_SPDR = ("SPDR (State Street)", "https://www.ssga.com")
 _ISSUER_VANGUARD = ("Vanguard", "https://investor.vanguard.com")
 _ISSUER_VANECK = ("VanEck", "https://www.vaneck.com")
 _ISSUER_INVESCO = ("Invesco", "https://www.invesco.com")
+_ISSUER_GLOBALX = ("Global X", "https://www.globalxetfs.com")
+_ISSUER_KRANE = ("KraneShares", "https://kraneshares.com")
+_ISSUER_SCHWAB = ("Schwab Asset Management", "https://www.schwab.com")
+# Name confirmed, root domain not verified from here — url=None renders the
+# issuer as plain text instead of a link. Naming the issuer is still useful; a
+# link we haven't checked is the thing we refuse to ship (see docstring).
+_ISSUER_PACER = ("Pacer ETFs", None)
+_ISSUER_XTRACKERS = ("Xtrackers (DWS)", None)
 
 # Explicit per-ticker attribution. Only tickers whose issuer is unambiguous are
 # listed; see the docstring on why we do not infer the rest.
@@ -49,7 +57,9 @@ for _t in ("EWA", "EWC", "EWD", "EWG", "EWH", "EWI", "EWJ", "EWK", "EWL", "EWM",
            "ACWX", "URTH", "AIA", "INDA", "INDY", "SMIN", "THD", "TUR", "FXI",
            "MCHI", "IVV", "IVE", "IVW", "IJH", "IWM", "USMV", "QUAL", "MTUM",
            "ITA", "ITB", "IGV", "IYT", "IXC", "IXG", "IXJ", "IXN", "IXP", "JXI",
-           "KXI", "MXI", "RXI", "EXI", "EUFN"):
+           "KXI", "MXI", "RXI", "EXI", "EUFN",
+           # verified 2026-07-31 against ishares.com/blackrock.com product pages
+           "VLUE", "KSA", "QAT", "UAE"):
     _ISSUERS[_t] = _ISSUER_ISHARES
 
 # -- SPDR / State Street: Select Sector (XL*) + industry (X*/K*) families --
@@ -68,6 +78,23 @@ for _t in ("SMH", "GDX", "MOAT", "OIH", "VNM", "AFK", "EGPT"):
 # -- Invesco --
 for _t in ("QQQ", "TAN"):
     _ISSUERS[_t] = _ISSUER_INVESCO
+
+# -- Global X (Mirae Asset): the MSCI single-country frontier/small-market family.
+#    Verified 2026-07-31 against Global X Funds SEC filings (CIK 1432353) and
+#    globalxetfs.com fund pages. --
+for _t in ("ARGT", "GREK", "PGAL", "NORW", "NGE", "PAK", "GXG"):
+    _ISSUERS[_t] = _ISSUER_GLOBALX
+
+# -- Singles, each verified individually 2026-07-31 --
+_ISSUERS["KWEB"] = _ISSUER_KRANE        # KraneShares CSI China Internet
+_ISSUERS["SCHD"] = _ISSUER_SCHWAB       # Schwab US Dividend Equity
+_ISSUERS["COWZ"] = _ISSUER_PACER        # Pacer US Cash Cows 100
+_ISSUERS["ASHR"] = _ISSUER_XTRACKERS    # Xtrackers Harvest CSI 300 China A-Shares
+
+# NOT attributed, deliberately: JETS, DXJ, DEM, GULF. Plausible answers exist for
+# each, but none confirmed against a primary source in the 2026-07-31 sweep, and
+# a plausible guess shown to someone making a money decision is exactly what the
+# module docstring rules out. They render ticker-only until verified.
 
 del _t
 

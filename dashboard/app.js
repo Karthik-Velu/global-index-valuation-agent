@@ -454,10 +454,14 @@ function stockBreakdownBlock(key) {
 function investBlock(m) {
   const access = STATE.data.meta?.access_route;
   const issuer = m.issuer;
-  const issuerLine = issuer
-    ? `<a href="${issuer.url}" target="_blank" rel="noopener noreferrer"
-         class="text-accent hover:underline">${issuer.name} ↗</a>`
-    : `<span class="text-slate-500">issuer not attributed</span>`;
+  // Three states, not two: linked issuer, issuer named but URL unverified (we
+  // refuse to ship a link we haven't checked), and no confirmed issuer at all.
+  const issuerLine = !issuer
+    ? `<span class="text-slate-500">issuer not attributed</span>`
+    : issuer.url
+      ? `<a href="${issuer.url}" target="_blank" rel="noopener noreferrer"
+           class="text-accent hover:underline">${issuer.name} ↗</a>`
+      : `<span class="text-slate-300" title="Issuer confirmed; official site not linked because the URL isn't verified.">${issuer.name}</span>`;
   const points = access?.points?.length
     ? `<ul class="list-disc pl-4 mt-1.5 space-y-0.5 text-slate-400">${access.points.map(p => `<li>${p}</li>`).join('')}</ul>`
     : '';
@@ -474,6 +478,16 @@ function investBlock(m) {
         <div class="text-slate-400 mt-0.5">${access.summary}</div>${points}
         <div class="text-slate-500 mt-2 pt-2 border-t border-line/60 italic">${access.note}</div>` : ''}
     </div>`;
+}
+
+// A market's one-line tag can come from the LLM or from a deterministic
+// fallback, and the two read identically. Mark the fallback so a rule-derived
+// label is never mistaken for a model's judgement (audit item, 2026-07-22).
+// Only the fallback is marked — labelling the normal case would be noise.
+function tagProvenance(m) {
+  if (m.tag_source !== 'deterministic' || !m.tag) return '';
+  return ` <span class="not-italic text-[10px] text-slate-500 align-middle"
+    title="Rule-derived label, not model output — no LLM tag was available for this market on this run.">·&nbsp;rule-based</span>`;
 }
 
 // ---- drill-down drawer ----
@@ -499,7 +513,7 @@ function openDrawer(key) {
         <button id="closeDrawer" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
       </div>
     </div>
-    <div class="text-[13px] text-slate-300 italic mb-3">${m.tag || ''}</div>
+    <div class="text-[13px] text-slate-300 italic mb-3">${m.tag || ''}${tagProvenance(m)}</div>
     <div class="grid grid-cols-3 gap-2 mb-4">
       ${scoreTile('Value', m.value_score)}${scoreTile('Growth', m.growth_score)}${scoreTile('Opportunity', m.opportunity_score)}
     </div>
