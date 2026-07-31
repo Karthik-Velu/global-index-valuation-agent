@@ -60,11 +60,31 @@ session, and its suggested `--reset-author` fix would have rewritten published
 `main` history *and* reattributed the user's merge commit to us. Verified against
 all four cases (GitHub merge, our signed commit, our unsigned commit, wrong email).
 
+**4. Tier B dump job — the recurring blocker, made non-recurring.** Twice now an
+investigation has died on the same wall: Tier B is the sole metric store but only
+materialises inside a CI runner, and `data.sec.gov` is unreachable from the
+sandbox, so "what do this issuer's raw rows actually look like?" can't be answered
+where the analysis happens. Both times (CMCSA 07-27, multi-class 07-29) the answer
+came from reading code rather than data — which found real bugs, but left the
+data question open. `engine/tierbdump.py` + `.github/workflows/tierb-dump.yml`
+fix that: dispatch, download the artifact, analyse anywhere.
+
+Deliberately **parameterised presets, not a `--sql` flag.** Arbitrary SQL was the
+obvious first instinct and is more flexible, but it would turn a dispatchable
+workflow into a general query endpoint against production data with results
+published as an artifact. The three presets cover the real investigations; a new
+shape needs a reviewed commit, which is the point. Job is `permissions:
+contents: read` so it cannot push even by accident. Verified all three presets on
+a DuckDB fixture (the multiclass preset correctly returns GOOG-shaped rows and
+skips CMCSA-shaped cross-concept spreads) plus every error path — no store, bad
+preset, missing `--tickers`.
+
 **Still open:** the 19 unattributed issuers; deep per-fund links (need issuer-site
-access — `ishares.com` 403s automated fetches); the CI Tier-B sample-dump job the
-user approved; per-class share summing itself (the new check now *detects* it, but
-nothing sums yet); and the operator actions the user said they'd do — rotate
-`OLLAMA_API_KEY`/`GROQ_API_KEY` (repo is public) and set the Supabase secrets.
+access — `ishares.com` 403s automated fetches); per-class share summing itself
+(now *detected* by the narrowed check and *dumpable* via the new job, but nothing
+sums yet — the next session has both tools it was missing); and the operator
+actions the user said they'd do — rotate `OLLAMA_API_KEY`/`GROQ_API_KEY` (repo is
+public) and set the Supabase secrets.
 
 ---
 
