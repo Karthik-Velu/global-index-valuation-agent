@@ -1,0 +1,83 @@
+name: Tier B dump (investigation artifact)
+
+# Makes the Tier B metric store readable from OUTSIDE CI.
+#
+# Why this exists: Tier B is the sole metric store but only materialises inside a
+# CI runner (Actions cache, or the tierb-store release asset). An interactive
+# session has no copy, and data.sec.gov is unreachable from the sandbox — so
+# "what do this issuer's raw rows actually look like?" has twice been
+# unanswerable where the analysis happens (the CMCSA P/E dig 2026-07-27, the
+# multi-class question 07-29). Both were resolved by reading code instead of
+# data, which found real bugs but left the data question open.
+#
+# Dispatch this, download the artifact, analyse anywhere. READ-ONLY: it never
+# writes to the store, Postgres, or the repo.
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: "Which dump"
+        type: choice
+        default: multiclass_shares
+        options:
+          - multiclass_shares    # dual-class issuers whose per-class facts aren't summed
+          - shares_by_ticker     # every share-count row for --tickers
+          - metrics_by_ticker    # arbitrary metric_codes for --tickers
+      tickers:
+        description: "Comma-separated tickers (required for the *_by_ticker presets), e.g. CMCSA,GOOG"
+        type: string
+        default: ""
+      metrics:
+        description: "Comma-separated metric_codes (metrics_by_ticker only; blank = all)"
+        type: string
+        default: ""
+      limit:
+        description: "Max rows"
+        type: string
+        default: "5000"
+
+# Read-only job: no `contents: write`, so it cannot push even by accident.
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+
+      # Same restore/hydrate pair the daily pipeline uses. restore-keys gives the
+      # rolling latest-wins cache; the release asset is the durable fallback when
+      # the cache has evicted (~7 idle days) or is branch-scoped away from us.
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate Tier B if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+
+      - name: Dump
+        run: |
+          python -m engine.tierbdump "${{ inputs.preset }}" \
+            --tickers "${{ inputs.tickers }}" \
+            --metrics "${{ inputs.metrics }}" \
+            --limit "${{ inputs.limit }}"
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tierb-dump-${{ inputs.preset }}
+          path: data/tierb_*.*
+          retention-days: 14
+          if-no-files-found: error
