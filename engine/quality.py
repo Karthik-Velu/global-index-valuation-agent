@@ -138,27 +138,39 @@ def _checks(cur) -> list[dict]:
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
 
-    # 7. Concept disagreement within XBRL itself: shares_outstanding merges THREE
-    #    different tags (dei:EntityCommonStockSharesOutstanding, us-gaap:CommonStock-
-    #    SharesOutstanding, us-gaap:CommonStockSharesIssued — see metric_catalog.json)
-    #    into one metric_code, and multi-class issuers (e.g. dual-class share
-    #    structures) can report per-class facts under `us-gaap:CommonStockShares-
-    #    Outstanding` that this codebase's own catalog notes say should be SUMMED but
-    #    aren't (found investigating a wrong Comcast P/E, 2026-07-27 — see JOURNAL).
-    #    `source_disagreement` above only compares across `source` (xbrl vs simfin
-    #    etc.), not across DIFFERENT xbrl CONCEPTS sharing one metric_code — this
-    #    catches that gap using the `raw_tag` column captured at ingest.
-    cur.execute("""select s.ticker, fm.period_end, min(fm.value), max(fm.value),
-                          count(distinct fm.raw_tag)
+    # 7. UNSUMMED MULTI-CLASS share facts: the SAME xbrl concept reporting two or
+    #    more different values for one (security, period_end).
+    #
+    #    Scoped deliberately narrowly. v1 of this check (2026-07-27) compared across
+    #    DIFFERENT concepts — shares_outstanding merges three tags (dei:EntityCommon-
+    #    StockSharesOutstanding, us-gaap:CommonStockSharesOutstanding, us-gaap:Common-
+    #    StockSharesIssued) — and fired 421x on every run, unchanged for three days
+    #    straight, because those concepts MEAN different things and legitimately
+    #    differ: the dei cover-page count is as-of the latest practicable date,
+    #    us-gaap:...Outstanding is the balance-sheet date, and ...SharesIssued
+    #    includes treasury stock. Flagging that is flagging normal EDGAR, which held
+    #    quality at 86/100 permanently and buried the real signal (JOURNAL 2026-07-31).
+    #    Cross-concept selection is now handled deterministically at the point of use
+    #    (stockvaluation._resolve_shares_concept, ADR-027) rather than warned about.
+    #
+    #    What remains genuinely wrong is ONE concept carrying multiple values for one
+    #    period — that's a dual-class issuer whose per-class facts (split on
+    #    us-gaap:StatementClassOfStockAxis) metric_catalog.json says to SUM, but which
+    #    no code sums today, so only one class survives the PK and market_cap is
+    #    understated. Rare, actionable, and still open.
+    cur.execute("""select s.ticker, fm.period_end, fm.raw_tag,
+                          min(fm.value), max(fm.value), count(distinct fm.value)
                    from fundamental_metrics fm join securities s on s.id=fm.security_id
                    where fm.metric_code='shares_outstanding' and fm.value > 0
-                   group by s.ticker, fm.period_end having count(distinct fm.raw_tag) > 1""")
-    for tk, pe, lo, hi, ntag in cur.fetchall():
-        if hi / lo > 1.5:
-            issues.append({"check_name": "shares_concept_disagreement", "severity": "warn",
+                   group by s.ticker, fm.period_end, fm.raw_tag
+                   having count(distinct fm.value) > 1""")
+    for tk, pe, tag, lo, hi, nval in cur.fetchall():
+        if lo and hi / lo > 1.5:
+            issues.append({"check_name": "shares_multiclass_unsummed", "severity": "warn",
                            "scope": "metric", "entity": tk, "metric_code": "shares_outstanding",
-                           "detail": f"{ntag} xbrl concepts disagree on shares_outstanding {pe}: "
-                                     f"{lo:,.0f} vs {hi:,.0f} — likely an unsummed multi-class fact"})
+                           "detail": f"{tag} reports {nval} different values for {pe} "
+                                     f"({lo:,.0f} .. {hi:,.0f}) — per-class facts that should be "
+                                     f"summed (metric_catalog notes), so market cap is understated"})
     return issues
 
 
@@ -250,18 +262,20 @@ def _checks_tierb(duck, cur) -> list[dict]:
                            "entity": tk, "metric_code": mc,
                            "detail": f"{nsrc} sources disagree on {mc} {pe}: {lo} vs {hi}"})
 
-    # 7. Concept disagreement within XBRL itself — same reasoning as the Postgres twin.
-    for tk, pe, lo, hi, ntag in duck.execute(
-            """select s.ticker, fm.period_end, min(fm.value), max(fm.value),
-                      count(distinct fm.raw_tag)
+    # 7. Unsummed multi-class share facts — same reasoning as the Postgres twin.
+    for tk, pe, tag, lo, hi, nval in duck.execute(
+            """select s.ticker, fm.period_end, fm.raw_tag,
+                      min(fm.value), max(fm.value), count(distinct fm.value)
                from fundamental_metrics fm join securities_live s on s.id=fm.security_id
                where fm.metric_code='shares_outstanding' and fm.value > 0
-               group by s.ticker, fm.period_end having count(distinct fm.raw_tag) > 1""").fetchall():
-        if hi / lo > 1.5:
-            issues.append({"check_name": "shares_concept_disagreement", "severity": "warn",
+               group by s.ticker, fm.period_end, fm.raw_tag
+               having count(distinct fm.value) > 1""").fetchall():
+        if lo and hi / lo > 1.5:
+            issues.append({"check_name": "shares_multiclass_unsummed", "severity": "warn",
                            "scope": "metric", "entity": tk, "metric_code": "shares_outstanding",
-                           "detail": f"{ntag} xbrl concepts disagree on shares_outstanding {pe}: "
-                                     f"{lo:,.0f} vs {hi:,.0f} — likely an unsummed multi-class fact"})
+                           "detail": f"{tag} reports {nval} different values for {pe} "
+                                     f"({lo:,.0f} .. {hi:,.0f}) — per-class facts that should be "
+                                     f"summed (metric_catalog notes), so market cap is understated"})
     return issues
 
 

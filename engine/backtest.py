@@ -136,13 +136,113 @@ def _evaluate_period(scored: pd.DataFrame, asof: str, con) -> dict:
     return out
 
 
+def _overlap_lag(horizon_days: int) -> int:
+    """How many ADJACENT rebalance periods share forward-return window with each
+    other, at the configured cadence. A 6m horizon sampled weekly means period t
+    and period t+1 measure returns over windows that overlap by ~181 of 182 days,
+    so their ICs cannot be independent draws. Returns the Newey-West lag: the
+    number of neighbours each observation is correlated with."""
+    step = {"W-FRI": 7, "W": 7, "MS": 30, "M": 30}.get(REBALANCE_FREQ, 7)
+    return max(0, int(np.ceil(horizon_days / step)) - 1)
+
+
+def _effective_lag(overlap_lag: int, n: int) -> int:
+    """Cap the HAC lag so the estimator stays stable.
+
+    The theoretically-motivated lag is the overlap length, but a Bartlett-kernel
+    HAC estimate degrades badly once the lag approaches the sample size — too few
+    products enter the high-lag autocovariances, and the variance estimate starts
+    oscillating (empirically: at n=39, lag=25 returned a SMALLER SE than lag=0,
+    i.e. it would have made an overlapping series look MORE significant, the exact
+    opposite of the correction's purpose). Our 12m horizon at weekly cadence wants
+    lag=52 against n≈39, squarely in that regime.
+
+    So cap at n/4, the conventional stability bound. When the cap binds, the SE is
+    UNDER-corrected — reported via `lag_capped` so the residual optimism is
+    visible rather than hidden.
+    """
+    return max(0, min(overlap_lag, max(1, n // 4)))
+
+
+def _newey_west_se(arr: np.ndarray, lag: int) -> float | None:
+    """Heteroskedasticity- and autocorrelation-consistent (HAC) standard error of
+    the mean, Bartlett kernel — the standard correction for OVERLAPPING-window
+    forecast evaluation (Newey-West 1987; Hansen-Hodrick 1980).
+
+    Why this exists: ADR-022 moved to weekly rebalancing to reach enough periods
+    for the significance gate, and explicitly accepted that the resulting IC
+    series is serially correlated in a way the plain t-stat does NOT model — it
+    assumes independent samples, so it OVERSTATES significance exactly when
+    windows overlap most (long horizons). That was documented as a caveat rather
+    than corrected. This corrects it: at lag=0 it reduces to the ordinary SE, and
+    as overlap grows it inflates the SE toward the truth, so a `significant`
+    verdict now means something closer to what it claims.
+
+    Returns None when the variance is degenerate (n<2 or zero spread), matching
+    the caller's existing "no t-stat" contract.
+    """
+    n = len(arr)
+    if n < 2:
+        return None
+    dev = arr - arr.mean()
+    gamma0 = float(dev @ dev) / n
+    # Relative tolerance, not `<= 0`: a constant series leaves float dust
+    # (~1e-17) that is positive, which would sail through a bare sign check and
+    # yield an absurd t-stat off a zero-variance sample.
+    scale = max(abs(float(arr.mean())), 1e-12)
+    if gamma0 <= (1e-9 * scale) ** 2:
+        return None
+    var = gamma0
+    for j in range(1, min(lag, n - 1) + 1):
+        gamma_j = float(dev[j:] @ dev[:-j]) / n
+        var += 2.0 * (1.0 - j / (lag + 1.0)) * gamma_j   # Bartlett weight
+    # A HAC estimate can go non-positive in small samples; fall back to the
+    # uncorrected variance rather than emitting a NaN t-stat.
+    if var <= 0:
+        var = gamma0
+    return float(np.sqrt(var / n))
+
+
+def _significance_caveat(summary: dict) -> str | None:
+    """What's STILL wrong with `significant` after the HAC correction.
+
+    Before (ADR-022) this was a blanket warning that overlap wasn't adjusted for
+    at all. It now is (_newey_west_se), so the honest residual caveat is narrower
+    and depends on whether the lag cap actually bound on this run: if it did, the
+    correction is partial and the t-stat remains somewhat optimistic. Returns
+    None when nothing is left to warn about — a caveat that never clears is a
+    caveat nobody reads.
+    """
+    if REBALANCE_FREQ == "MS":
+        return None
+    capped = sorted({h for h in summary for s in summary[h]
+                     if summary[h][s].get("lag_capped")})
+    base = ("Rebalance windows OVERLAP at this cadence, so per-period ICs are serially "
+            "correlated. The reported t_stat is Newey-West (HAC) corrected for that "
+            "(t_stat_naive shows the uncorrected value for comparison).")
+    if not capped:
+        return base
+    return (base + f" NOTE: at horizon(s) {', '.join(capped)} the HAC lag was CAPPED at "
+            f"n/4 for estimator stability — shorter than the true overlap — so the "
+            f"correction there is INCOMPLETE and t_stat is still somewhat optimistic. "
+            f"A longer price history (more periods) is what fully resolves this.")
+
+
 def _aggregate(periods: list[dict]) -> dict:
     """Per (horizon, signal): mean rank-IC across rebalance dates, % positive,
-    a rough t-stat (mean / (std/sqrt(n))), and the IC-population/significance
-    gates ROADMAP.md and ARCHITECTURE.md's Phase-0 checklist call for."""
+    both a naive and an overlap-corrected (Newey-West) t-stat, and the
+    IC-population/significance gates ROADMAP.md and ARCHITECTURE.md's Phase-0
+    checklist call for.
+
+    `significant` is decided on the NEWEY-WEST t-stat, not the naive one — with
+    weekly cadence and multi-month horizons the naive statistic is materially
+    optimistic (see _newey_west_se). `t_stat_naive` is kept alongside so the
+    difference is visible rather than silently swapped.
+    """
     summary: dict = {}
-    for h_label in HORIZONS:
+    for h_label, h_days in HORIZONS.items():
         summary[h_label] = {}
+        want_lag = _overlap_lag(h_days)
         for sig in SIGNALS:
             ics = [p[h_label][sig]["rank_ic"] for p in periods if h_label in p and sig in p[h_label]]
             hits = [p[h_label][sig]["hit_rate"] for p in periods if h_label in p and sig in p[h_label]]
@@ -150,17 +250,27 @@ def _aggregate(periods: list[dict]) -> dict:
                 summary[h_label][sig] = {"n_periods": 0}
                 continue
             arr = np.array(ics)
+            lag = _effective_lag(want_lag, len(arr))
             std = arr.std(ddof=1) if len(arr) > 1 else 0.0
-            t_stat = float(arr.mean() / (std / np.sqrt(len(arr)))) if std > 0 else None
+            t_naive = float(arr.mean() / (std / np.sqrt(len(arr)))) if std > 0 else None
+            se_nw = _newey_west_se(arr, lag)
+            t_nw = float(arr.mean() / se_nw) if se_nw else None
             summary[h_label][sig] = {
                 "n_periods": len(ics),
                 "mean_rank_ic": round(float(arr.mean()), 4),
                 "pct_positive_ic": round(float((arr > 0).mean()), 3),
                 "mean_hit_rate": round(float(np.mean(hits)), 3),
-                "t_stat": round(t_stat, 2) if t_stat is not None else None,
+                "t_stat": round(t_nw, 2) if t_nw is not None else None,
+                "t_stat_naive": round(t_naive, 2) if t_naive is not None else None,
+                "overlap_lag": lag,
+                "overlap_lag_wanted": want_lag,
+                # True when n forced a smaller lag than the overlap implies, i.e.
+                # the correction is INCOMPLETE and this t-stat is still optimistic.
+                "lag_capped": bool(lag < want_lag),
                 # rule of thumb, not a formal test: below |t|=2 with >=12 periods
-                # we do NOT claim the signal predicts anything.
-                "significant": bool(t_stat is not None and abs(t_stat) >= 2.0 and len(ics) >= 12),
+                # we do NOT claim the signal predicts anything. The t-stat gated
+                # on here is overlap-corrected.
+                "significant": bool(t_nw is not None and abs(t_nw) >= 2.0 and len(ics) >= 12),
             }
     return summary
 
@@ -204,11 +314,7 @@ def run(start: str | None = None, end: str | None = None,
     summary = _aggregate([{k: v for k, v in p.items() if k != "asof"} for p in periods])
     result = {"status": "completed", "window": [start, end], "usable_periods": len(periods),
               "cadence": REBALANCE_FREQ,
-              "significance_caveat": ("n_periods counts OVERLAPPING weekly windows, not "
-                                      "independent trials — the t-stat/significant gate does not "
-                                      "adjust for the resulting serial correlation. See ADR-022 / "
-                                      "this module's docstring before treating significant=true "
-                                      "as rigorous.") if REBALANCE_FREQ != "MS" else None,
+              "significance_caveat": _significance_caveat(summary),
               "summary": summary, "periods": periods}
     _persist(result, start, end)
     best = max(((h, s, summary[h][s]["mean_rank_ic"]) for h in HORIZONS for s in SIGNALS
