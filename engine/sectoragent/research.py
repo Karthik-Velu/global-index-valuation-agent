@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from .. import db, llm, memory
+from .. import db, llm, memory, proposals
 
 
 def research_thin_subsectors(max_subsectors: int = 4) -> dict:
@@ -24,16 +24,25 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
     system = (
         "You are an equity analyst. For the given equity sub-sector, list up to 5 of the "
         "MOST important KPIs that drive its growth/quality and are NOT generic income-"
-        'statement items. Return ONLY a JSON object: {"metrics": [ up to 5 of '
-        '{"metric_code": snake_case, "label", "definition", "unit", "source_hint"} ]}.'
+        "statement items. Each one will be read by a non-engineer product owner who "
+        "approves or rejects adding it to the metric catalog, so justify it in plain "
+        "English.\n"
+        'Return ONLY a JSON object: {"metrics": [ up to 5 of {"metric_code": snake_case, '
+        '"label", "definition", "unit", "source_hint", "xbrl_tags": [exact US-GAAP/IFRS '
+        "tag names ONLY if you are certain, else omit], "
+        '"reason": "what we cannot currently see without it", '
+        '"expected_outcome": "what measurably improves and how we would know", '
+        '"worked_examples": [2-3 of {"situation","today","after"} naming real companies '
+        "in this sub-sector] } ]}."
     )
-    proposals = []
+    researched = []
     for sub in subs:
         try:
-            txt = llm.call("sector_research", system, sub, max_tokens=1500, json_mode=True)
+            txt, model_id = llm.call_with_model("sector_research", system, sub,
+                                                max_tokens=2000, json_mode=True)
             obj = json.loads(txt)
             data = obj.get("metrics", obj if isinstance(obj, list) else [])
-            proposals.append({"sub_sector": sub, "proposed": data})
+            researched.append({"sub_sector": sub, "proposed": data})
             with db.connect() as c, c.cursor() as cur:
                 for d in data:
                     cur.execute(
@@ -41,6 +50,25 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
                         "values('catalog_proposal',%s,%s,'LLM sub-sector KPI proposal',true)",
                         (d.get("metric_code", ""), f"propose for {sub}: {d.get('label', '')}"))
                 c.commit()
+            # The reviewable decision. Keyed on metric_code alone, so the same KPI
+            # arriving from three different sub-sectors — and again tomorrow night —
+            # is ONE decision with rising evidence, not 15 rows (which is exactly
+            # what capex_intensity did before this existed).
+            for d in data:
+                if not d.get("metric_code"):
+                    continue
+                proposals.capture(
+                    source_agent="sector-research", kind="catalog_kpi",
+                    target=d["metric_code"], model_id=model_id,
+                    proposal=(f"Add `{d['metric_code']}` ({d.get('label', '')}) to the metric "
+                              f"catalog: {d.get('definition', '')}").strip(),
+                    reason=d.get("reason"), expected_outcome=d.get("expected_outcome"),
+                    worked_examples=d.get("worked_examples"),
+                    payload={"label": d.get("label"), "definition": d.get("definition"),
+                             "unit": d.get("unit"), "applies_to": sub,
+                             "xbrl_tags": d.get("xbrl_tags") or [],
+                             "source_hint": d.get("source_hint"),
+                             "proposed_for_sub_sector": sub})
             # Feed semantic memory: each proposed KPI becomes a candidate lesson.
             for d in data:
                 if d.get("metric_code") and d.get("label"):
@@ -50,5 +78,5 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
                         kind="kpi", origin="sector-research agent", confidence=0.40,
                         test_hint=d.get("source_hint"))
         except Exception as e:
-            proposals.append({"sub_sector": sub, "error": str(e)[:140]})
-    return {"researched": proposals}
+            researched.append({"sub_sector": sub, "error": str(e)[:140]})
+    return {"researched": researched}
