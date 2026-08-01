@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-07-27.
+> Last updated: 2026-08-01.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -354,7 +354,44 @@ was missing. Full detail in `docs/PLAN.md`'s "Phase D" section and ADR-023..026.
   and turning the watchlist into a learning signal (`user_vector`/`user_predictions`) —
   today it's a saved list, not personalisation yet.
 
+## Phase E: the proposal review loop (2026-08-01, ADR-028)
+
+**The finding:** `docs/AGENTS.md` always promised that an agent's output is a *proposal* a
+human turns into a rule. Only the first half existed. **166 proposals had accumulated and
+zero had ever been applied** — `capex_intensity` proposed 15× in 7 days, `timeseries_jump`
+8× in 8 distinct wordings, Quality-Triage cycling the same 4 targets nightly. Nothing was
+broken; there was no way to say yes, no, or later.
+
+**Shipped:**
+- `engine/migrations/0013_admin_proposals.sql` — `proposals` + append-only `proposal_events`
+  + per-proposal chat + `proposal_solutions` revisions. Admin-only RLS via an `admins` table.
+- `engine/proposals.py` — capture/dedup/decide/apply/park/unpark. Dedup key is
+  **`(kind, target)`** — the identity of a decision, not a phrasing. `declined` is terminal
+  and blocks re-capture at the write path.
+- `engine/builder.py` — approved *code* proposals become PRs, English plan first. Atomic
+  search/replace edits, compile+import gate, `builder/proposal-<id>` branches only,
+  merge-on-green (and "no checks configured" counts as NOT green).
+- `supabase/functions/admin/index.ts` — **deployed, ACTIVE**. Actions decisions on click,
+  answers questions, re-checks admin identity from the JWT per request.
+- `dashboard/admin.html` + `admin.js` — the review console.
+- `.github/workflows/builder.yml` (hourly) + proposal upkeep wired into `datapipeline.run()`.
+
+**Backfill done:** 166 legacy rows → **61 real decisions** (56 catalog KPIs from 135
+mentions, 5 quality checks from 31), evidence counts and first/last-seen carried over. All
+61 are `pending`; nothing was auto-declined, because `declined` is irreversible by design.
+
+**Sign-in is live:** the 2026-08-01 `refresh.yml` run published `meta.supabase` (url + anon
+key) into `dashboard_data.json`, which is what both the main dashboard's auth and this
+console read. No operator action outstanding.
+
+**One gap:** the Edge Function could not be exercised over HTTP from the build sandbox
+(network policy blocks the Supabase host). Handlers are verified by construction and
+against a client harness; the first real click in the console is the true end-to-end test.
+
 ## Immediate next step
+0. **Open the console and decide the first few proposals** — that is what proves the loop
+   closes. `capex_intensity` (raised 15×) and `timeseries_jump` (8×) are the top two.
+   Requires step 1 below to have run at least once.
 1. **Operator action needed to activate Phase D in production:** add `SUPABASE_URL` /
    `SUPABASE_ANON_KEY` (Settings → API in the Supabase dashboard — the anon/publishable
    key, not the service-role key) as **GitHub repo secrets**, then update

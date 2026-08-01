@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Proposal review — Global Index Valuation Agent</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { colors: {
+      ink: '#0b0f17', panel: '#121826', panel2: '#1a2235', line: '#243049',
+      cheap: '#34d399', rich: '#f87171', warn: '#fbbf24', accent: '#60a5fa' } } } }
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body class="bg-ink text-slate-200 antialiased">
+  <div class="max-w-[1500px] mx-auto px-5 py-6">
+
+    <header class="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-white">Proposal review</h1>
+        <p class="text-sm text-slate-400">
+          What the agents want to change &mdash; and what you decide about it.
+          <a href="/" class="text-accent hover:underline ml-1">&larr; dashboard</a>
+        </p>
+      </div>
+      <div id="authBox" class="flex items-center gap-2 text-sm"></div>
+    </header>
+
+    <!-- Shown until a signed-in admin is established. -->
+    <div id="gate" class="rounded-xl border border-line bg-panel p-6 max-w-lg">
+      <div id="gateMsg" class="text-sm text-slate-400">Checking sign-in&hellip;</div>
+      <div id="gateForm" class="hidden mt-4">
+        <label class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">Email</label>
+        <div class="flex gap-2">
+          <input id="email" type="email" placeholder="you@example.com"
+                 class="ctrl flex-1" autocomplete="email" />
+          <button id="sendLink" class="px-3 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition text-sm">
+            Send link
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">
+          A one-time sign-in link. No password is stored anywhere.
+        </p>
+      </div>
+    </div>
+
+    <main id="main" class="hidden grid grid-cols-1 lg:grid-cols-[minmax(320px,420px)_1fr] gap-5">
+
+      <!-- Queue -->
+      <section>
+        <div class="flex items-center gap-1.5 mb-3 flex-wrap" id="tabs"></div>
+        <div id="queueMeta" class="text-xs text-slate-500 mb-2"></div>
+        <div id="queue" class="space-y-2 max-h-[75vh] overflow-y-auto pr-1"></div>
+      </section>
+
+      <!-- Detail -->
+      <section id="detail" class="rounded-xl border border-line bg-panel p-5 min-h-[400px]">
+        <div class="text-sm text-slate-500">Pick a proposal on the left.</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

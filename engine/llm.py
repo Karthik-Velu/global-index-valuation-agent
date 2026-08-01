@@ -150,12 +150,29 @@ def chain_for(role: str) -> list[str]:
         return config.MODEL_CHEAP_CHAIN
     if role == "smart":
         return config.MODEL_SMART_CHAIN
+    if role == "coder":
+        return config.MODEL_CODER_CHAIN
     return config.MODEL_AGENT_CHAIN  # agent + any specialised agent role
 
 
 def call(role: str, system: str, user: str, max_tokens: int = 400,
          json_mode: bool = False) -> str:
     """Waterfall LLM call for a role. Raises RuntimeError if every tier is exhausted."""
+    return call_with_model(role, system, user, max_tokens=max_tokens, json_mode=json_mode)[0]
+
+
+def call_with_model(role: str, system: str, user: str, max_tokens: int = 400,
+                    json_mode: bool = False) -> tuple[str, str]:
+    """`call()`, but also returns WHICH model actually answered.
+
+    Callers that persist model attribution (theses, proposals, chat replies) must
+    use this. Recording `config.MODEL_AGENT` instead is wrong twice over: it's the
+    configured *default*, which falls back to MODEL_CHEAP, and the waterfall
+    routinely answers from a lower tier — so every thesis written before this
+    existed is stamped `ollama:qwen2.5` while `model_invocations` proves
+    `ollamacloud:gpt-oss:120b` did the work. Attribution feeds the model
+    scorecard and Model-Upgrade, so a wrong stamp misdirects both.
+    """
     # The shared playbook + the most relevant learned lessons for THIS task (the user
     # message is the retrieval query) are injected into the system prompt.
     sys_shared = knowledge.system_prompt(role, system, query=user)
@@ -179,7 +196,7 @@ def call(role: str, system: str, user: str, max_tokens: int = 400,
             modelrouting.record(role, model_id, True, attempt=i, json_requested=json_mode,
                                 json_ok=(_json_parses(out) if json_mode else None),
                                 latency_ms=int((time.monotonic() - t0) * 1000))
-            return out
+            return out, model_id
         except Exception as e:  # noqa: BLE001 — classify + fall through to next tier
             kind = _classify(e)
             _cooldown(model_id, kind)

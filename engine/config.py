@@ -62,6 +62,22 @@ _SMART_FALLBACKS = [
     "ollamacloud:deepseek-v3.2",
     "groq:llama-3.3-70b-versatile",
 ]
+# The Builder agent (engine/builder.py) writes real code, so it wants a
+# coding-specialised model — but deliberately NOT a frontier one. Owner decision
+# (2026-08-01): "claude code would be costly — let's use some other cheaper
+# chinese model that is good for coding." These are the open Chinese coding
+# models already reachable through providers we hold keys for, strongest first.
+# Every one is orders of magnitude cheaper than a frontier model, and the whole
+# chain degrades to $0 local Ollama. See ADR-028.
+_CODER_FALLBACKS = [
+    "ollamacloud:qwen3-coder:480b",   # Qwen3-Coder — Apache-2.0, purpose-built for code
+    "ollamacloud:glm-4.6",            # Z.ai GLM — strong on multi-file edits
+    "ollamacloud:deepseek-v3.1",      # DeepSeek — cheap, strong general coder
+    "ollamacloud:gpt-oss:120b",       # proven-reliable tier in this deployment (95/95 for analyst)
+    "groq:moonshotai/kimi-k2-instruct",
+    "openrouter:qwen/qwen3-coder:free",
+    "ollama:qwen2.5-coder",           # local, offline, $0
+]
 
 
 def _dedupe(seq):
@@ -84,6 +100,7 @@ def _chain(env_name, default):
 MODEL_AGENT_CHAIN = _chain("MODEL_AGENT_CHAIN", ([_agent_env] if _agent_env else []) + _AGENT_FALLBACKS)
 MODEL_CHEAP_CHAIN = _chain("MODEL_CHEAP_CHAIN", ([_cheap_env] if _cheap_env else []) + _CHEAP_FALLBACKS)
 MODEL_SMART_CHAIN = _chain("MODEL_SMART_CHAIN", ([_smart_env] if _smart_env else []) + _SMART_FALLBACKS)
+MODEL_CODER_CHAIN = _chain("MODEL_CODER_CHAIN", ([os.getenv("MODEL_CODER")] if os.getenv("MODEL_CODER") else []) + _CODER_FALLBACKS)
 
 # Let the learned scorecard reorder a role's chain by reliability. Off by default
 # so your explicit tier order stays authoritative; flip on once metrics accumulate.

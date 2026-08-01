@@ -240,6 +240,26 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
     steps["memory"] = {"consolidate": memory.consolidate(), "decay": memory.verify_decay(),
                        "stats": memory.stats()}
 
+    # 9. Proposal queue upkeep (ADR-028). Runs AFTER the agents, so anything they
+    #    proposed this pass is enriched into reviewable English tonight rather
+    #    than sitting raw until tomorrow. Three jobs, all idempotent:
+    #      unpark  — resurface parked proposals whose date passed or whose
+    #                evidence finally accumulated;
+    #      retry   — re-action approvals whose actioning errored, so a transient
+    #                GitHub/DB failure at click time doesn't silently strand a
+    #                decision the admin already made;
+    #      enrich  — fill the 4-part format for whatever still lacks it.
+    #    Deterministic parts work with no LLM; enrich is a clean no-op without one.
+    try:
+        from . import proposals
+        steps["proposals"] = proposals.run_maintenance()
+        q = steps["proposals"]
+        print(f"   proposals: unparked {len(q.get('unpark', {}).get('unparked', []))}, "
+              f"enriched {len(q.get('enrich', {}).get('enriched', []))}")
+    except Exception as e:  # noqa: BLE001 — queue upkeep must never break the pipeline
+        steps["proposals"] = {"error": str(e)[:200]}
+        print(f"   proposals: skipped ({str(e)[:100]})")
+
     report = {"asof": date.today().isoformat(),
               "generated_at": datetime.now(timezone.utc).isoformat(), "steps": steps}
     REPORT_PATH.write_text(json.dumps(report, indent=2, default=str))

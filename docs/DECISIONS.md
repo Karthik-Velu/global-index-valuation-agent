@@ -9,6 +9,64 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-028 · Proposals are decidable objects, deduped by DECISION not by wording; approved code goes through an English plan before any code exists
+- **Context:** `docs/AGENTS.md` always promised that an agent's output is a *proposal* which
+  a human turns into a deterministic rule. Only the first half was ever built. Agents
+  appended free text to `taxonomy_changes` and **nothing read it back**, so the loop never
+  closed. Measured on 2026-08-01: **166 proposals accumulated, zero were ever applied**;
+  `capex_intensity` was proposed **15 times in 7 days**; Quality-Triage re-raised the same 4
+  targets nightly; 281 sector-research lessons decayed and retired without being acted on.
+  Nothing was broken — there was simply no way to say yes, no, or later.
+- **Choice:** migration 0013 adds `proposals` (+ append-only `proposal_events`, a
+  per-proposal chat thread, and `proposal_solutions` revisions), `engine/proposals.py` owns
+  the lifecycle, a Supabase Edge Function actions decisions on click, `dashboard/admin.html`
+  is the review console, and `engine/builder.py` turns approved *code* proposals into PRs.
+- **Why dedup on `(kind, target)` and not on the proposal text:** the decision the admin
+  makes is "do we add capex_intensity?" — identical however the model words its pitch. The
+  real data settles it: `timeseries_jump` was raised **8 times in 8 distinct wordings**, and
+  `capex_intensity` 15 times in 5. Hashing the text, even normalised, gives each of those
+  its own row and faithfully reproduces the flood the queue exists to stop. It also makes
+  "declined and not brought up again" actually hold — a rejected idea cannot return through
+  a synonym. Backfill collapsed **166 rows → 61 real decisions**.
+- **Why `declined` is terminal:** the user's requirement was "ones that i decline should be
+  discarded and not brought up again." Against agents that re-propose nightly, that is only
+  true if `capture()` refuses the dedup_key outright, so the block lives at the single write
+  path rather than in a filter someone can forget to apply.
+- **Why approving code does NOT mean the code is written:** no button can write and deploy
+  Python. DATA kinds (`catalog_kpi`, `model_routing`) change the live system in-process;
+  CODE kinds file a GitHub issue and hand off to the Builder. That split is surfaced in the
+  UI with different button text and different wording, never flattened — "approved" quietly
+  meaning two different things is precisely the class of silent lie this feature removes.
+  A code proposal becomes `actioned` only when its **PR merges**, not when it was approved.
+- **Why the Builder drafts English before code (owner decision, 2026-08-01):** the admin
+  approves twice — once the proposal, once the solution plan. Reviewing intent is something
+  a non-engineer can actually do; reviewing a diff is not. Feedback carries the admin's own
+  words verbatim into the redraft, because paraphrasing is how a revision loop drifts.
+- **Why search/replace edits, not whole-file rewrites:** a model asked to reproduce
+  `engine/quality.py` in full will silently drop a check. A block that must match
+  byte-for-byte either applies or fails loudly, and loudly is recoverable. Edits are
+  **atomic** — all verified before any write — so a half-applied plan is unreachable.
+- **Why a cheap Chinese coding model:** owner directive — "claude code would be costly,
+  let's use some other cheaper chinese model that is good for coding." New `coder` role
+  chain, Qwen3-Coder (Apache-2.0) first, degrading to $0 local Ollama.
+- **Security note worth keeping:** the write-path allowlist originally checked the raw
+  path string, so `engine/../.env` passed the prefix test *and* the containment test. The
+  adversarial test caught it; `_safe_path` now normalises **before** checking. Ordering is
+  the security property, not the allowlist itself.
+- **Rejected alternatives:** *hash the normalised proposal text* — see above, reproduces the
+  flood. *Let the browser write decisions straight to Postgres* — RLS gates rows but cannot
+  express "may change status and nothing else" (no column-level policies), so actioning
+  would be forgeable. *Auto-decline the single-mention backlog* — shortest queue, but
+  `declined` is irreversible by design and a good one-off idea would be unrecoverable; the
+  queue opens with all 61 visible, sorted by evidence, nothing auto-killed. *Builder pushes
+  straight to a PR on approval* — faster, but makes the admin review code instead of intent.
+  *GitHub's auto-merge* — GraphQL-only and silently unavailable on repos that haven't
+  enabled it, so arming it would look like it worked and never fire; `poll()` merges on
+  green instead, and treats "no checks configured" as NOT green.
+- **Date:** 2026-08-01
+
+---
+
 ### ADR-027 · "How to invest": issuer root-domain links + an LRS access route, never a broker or a guessed URL
 - **Context:** user feedback (2026-07-31), and the sharpest of three UI gaps: *"there is no
   link to find the way to invest in the recommendations — which is most important, and for

@@ -8,6 +8,63 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-01 — the agents had been talking to nobody for two weeks
+
+The finding that framed the whole session: **166 agent proposals had accumulated
+and not one had ever been applied.** Nothing was broken. There was simply no way
+to say yes, no, or later, so `taxonomy_changes` had become a write-only log that
+the agents appended to nightly and nothing ever read.
+
+The cost was compounding quietly:
+- `capex_intensity` proposed **15 times in 7 days**, each with different wording;
+- `timeseries_jump` raised **8 times in 8 distinct wordings** — every single one
+  phrased differently;
+- Quality-Triage cycling the same 4 targets every night;
+- 281 sector-research lessons decayed and retired without ever being acted on.
+
+**The design decision that mattered most** was what makes two proposals "the
+same". The tempting answer is to hash the (normalised) text. The real data kills
+that idea outright: 8 distinct wordings of one identical idea would produce 8
+rows and reproduce the exact flood the queue exists to stop. So the dedup key is
+`(kind, target)` — the identity of a *decision*, not of a phrasing. Backfill then
+collapsed **166 rows into 61 real decisions** (56 catalog KPIs from 135 mentions,
+5 quality checks from 31), and the queue opens sorted by how insistently each was
+actually raised.
+
+That choice also makes "declined and not brought up again" true rather than
+aspirational: a rejected idea can't sneak back through a synonym, and the block
+lives at the single write path in `capture()` rather than in a filter someone
+might forget.
+
+**The other thing I kept refusing to flatten:** approving a *data* proposal
+changes the system now; approving a *code* proposal cannot. The console says
+"Approve & apply now" for one and "Approve & start build — nothing has changed
+yet" for the other, and a code proposal only becomes `actioned` when its PR
+merges. It would have been easy to mark it actioned at approval and it would
+have been a lie in the only case that matters — when the build fails.
+
+**What testing caught** (both worth remembering):
+1. The Builder's write allowlist checked the *raw* path string, so
+   `engine/../.env` passed the prefix test and then passed the containment test
+   too, because it really does resolve inside the repo. `_safe_path` now
+   normalises before checking anything. The ordering *is* the security property.
+2. In the console, deciding a proposal triggered a reload that destroyed the
+   confirmation message, and the card simultaneously left the current tab — so
+   clicking Approve told you nothing at all. The outcome banner now survives the
+   refresh that proves it worked.
+
+**Still open / next session:**
+- ~~The console needs `meta.supabase` published~~ — the weekly `refresh.yml` run
+  landed mid-session and published it, so sign-in works as soon as this deploys.
+- The Edge Function is deployed and ACTIVE but could not be exercised over HTTP
+  from the sandbox (network policy blocks the Supabase host), so its handlers are
+  verified by construction and by the client harness, not by a live round trip.
+  First real click is the true test.
+- Nothing has been decided yet: all 61 sit `pending`. The first review session is
+  the thing that proves the loop closes.
+
+---
+
 ## 2026-07-31 (night) — growth_score anomaly: not blocked after all, and now diagnosable
 
 I had listed the `growth_score` anomaly as "needs more price history" and moved
