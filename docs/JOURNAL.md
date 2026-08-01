@@ -8,6 +8,58 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-07-31 (night) — growth_score anomaly: not blocked after all, and now diagnosable
+
+I had listed the `growth_score` anomaly as "needs more price history" and moved
+on. That was wrong: run id=4's **full 39-period detail is persisted in Postgres**
+(`backtest_runs.metrics.periods`, 86 KB) and this session has DB access. The data
+to investigate has been sitting there since 07-25.
+
+**What the real data says.** Pulled every period × horizon × signal:
+
+| signal | 6m mean rank-IC | 6m hit-rate | 1m → 12m hit-rate |
+|---|---|---|---|
+| opportunity_score | +0.0437 | **1.000** (39/39) | 0.795 → 0.923 → 1.000 → 0.949 |
+| value_score | +0.0244 | **1.000** (39/39) | 0.795 → 0.872 → 1.000 → 1.000 |
+| growth_score | **+0.0266** | **0.000** (0/39) | 0.282 → 0.154 → 0.000 → 0.000 |
+
+`value_score` and `growth_score` have *near-identical* positive 6m IC and
+*opposite* quartile verdicts. And growth's hit-rate degrades **monotonically with
+horizon** — that pattern is the clue.
+
+**Ruled out: a sign/ordering bug.** Read `_evaluate_period` — `sort_values()` is
+ascending, `[:q]` is bottom, `[-q:]` is top, `hit_rate = top > bottom`. Correct.
+And hit_rate is clearly not globally broken, since other signals score 39/39.
+
+**The actual explanation: the two statistics measure different things.**
+`rank_ic` is a Spearman correlation over the whole ~2,700-name cross-section and
+is immune to outliers. `hit_rate` compares **arithmetic means** of the extreme
+quartiles and is dominated by them. One period makes it vivid — growth_score at
+6m: `rank_ic +0.0978`, yet `top_q_ret -5.83%` vs `bottom_q_ret +3.68%`. A handful
+of blowups in the top-growth quartile crush its *mean* while most of its members
+still rank fine; longer horizons give blowups more time to compound, which is
+exactly the monotonic degradation observed.
+
+**Shipped the test rather than the conclusion.** Added median quartile returns
+(`hit_rate_median`, `top_q_med`, `bottom_q_med`, `spread_median`) plus a summary
+`hit_rate_mean_vs_median_gap`. Median is robust to precisely this, so if the
+hypothesis holds the next run will show growth_score's mean- and median-based
+hit-rates disagreeing while the other signals agree. Reported **alongside** the
+mean-based figures, never replacing them — the existing metric isn't wrong, and
+silently swapping it would break comparability with runs 1–4.
+
+Verified the diagnostic discriminates before shipping: a synthetic fat-tail
+fixture (positive rank relationship + 40 blowups injected into the top quartile)
+reproduces the exact observed signature — IC +0.064, mean-hit 0.0, median-hit 1.0
+— while a clean fixture has both agree. `_aggregate` also tolerates runs 1–4,
+which predate the fields, instead of crashing on re-aggregation.
+
+**Lesson worth keeping:** "blocked on data" deserves re-checking before it's
+repeated. This one was self-inflicted — the data was already persisted, by an
+earlier commit in this same session whose whole point was to persist it.
+
+---
+
 ## 2026-07-31 (evening) — Closing two audit items: LLM tag provenance, issuer attribution 85.7% → 97%
 
 Picked off the unfinished items that did NOT need the live data access this
