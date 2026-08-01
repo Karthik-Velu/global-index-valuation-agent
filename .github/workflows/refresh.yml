@@ -35,6 +35,8 @@ jobs:
       # hardcoded in this file; pipeline.py embeds both into the published JSON,
       # since the static dashboard has no build step to inject env vars otherwise.
       # Both unset (until an operator adds them) -> auth/watchlist UI stays hidden.
+      # 2026-08-01: operator set both repo secrets; this run is the first that
+      # should publish a non-empty meta.supabase and light up the auth UI.
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
