@@ -127,12 +127,39 @@ def _evaluate_period(scored: pd.DataFrame, asof: str, con) -> dict:
                 continue
             order = d[sig].sort_values()
             q = max(1, len(d) // 4)
-            bottom_ret, top_ret = d.loc[order.index[:q], "fwd_ret"].mean(), d.loc[order.index[-q:], "fwd_ret"].mean()
+            bot, top = d.loc[order.index[:q], "fwd_ret"], d.loc[order.index[-q:], "fwd_ret"]
+            bottom_ret, top_ret = bot.mean(), top.mean()
+            # MEDIAN quartile returns alongside the means, to settle the
+            # long-open growth_score anomaly (JOURNAL 2026-07-22 onward):
+            # growth_score shows a POSITIVE mean rank-IC (+0.027 at 6m) yet
+            # hit_rate 0.000 in 39/39 periods, and the gap widens monotonically
+            # with horizon (0.282 / 0.154 / 0.000 / 0.000 at 1m/3m/6m/12m).
+            #
+            # The quartile code is not inverted — verified by reading it, and
+            # other signals behave sanely (opportunity_score 6m hits 39/39). The
+            # two statistics simply measure different things: rank_ic is a rank
+            # correlation over the whole ~2,700-name cross-section and is immune
+            # to outliers, while hit_rate compares ARITHMETIC MEANS of the
+            # extreme quartiles and is dominated by them. The leading hypothesis
+            # is fat left tails among high-growth names — a handful of blowups
+            # crush the top quartile's mean while most of its members still rank
+            # fine, and longer horizons give blowups more time to compound.
+            #
+            # Median is robust to exactly that, so if the hypothesis holds
+            # `hit_rate_median` will disagree with `hit_rate` for growth_score
+            # and agree for the others. Reported ALONGSIDE the mean-based
+            # figures, never replacing them: the existing metric is not wrong,
+            # and silently swapping it would break comparability with runs 1-4.
+            bottom_med, top_med = bot.median(), top.median()
             out[h_label][sig] = {"n": len(d), "rank_ic": round(ic, 4),
                                  "hit_rate": float(top_ret > bottom_ret),
                                  "top_q_ret": round(float(top_ret), 4),
                                  "bottom_q_ret": round(float(bottom_ret), 4),
-                                 "spread": round(float(top_ret - bottom_ret), 4)}
+                                 "spread": round(float(top_ret - bottom_ret), 4),
+                                 "hit_rate_median": float(top_med > bottom_med),
+                                 "top_q_med": round(float(top_med), 4),
+                                 "bottom_q_med": round(float(bottom_med), 4),
+                                 "spread_median": round(float(top_med - bottom_med), 4)}
     return out
 
 
@@ -246,6 +273,10 @@ def _aggregate(periods: list[dict]) -> dict:
         for sig in SIGNALS:
             ics = [p[h_label][sig]["rank_ic"] for p in periods if h_label in p and sig in p[h_label]]
             hits = [p[h_label][sig]["hit_rate"] for p in periods if h_label in p and sig in p[h_label]]
+            # Older runs (1-4) predate the median fields; tolerate their absence
+            # rather than crash when re-aggregating a historical report.
+            hits_med = [p[h_label][sig]["hit_rate_median"] for p in periods
+                        if h_label in p and sig in p[h_label] and "hit_rate_median" in p[h_label][sig]]
             if not ics:
                 summary[h_label][sig] = {"n_periods": 0}
                 continue
@@ -260,6 +291,12 @@ def _aggregate(periods: list[dict]) -> dict:
                 "mean_rank_ic": round(float(arr.mean()), 4),
                 "pct_positive_ic": round(float((arr > 0).mean()), 3),
                 "mean_hit_rate": round(float(np.mean(hits)), 3),
+                # Outlier-robust twin. A large gap between these two is the
+                # fingerprint of extreme returns driving the mean-based figure —
+                # which is precisely the growth_score anomaly.
+                "mean_hit_rate_median": round(float(np.mean(hits_med)), 3) if hits_med else None,
+                "hit_rate_mean_vs_median_gap": (
+                    round(float(np.mean(hits_med) - np.mean(hits)), 3) if hits_med else None),
                 "t_stat": round(t_nw, 2) if t_nw is not None else None,
                 "t_stat_naive": round(t_naive, 2) if t_naive is not None else None,
                 "overlap_lag": lag,
