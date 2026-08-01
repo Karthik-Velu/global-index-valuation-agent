@@ -237,10 +237,13 @@ sector-research lessons decayed unused). See ADR-028.
   merged on green. Runs on the cheap `coder` chain (Qwen3-Coder first).
 - ✅ **Pipeline wiring** — `datapipeline.run()` step 9 does unpark + retry-failed + enrich
   after the agents, so tonight's proposals are reviewable English tomorrow morning.
-- ⬜ **Not yet proven end-to-end:** the console needs `meta.supabase` published (wired at
-  `pipeline.py:186`, awaiting a `refresh.yml` run), and the Edge Function couldn't be
-  exercised over HTTP from the build sandbox (network policy blocks the Supabase host).
-  The first real click in the console is the true test.
+- ✅ **Sign-in config is live** — the 2026-08-01 `refresh.yml` run published `meta.supabase`
+  (url + anon key) into `dashboard_data.json`, so the console authenticates as soon as this
+  deploys. No operator action left.
+- ⬜ **Not yet proven end-to-end:** the Edge Function couldn't be exercised over HTTP from
+  the build sandbox (network policy blocks the Supabase host), so its handlers are verified
+  by construction and against a client harness, not a live round trip. The first real click
+  in the console is the true test.
 - ⬜ **No proposal has been decided yet** — all 61 sit `pending`. Deciding the first few is
   what proves the loop actually closes.
 

@@ -380,12 +380,13 @@ broken; there was no way to say yes, no, or later.
 mentions, 5 quality checks from 31), evidence counts and first/last-seen carried over. All
 61 are `pending`; nothing was auto-declined, because `declined` is irreversible by design.
 
-**Two gaps, both external to the code:**
-- The console needs `meta.supabase` in the published `dashboard_data.json`. Wired at
-  `pipeline.py:186`; it stays dark until a `refresh.yml` run republishes with the secrets.
-- The Edge Function could not be exercised over HTTP from the sandbox (network policy
-  blocks the Supabase host). Handlers are verified by construction and against the client
-  harness; the first real click in the console is the true end-to-end test.
+**Sign-in is live:** the 2026-08-01 `refresh.yml` run published `meta.supabase` (url + anon
+key) into `dashboard_data.json`, which is what both the main dashboard's auth and this
+console read. No operator action outstanding.
+
+**One gap:** the Edge Function could not be exercised over HTTP from the build sandbox
+(network policy blocks the Supabase host). Handlers are verified by construction and
+against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
 0. **Open the console and decide the first few proposals** — that is what proves the loop

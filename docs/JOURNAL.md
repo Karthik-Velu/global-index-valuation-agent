@@ -54,8 +54,8 @@ have been a lie in the only case that matters — when the build fails.
    refresh that proves it worked.
 
 **Still open / next session:**
-- The console goes live only once `meta.supabase` is published — the code is
-  wired at `pipeline.py:186` but the refresh run hasn't republished yet.
+- ~~The console needs `meta.supabase` published~~ — the weekly `refresh.yml` run
+  landed mid-session and published it, so sign-in works as soon as this deploys.
 - The Edge Function is deployed and ACTIVE but could not be exercised over HTTP
   from the sandbox (network policy blocks the Supabase host), so its handlers are
   verified by construction and by the client harness, not by a live round trip.
