@@ -1,0 +1,108 @@
+name: Builder agent
+
+# Turns admin-approved CODE proposals into reviewed pull requests (ADR-028).
+#
+# This is the ONLY workflow that writes source code, so it is deliberately the
+# most constrained one in the repo:
+#   * it never pushes to main — engine/builder.py only ever creates
+#     builder/proposal-<id> branches and opens PRs against the default branch;
+#   * it only acts on proposals the admin already approved in the console, and
+#     only writes code for solution plans the admin approved a SECOND time;
+#   * every edit must match its anchor exactly once and the tree must compile
+#     and import before a commit is made (engine/builder.py::_gate).
+#
+# Three phases per run, in this order:
+#   poll  — merge PRs whose checks went green, mark their proposals actioned
+#   draft — write plain-English plans for newly-approved code proposals
+#   build — implement plans the admin marked "Build it"
+#
+# Hourly, because the loop is admin-paced: after you approve a plan you should
+# see a PR within the hour, not tomorrow. Each phase is a no-op when there's
+# nothing in that state, so a quiet hour costs one Postgres query.
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+    inputs:
+      draft_limit:
+        description: "max plans to draft this run"
+        type: string
+        default: "3"
+      build_limit:
+        description: "max solutions to implement this run"
+        type: string
+        default: "2"
+  # Same test-fire idiom as the other workflows: editing this file on the dev
+  # branch runs it once there, since sessions lack actions:write for API dispatch.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/builder.yml"]
+
+# contents: write  -> push the builder/* branch
+# pull-requests: write -> open and merge the PR
+permissions:
+  contents: write
+  pull-requests: write
+
+# Never let two Builder runs write the working tree at once.
+concurrency:
+  group: builder
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}   # tier-1 for the `coder` chain (Qwen3-Coder)
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # cross-provider rate-limit fallback
+      GITHUB_TOKEN: ${{ github.token }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      # Full history: the Builder branches from the checked-out commit and
+      # force-with-lease pushes, both of which need real history, not a shallow one.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+
+      - run: pip install -r requirements.txt
+
+      - name: Identify commits as the bot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run the Builder
+        run: |
+          python - <<'PY'
+          import json, os
+          from engine import builder
+          out = builder.run(
+              draft_limit=int(os.getenv("DRAFT_LIMIT") or 3),
+              build_limit=int(os.getenv("BUILD_LIMIT") or 2))
+          print(json.dumps(out, indent=2, default=str))
+          with open("data/builder_report.json", "w") as f:
+              json.dump(out, f, indent=2, default=str)
+          # Surface failures in the job summary — a Builder that quietly fails to
+          # build is indistinguishable from one with nothing to do, which is
+          # exactly the blind spot this whole feature was built to remove.
+          failed = (out.get("draft", {}).get("failed") or []) + (out.get("build", {}).get("failed") or [])
+          if failed:
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                  f.write("## Builder failures\n\n")
+                  for x in failed:
+                      f.write(f"- proposal {x.get('proposal_id')}: {x.get('error')}\n")
+          PY
+        env:
+          DRAFT_LIMIT: ${{ inputs.draft_limit }}
+          BUILD_LIMIT: ${{ inputs.build_limit }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: builder-report
+          path: data/builder_report.json
+          retention-days: 30

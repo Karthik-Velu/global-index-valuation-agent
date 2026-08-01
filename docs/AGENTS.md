@@ -60,6 +60,40 @@ source, a new quality check). A human or a follow-up step turns the proposal int
 deterministic rule/adapter/check that the jobs then run cheaply, forever. So
 intelligence is spent *once* to improve a job, not *every time* the job runs.
 
+### Closing the meta-loop (2026-08-01, ADR-028)
+
+For two weeks only the *first* half of that loop existed. Agents appended free text to
+`taxonomy_changes` and nothing read it back: **166 proposals accumulated, zero were ever
+applied**, and the same ideas were re-proposed nightly forever (`capex_intensity` 15× in
+7 days; `timeseries_jump` 8× in **8 different wordings**).
+
+The second half now exists:
+
+| Piece | What it does |
+|---|---|
+| `engine/proposals.py` | Capture → dedup → decide → apply. One row per **decision**, not per phrasing. |
+| `engine/migrations/0013` | `proposals`, append-only `proposal_events`, chat thread, solution revisions. |
+| `supabase/functions/admin` | Actions a decision the moment it's clicked; answers questions. |
+| `dashboard/admin.html` | The review console — read it, ask about it, decide it. |
+| `engine/builder.py` | **The 6th agent.** Approved *code* proposals → English plan → PR. |
+
+Two properties worth not regressing:
+
+1. **Dedup is on `(kind, target)`.** The decision "do we add capex_intensity?" is the same
+   question however the model words its pitch. Hashing the text — even normalised — gives
+   8 rows for the 8 wordings of `timeseries_jump` and rebuilds the flood. It's also what
+   makes `declined` stick: a rejected idea can't return through a synonym.
+2. **Approving code does not mean code exists.** DATA kinds (`catalog_kpi`,
+   `model_routing`) change the live system in-process. CODE kinds (`quality_check`,
+   `source_adapter`) file a GitHub issue and hand off to the Builder, and only become
+   `actioned` when their **PR merges**. The console says so in different words per kind.
+
+**The Builder** is English-first by owner directive: it drafts a plain-English solution
+(what changes, which files, what could break, how we'd know), the admin approves *that*,
+and only then is code written — as atomic search/replace edits behind a compile+import
+gate, on a `builder/proposal-<id>` branch, merged when checks go green. It runs on the
+cheap `coder` chain (Qwen3-Coder first), never in the hot path. See `.github/workflows/builder.yml`.
+
 ---
 
 ## Differential frequency (right-sized to how fast each thing changes)

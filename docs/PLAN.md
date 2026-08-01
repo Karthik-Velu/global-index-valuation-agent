@@ -209,6 +209,41 @@ ADR-023..026.
   the pre-existing multi-currency 20-F PK-collision issue below is a separate, unrelated
   problem (fundamentals ingestion, not display).
 
+## Phase E — the proposal review loop (closing the meta-loop)  ✅ BUILT 2026-08-01
+`docs/AGENTS.md` always promised an agent's output is a *proposal* a human turns into a
+rule. Only the first half existed: **166 proposals accumulated, zero were ever applied**
+(`capex_intensity` 15× in 7 days; `timeseries_jump` 8× in 8 distinct wordings; 281
+sector-research lessons decayed unused). See ADR-028.
+- ✅ **Schema** (`engine/migrations/0013_admin_proposals.sql`) — `proposals` + append-only
+  `proposal_events` + per-proposal chat (`proposal_messages`) + Builder revisions
+  (`proposal_solutions`), all admin-only under RLS via an `admins` table (an INSERT adds a
+  reviewer, not a migration).
+- ✅ **Lifecycle** (`engine/proposals.py`) — capture/dedup/decide/apply/park/unpark/enrich.
+  Dedup key is **`(kind, target)`** — one row per decision, not per phrasing. `declined` is
+  terminal and blocks re-capture at the single write path. Park carries a date **or** an
+  evidence threshold so "later" resurfaces on its own.
+- ✅ **Backfill** — 166 legacy rows → **61 real decisions** (56 catalog KPIs from 135
+  mentions, 5 quality checks from 31), evidence counts + first/last-seen carried over.
+  Nothing auto-declined: `declined` is irreversible by design.
+- ✅ **Instant actioning** (`supabase/functions/admin/index.ts`, deployed + ACTIVE) —
+  approve → the change happens (DATA kinds) or a GitHub issue is filed (CODE kinds), under
+  the service role, with admin identity re-derived from the JWT on every request.
+- ✅ **Review console** (`dashboard/admin.html` + `admin.js`) — the 4-part format, worked
+  examples, evidence history, per-proposal chat, and decision buttons whose wording differs
+  by kind so "approved" never silently means two things.
+- ✅ **Builder agent** (`engine/builder.py` + `.github/workflows/builder.yml`, hourly) —
+  approved code proposals → plain-English plan → admin approves *that* → atomic
+  search/replace edits behind a compile+import gate → `builder/proposal-<id>` branch → PR →
+  merged on green. Runs on the cheap `coder` chain (Qwen3-Coder first).
+- ✅ **Pipeline wiring** — `datapipeline.run()` step 9 does unpark + retry-failed + enrich
+  after the agents, so tonight's proposals are reviewable English tomorrow morning.
+- ⬜ **Not yet proven end-to-end:** the console needs `meta.supabase` published (wired at
+  `pipeline.py:186`, awaiting a `refresh.yml` run), and the Edge Function couldn't be
+  exercised over HTTP from the build sandbox (network policy blocks the Supabase host).
+  The first real click in the console is the true test.
+- ⬜ **No proposal has been decided yet** — all 61 sit `pending`. Deciding the first few is
+  what proves the loop actually closes.
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F
