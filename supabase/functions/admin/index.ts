@@ -121,9 +121,28 @@ async function askModel(system: string, user: string): Promise<{ text: string; m
 // actioning — the server-side half of engine/proposals.py::apply()
 // ---------------------------------------------------------------------------
 
-async function applyCatalogKpi(target: string, payload: Record<string, unknown>) {
+/** Recover a sub-sector the prose names but the payload doesn't carry.
+ *
+ * The legacy rows were free text — "propose for Industrial Materials: Capex
+ * Intensity" — so the scope exists only in the sentence. Defaulting straight to
+ * "all" silently applied a sector KPI market-wide on the first real approval
+ * (proposal #9, 2026-08-02). Reading it back out of the prose is a guess, so it
+ * is recorded in `notes` as inferred rather than presented as declared.
+ */
+function inferScope(proposal: string): string | null {
+  const m = /\bfor\s+([A-Z][\w&/ -]{2,40}?)\s*[::]/.exec(proposal || "");
+  return m ? m[1].trim() : null;
+}
+
+async function applyCatalogKpi(
+  target: string, payload: Record<string, unknown>, proposal = "",
+) {
   const tags = (payload.xbrl_tags as string[]) ?? [];
   const inXbrl = tags.length > 0;
+  const declared = (payload.applies_to as string) ?? (payload.sector as string) ??
+                   (payload.proposed_for_sub_sector as string) ?? null;
+  const inferred = declared ? null : inferScope(proposal);
+  const scope = declared ?? inferred ?? "all";
   // New KPIs land as `computed` unless the proposal names real XBRL tags. An
   // unverified tag guess is how 7 catalog metrics got auto-demoted for returning
   // the wrong concept; we don't repeat that on a model's say-so.
@@ -133,15 +152,20 @@ async function applyCatalogKpi(target: string, payload: Record<string, unknown>)
     definition: payload.definition ?? null,
     unit: (payload.unit as string) ?? "ratio",
     category: (payload.category as string) ?? "sector_kpi",
-    applies_to: (payload.applies_to as string) ?? (payload.sector as string) ?? "all",
+    applies_to: scope,
     in_xbrl: inXbrl,
     xbrl_tags: tags,
     source_if_not_xbrl: inXbrl ? null : "computed",
     importance: (payload.importance as string) ?? "medium",
-    notes: "added via admin-approved agent proposal",
+    notes: "added via admin-approved agent proposal" +
+      (inferred ? ` · scope "${inferred}" INFERRED from the proposal text, not declared` : "") +
+      (!declared && !inferred ? " · no scope given — applied to all sectors" : ""),
   }, { onConflict: "metric_code" });
   if (error) throw new Error(`metric_catalog upsert failed: ${error.message}`);
-  return `metric_catalog upserted: ${target} (in_xbrl=${inXbrl})`;
+  // Say which scope was written and where it came from — the admin approved a
+  // sentence, so the confirmation has to name what the sentence turned into.
+  const how = declared ? "declared" : inferred ? "inferred from the text" : "defaulted";
+  return `metric_catalog upserted: ${target} — applies_to="${scope}" (${how}), in_xbrl=${inXbrl}`;
 }
 
 async function applyModelRouting(target: string, payload: Record<string, unknown>) {
@@ -231,7 +255,7 @@ async function handleDecide(body: Record<string, unknown>, actor: string) {
   try {
     if (DATA_KINDS.has(p.kind)) {
       const detail = p.kind === "catalog_kpi"
-        ? await applyCatalogKpi(p.target, p.payload ?? {})
+        ? await applyCatalogKpi(p.target, p.payload ?? {}, p.proposal ?? "")
         : await applyModelRouting(p.target, p.payload ?? {});
       await admin.from("proposals").update({
         status: "actioned", actioned_at: new Date().toISOString(), action_detail: detail,
@@ -263,10 +287,51 @@ const CHAT_SYSTEM =
   "You are advising the non-engineer owner of a global equity valuation system, " +
   "who is deciding whether to approve one specific agent proposal. Answer their " +
   "question about it directly, in plain English, in at most 150 words. Ground " +
-  "every claim in the proposal record you are given. If the record does not " +
-  "contain what they are asking about, say so plainly — do not speculate about " +
-  "code or data you cannot see. If they ask whether to approve it, give a " +
-  "recommendation and your reasoning, including the honest case against.";
+  "every claim in the record you are given. If the record does not contain what " +
+  "they are asking about, say so plainly — do not speculate about code or data " +
+  "you cannot see. If they ask whether to approve it, give a recommendation and " +
+  "your reasoning, including the honest case against.\n" +
+  "`how_used` states what actually consumes this once it exists. Use it to answer " +
+  "'how will this be used?'. If it is null or empty, say plainly that the proposal " +
+  "does not state a consumer — never invent one, and treat 'nothing reads it yet' " +
+  "as a material fact the owner should weigh before approving.\n" +
+  "You are also given `will_write` — precisely what approving writes to the " +
+  "system. Prefer it over the prose whenever they conflict: the prose is the " +
+  "agent's pitch, `will_write` is what actually happens. If they differ in a way " +
+  "that matters (most importantly scope — a proposal that reads as sector-" +
+  "specific but writes applies_to='all' affects every company), SAY SO UNPROMPTED. " +
+  "That mismatch has already caused one wrongly-scoped approval.";
+
+/** What approval will actually write. Same defaults as applyCatalogKpi, so the
+ *  answer the admin reads and the row that gets created cannot drift apart. */
+function willWrite(p: Record<string, unknown>) {
+  const pay = (p.payload ?? {}) as Record<string, unknown>;
+  if (p.kind === "catalog_kpi") {
+    const tags = (pay.xbrl_tags as string[]) ?? [];
+    const declared = (pay.applies_to as string) ?? (pay.sector as string) ??
+                     (pay.proposed_for_sub_sector as string) ?? null;
+    const inferred = declared ? null : inferScope(String(p.proposal ?? ""));
+    return {
+      table: "metric_catalog",
+      metric_code: p.target,
+      applies_to: declared ?? inferred ?? "all",
+      applies_to_source: declared ? "declared in the proposal"
+        : inferred ? `inferred from the proposal text ("${inferred}")`
+        : "NOT SPECIFIED — defaults to every sector",
+      collected_via: tags.length ? `XBRL tags ${tags.join(", ")}`
+        : "computed — no XBRL tags given, so nothing is collected until a formula is written",
+      definition: pay.definition ?? null,
+    };
+  }
+  if (p.kind === "model_routing") {
+    return { table: "taxonomy_changes (record only)", role: pay.role ?? "agent",
+             chain: pay.chain ?? [],
+             takes_effect: "NOT until someone sets the env var and redeploys" };
+  }
+  return { writes_nothing_yet: true,
+           what_happens: "files a GitHub issue; the Builder drafts a plain-English " +
+                         "plan which the admin must approve before any code is written" };
+}
 
 async function handleChat(body: Record<string, unknown>, actor: string) {
   const id = Number(body.proposal_id);
@@ -286,10 +351,16 @@ async function handleChat(body: Record<string, unknown>, actor: string) {
     proposal: {
       kind: p.kind, target: p.target, source_agent: p.source_agent,
       proposal: p.proposal, reason: p.reason, expected_outcome: p.expected_outcome,
+      how_used: p.how_used,
       worked_examples: p.worked_examples, evidence_count: p.evidence_count,
       first_seen: p.first_seen, last_seen: p.last_seen, status: p.status,
       is_code_change: !DATA_KINDS.has(p.kind),
+      // The agent's structured output — sector, XBRL tags, unit, definition.
+      // Omitting it is why "does this apply only to certain segments?" got
+      // answered with "the record doesn't say" when the record did say.
+      payload: p.payload ?? {},
     },
+    will_write: willWrite(p),
     conversation: history ?? [],
     question: message,
   }).slice(0, 12000);

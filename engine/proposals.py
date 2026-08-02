@@ -80,11 +80,18 @@ def dedup_key(kind: str, target: str, variant: str = "") -> str:
 
 def capture(*, source_agent: str, kind: str, target: str, proposal: str,
             reason: str | None = None, expected_outcome: str | None = None,
-            worked_examples: list | None = None, payload: dict | None = None,
-            model_id: str | None = None, variant: str = "") -> dict:
+            how_used: str | None = None, worked_examples: list | None = None,
+            payload: dict | None = None, model_id: str | None = None,
+            variant: str = "") -> dict:
     """Record (or re-confirm) a proposal. Returns {status, id, action}.
 
     action is one of: created | bumped | blocked_declined | skipped.
+
+    `how_used` is required for a proposal to count as fully enriched (owner
+    directive, 2026-08-02). `reason` says why it was raised and
+    `expected_outcome` says what improves; neither answers "once this exists,
+    what actually consumes it?" — which is the question that makes the
+    difference between an informed approval and a blind one.
     """
     if not db.have_db() or not (proposal or "").strip():
         return {"action": "skipped", "reason": "no db or empty proposal"}
@@ -93,7 +100,7 @@ def capture(*, source_agent: str, kind: str, target: str, proposal: str,
 
     key = dedup_key(kind, target, variant)
     examples = worked_examples if isinstance(worked_examples, list) else []
-    enriched = bool(reason and expected_outcome and examples)
+    enriched = bool(reason and expected_outcome and how_used and examples)
 
     with db.connect() as c, c.cursor() as cur:
         cur.execute("select id, status, evidence_count from proposals where dedup_key=%s", (key,))
@@ -130,10 +137,10 @@ def capture(*, source_agent: str, kind: str, target: str, proposal: str,
         cur.execute(
             """insert into proposals
                (source_agent, kind, target, model_id, dedup_key, proposal, reason,
-                expected_outcome, worked_examples, needs_enrichment, payload)
-               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id""",
+                expected_outcome, how_used, worked_examples, needs_enrichment, payload)
+               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id""",
             (source_agent, kind, target, model_id, key, proposal.strip(), reason,
-             expected_outcome, json.dumps(examples), not enriched,
+             expected_outcome, how_used, json.dumps(examples), not enriched,
              json.dumps(payload or {}, default=str)))
         pid = cur.fetchone()[0]
         _event(cur, pid, "captured", to_status="pending", actor=source_agent,
@@ -162,9 +169,18 @@ _ENRICH_SYSTEM = (
     "Return ONLY a JSON object with exactly these keys:\n"
     '  "proposal": one or two sentences — what would change, stated as an action.\n'
     '  "reason": why the agent raised it — the underlying problem, and what breaks '
-    "today if nothing is done.\n"
+    "today if nothing is done. Be specific about the problem, never restate the "
+    'proposal. "LLM sub-sector KPI proposal" is the kind of non-answer that makes '
+    "a proposal impossible to decide on.\n"
     '  "expected_outcome": what measurably improves if this is approved, and how we '
     "would know. Name the metric or behaviour, not a vague benefit.\n"
+    '  "how_used": once this exists, what actually CONSUMES it going forward — '
+    "which score, dashboard view, job or report changes behaviour, and from when. "
+    "For a new metric say whether it feeds valuation/growth scoring, only shows in "
+    "the stock breakdown, or is reference-only for now; and which companies it is "
+    "collected for. If the honest answer is 'nothing consumes it yet, it is only "
+    "collected', SAY THAT — an admin approving a metric that nothing reads deserves "
+    "to know that before approving, not after.\n"
     '  "worked_examples": an array of 2-3 objects, each '
     '{"situation", "today", "after"} — a concrete case, what the system does now, '
     "and what it would do instead. Use REAL identifiers from the context when "
@@ -210,18 +226,27 @@ def enrich(limit: int = 6, model_role: str = "cheap") -> dict:
         examples = obj.get("worked_examples")
         if not isinstance(examples, list):
             examples = []
+        # A row is only "enriched" if it actually gained the fields that make it
+        # decidable. Clearing the flag on a model that skipped how_used would
+        # retire the proposal from the enrichment queue while still leaving the
+        # admin without the answer they asked for.
+        complete = bool(obj.get("reason") and obj.get("expected_outcome")
+                        and obj.get("how_used"))
         with db.connect() as c, c.cursor() as cur:
             cur.execute(
                 """update proposals set proposal=coalesce(nullif(%s,''), proposal),
-                       reason=%s, expected_outcome=%s, worked_examples=%s,
-                       needs_enrichment=false, model_id=coalesce(model_id,%s)
+                       reason=%s, expected_outcome=%s, how_used=%s, worked_examples=%s,
+                       needs_enrichment=%s, model_id=coalesce(model_id,%s)
                    where id=%s""",
                 ((obj.get("proposal") or "").strip(), obj.get("reason"),
-                 obj.get("expected_outcome"), json.dumps(examples), model_id, pid))
+                 obj.get("expected_outcome"), obj.get("how_used"),
+                 json.dumps(examples), not complete, model_id, pid))
             _event(cur, pid, "enriched", actor=f"enricher/{model_id}",
-                   detail=f"{len(examples)} worked example(s)")
+                   detail=f"{len(examples)} worked example(s)"
+                          + ("" if complete else "; INCOMPLETE — how_used missing, will retry"))
             c.commit()
-        done.append(pid)
+        (done if complete else failed).append(
+            pid if complete else {"id": pid, "error": "model omitted how_used"})
     return {"enriched": done, "failed": failed}
 
 
@@ -298,7 +323,7 @@ def apply(proposal_id: int, *, actor: str = "system") -> dict:
 
     try:
         if kind == "catalog_kpi":
-            detail = _apply_catalog_kpi(target, payload or {})
+            detail = _apply_catalog_kpi(target, payload or {}, proposal or "")
             _finish(proposal_id, "actioned", detail, actor)
             return {"applied": True, "detail": detail}
 
@@ -332,7 +357,24 @@ def _finish(proposal_id: int, status: str, detail: str, actor: str,
         c.commit()
 
 
-def _apply_catalog_kpi(target: str, payload: dict) -> str:
+_SCOPE_RE = re.compile(r"\bfor\s+([A-Z][\w&/ -]{2,40}?)\s*[::]")
+
+
+def _infer_scope(proposal: str) -> str | None:
+    """Recover a sub-sector the prose names but the payload doesn't carry.
+
+    The legacy rows were free text — "propose for Industrial Materials: Capex
+    Intensity" — so the scope exists only in the sentence. Defaulting straight to
+    "all" silently applied a sector KPI market-wide on the first real approval
+    (proposal #9, 2026-08-02): the admin approved a sentence naming one sector
+    and got a row covering every sector. Reading it back out of the prose is a
+    guess, so callers record it as inferred rather than as declared.
+    """
+    m = _SCOPE_RE.search(proposal or "")
+    return m.group(1).strip() if m else None
+
+
+def _apply_catalog_kpi(target: str, payload: dict, proposal: str = "") -> str:
     """Add (or re-enable) a KPI in the live metric_catalog table.
 
     This is a real, immediate change: the next ingestion run collects it. New
@@ -340,9 +382,22 @@ def _apply_catalog_kpi(target: str, payload: dict) -> str:
     unverified tag guess is how the catalog got 7 metrics auto-demoted for
     returning the wrong concept (engine/sectoragent/validate.py), so we don't
     repeat it on a model's say-so.
+
+    Scope resolution is deliberately explicit about provenance. "all" is a real
+    decision (collect this for every company), not a neutral fallback, so where
+    it came from is written into `notes` and echoed in the returned detail.
     """
     tags = payload.get("xbrl_tags") or []
     in_xbrl = bool(tags)
+    declared = (payload.get("applies_to") or payload.get("sector")
+                or payload.get("proposed_for_sub_sector"))
+    inferred = None if declared else _infer_scope(proposal)
+    scope = declared or inferred or "all"
+    note = "added via admin-approved agent proposal"
+    if inferred:
+        note += f' · scope "{inferred}" INFERRED from the proposal text, not declared'
+    elif not declared:
+        note += " · no scope given — applied to all sectors"
     with db.connect() as c, c.cursor() as cur:
         cur.execute(
             """insert into metric_catalog
@@ -356,14 +411,15 @@ def _apply_catalog_kpi(target: str, payload: dict) -> str:
                returning metric_code""",
             (target, payload.get("label") or target.replace("_", " ").title(),
              payload.get("definition"), payload.get("unit") or "ratio",
-             payload.get("category") or "sector_kpi",
-             payload.get("applies_to") or payload.get("sector") or "all",
+             payload.get("category") or "sector_kpi", scope,
              in_xbrl, json.dumps(tags),
              None if in_xbrl else "computed", payload.get("importance") or "medium",
-             "added via admin-approved agent proposal"))
+             note))
         code = cur.fetchone()[0]
         c.commit()
-    return f"metric_catalog upserted: {code} (in_xbrl={in_xbrl})"
+    how = "declared" if declared else "inferred from the text" if inferred else "defaulted"
+    return (f'metric_catalog upserted: {code} — applies_to="{scope}" ({how}), '
+            f"in_xbrl={in_xbrl}")
 
 
 def _apply_model_routing(target: str, payload: dict) -> str:
@@ -470,8 +526,17 @@ def retry_failed(limit: int = 5) -> dict:
     return {"retried": {pid: apply(pid, actor="daily-pipeline") for pid in ids}}
 
 
-def run_maintenance(enrich_limit: int = 6) -> dict:
-    """The whole daily proposal-queue pass, in one call for datapipeline.py."""
+def run_maintenance(enrich_limit: int = 20) -> dict:
+    """The whole daily proposal-queue pass, in one call for datapipeline.py.
+
+    The limit is 20, not the 6 this shipped with. 6 was sized for the steady
+    state — a handful of new proposals a night — and is badly wrong for the
+    backfilled backlog: 61 legacy proposals would take ten days to become
+    readable, which is ten days of the admin deciding on raw agent text. At 20 it
+    clears in three nights. The calls are role="cheap" (free tier) and add ~3
+    minutes to a ~107-minute job, so the cost argument for keeping it low is
+    weaker than the cost of un-reviewable proposals.
+    """
     return {"unpark": unpark(), "retry": retry_failed(), "enrich": enrich(limit=enrich_limit)}
 
 
