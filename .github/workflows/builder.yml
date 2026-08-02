@@ -16,9 +16,22 @@ name: Builder agent
 #   draft — write plain-English plans for newly-approved code proposals
 #   build — implement plans the admin marked "Build it"
 #
-# Hourly, because the loop is admin-paced: after you approve a plan you should
-# see a PR within the hour, not tomorrow. Each phase is a no-op when there's
-# nothing in that state, so a quiet hour costs one Postgres query.
+# Scheduled hourly because the loop is admin-paced. Each phase is a no-op when
+# there's nothing in that state, so a quiet hour costs one Postgres query.
+#
+# DO NOT read "hourly" as a guarantee — GitHub does not deliver it. Measured on
+# this repo 2026-08-01/02, against `cron: "20 * * * *"`, the actual fire times
+# were 21:12, 22:14, 23:15, 01:00, 04:43, 07:41 — never at :20, and with gaps of
+# 3h43m and 2h58m. Scheduled workflows are best-effort and are dropped under
+# load; the free/public-runner tier drops a lot of them.
+#
+# The consequence is real and was observed: proposal #64 was approved at 08:40
+# and the 08:20 and 09:20 slots never fired, so nothing had drafted by 10:09.
+# If "approve a plan, see a PR shortly after" needs to actually hold, the fix is
+# to dispatch this workflow from the Edge Function when a solution is marked
+# push_ok — which needs a token carrying actions:write, a deliberate scope
+# widening beyond the Issues-only token the console uses today. Until then the
+# honest expectation is "within a few hours", and the console says so.
 on:
   schedule:
     - cron: "20 * * * *"
