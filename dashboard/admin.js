@@ -18,7 +18,7 @@
 
 const App = (() => {
   let sb = null, user = null, fnUrl = null;
-  let rows = [], sel = null, tab = 'pending';
+  let rows = [], sel = null, tab = 'pending', authError = null;
   // Survives the reload-and-redraw that follows a decision. Without it the
   // confirmation is destroyed by the very refresh that proves it worked, and
   // the card also leaves the current tab — so you click Approve and are told
@@ -74,14 +74,59 @@ const App = (() => {
     fnUrl = cfg.url.replace(/\/$/, '') + '/functions/v1/admin';
     sb = window.supabase.createClient(cfg.url, cfg.anon_key);
 
+    authError = readAuthError();
     const { data: { session } } = await sb.auth.getSession();
     user = session?.user ?? null;
-    sb.auth.onAuthStateChange((_e, s) => { user = s?.user ?? null; render(); });
+    sb.auth.onAuthStateChange((_e, s) => {
+      user = s?.user ?? null;
+      if (user) authError = null;   // a good sign-in clears a stale complaint
+      render();
+    });
     await render();
+  }
+
+  // Supabase reports a failed magic link by redirecting back with error params —
+  // in the hash for the implicit flow, in the query string for PKCE. Reading them
+  // is the difference between "expired link, get a new one" and a silent bounce
+  // back to the sign-in form that looks like nothing happened at all.
+  //
+  // Worth being explicit about the two we actually hit in production:
+  //   otp_expired / "invalid or has expired" — usually the link was already
+  //     spent. Mail providers PREFETCH links (observed: Gmail hitting /verify
+  //     from 74.125.184.178 and burning the token), so this fires even on a link
+  //     the human never clicked twice.
+  //   redirect mismatch — the URL isn't in Supabase's allowlist, so tokens went
+  //     to the Site URL instead of here. The old default is localhost:3000,
+  //     which silently swallows a perfectly valid session.
+  function readAuthError() {
+    const parse = s => new URLSearchParams((s || '').replace(/^[#?]/, ''));
+    for (const src of [location.hash, location.search]) {
+      const p = parse(src);
+      const code = p.get('error_code') || p.get('error');
+      if (!code) continue;
+      const desc = (p.get('error_description') || '').replace(/\+/g, ' ');
+      // Clean the URL so a refresh doesn't re-display a resolved error.
+      history.replaceState(null, '', location.pathname);
+      if (/expired|not_found|invalid/i.test(code + desc)) {
+        return 'That sign-in link had already been used or expired. Request a ' +
+               'fresh one below and open it as soon as it arrives — some mail ' +
+               'providers scan links automatically, which uses them up.';
+      }
+      return `Sign-in failed: ${desc || code}`;
+    }
+    return null;
   }
 
   async function render() {
     if (!user) {
+      if (authError) {
+        $('gateMsg').innerHTML = `<span class="text-rich">${esc(authError)}</span>`;
+        $('gateForm').classList.remove('hidden');
+        $('gate').classList.remove('hidden');
+        $('main').classList.add('hidden');
+        $('authBox').innerHTML = '';
+        return;
+      }
       $('gateMsg').textContent = 'Sign in to review proposals.';
       $('gateForm').classList.remove('hidden');
       $('gate').classList.remove('hidden');
@@ -426,8 +471,18 @@ const App = (() => {
       // boot() is async, so a fast click can land before the client exists.
       if (!sb) { $('gateMsg').textContent = 'Still starting up — try again in a moment.'; return; }
       try {
-        await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
-        $('gateMsg').textContent = `Link sent to ${email}. Open it on this device.`;
+        // Redirect to the clean path, not location.href — href can still carry
+        // the error params from a previous failed attempt, and Supabase matches
+        // the whole URL against its allowlist.
+        await sb.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: location.origin + location.pathname },
+        });
+        authError = null;
+        $('gateMsg').innerHTML =
+          `Link sent to <b>${esc(email)}</b>. Open it on this device, and soon — ` +
+          `each link works once, and some mail providers use it up by scanning it. ` +
+          `If it doesn't work, just request another.`;
         $('gateForm').classList.add('hidden');
       } catch (e) {
         $('gateMsg').textContent = e.message;
