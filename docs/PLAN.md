@@ -244,8 +244,17 @@ sector-research lessons decayed unused). See ADR-028.
   the build sandbox (network policy blocks the Supabase host), so its handlers are verified
   by construction and against a client harness, not a live round trip. The first real click
   in the console is the true test.
-- ⬜ **No proposal has been decided yet** — all 61 sit `pending`. Deciding the first few is
-  what proves the loop actually closes.
+- ✅ **The loop is proven** — first real approval 2026-08-02 (`capex_intensity`, raised 15×):
+  decided in the console, actioned by the Edge Function, `metric_catalog` row created.
+- ✅ **Proposals must state what will consume them** (ADR-029, migration 0014) — new
+  `how_used` column asked for by all three agents, filled by `enrich()` for legacy rows,
+  rendered in the console and carried into the Builder's GitHub issue.
+- ✅ **Scope is no longer widened silently** — that first approval applied a KPI described
+  as "for Industrial Materials" to every sector, because the sector lived only in the prose.
+  The console now shows the exact row approval writes, and apply records whether scope was
+  declared, inferred from the text, or defaulted.
+- ⬜ **60 proposals still undecided**, and the nightly enricher has not yet had a full pass
+  (run #39 was mid-flight). Approving an un-written-up proposal now warns first.
 
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:

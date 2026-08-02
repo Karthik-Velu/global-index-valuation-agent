@@ -8,6 +8,61 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-02 — the first real approval did something other than what it said
+
+The queue went live and the owner approved one proposal: `capex_intensity`,
+the one the agents had raised 15 times. It worked — status `actioned`, their
+email on the decision, the catalog row created. First proof the loop closes.
+
+It also did the wrong thing, quietly.
+
+The proposal read *"propose for Industrial Materials: Capex Intensity"*. That
+sector existed **only in the sentence** — the payload, a legacy backfilled row,
+had no sector field. So `_apply_catalog_kpi` fell back to `applies_to="all"` and
+the KPI was applied to every company in the universe. Nothing in the console
+showed the difference between what was read and what was written.
+
+That is precisely the failure ADR-028 was written to prevent, and it landed on
+the very first click. Worth sitting with: the safeguard existed for *code*
+proposals (approve English, then approve a plan) and for terminal states, but
+the data path had no equivalent — I had treated "a KPI is just an INSERT" as
+meaning it needed no preview. An INSERT with the wrong scope is still wrong.
+
+**What the owner noticed independently.** They asked the console's chat whether
+the metric applied only to certain segments, and got "the record does not
+contain that". Truthful — and my fault: the chat context sent `proposal`,
+`reason`, `expected_outcome` and everything else *except* `payload`, which is
+where sector, XBRL tags and definition live. I had built the one field that
+answers scope questions and then not shown it to the thing answering them.
+
+**What changed.** Three things, all merged today:
+- the console renders "Exactly what gets written" — the actual row, read off the
+  same payload the apply step uses, with an explicit warning when the prose names
+  a sector the payload lacks;
+- scope now carries provenance (declared / inferred-from-text / defaulted) into
+  `notes` and into the confirmation message;
+- `how_used` is a first-class column (migration 0014) — what will consume this
+  once it exists — asked for by all three agents, filled by `enrich()`, rendered
+  in the console, sent to the chat, and carried into the GitHub issue the Builder
+  reads. Owner directive, and the right one: `reason` says why it was raised,
+  `expected_outcome` says what improves, and neither answers "what reads it?".
+
+**A near-miss worth recording.** The guard that stops you approving an
+un-written-up proposal first used a length heuristic on the prose. It let
+`"LLM sub-sector KPI proposal"` through at 27 characters — waving past the exact
+proposal that caused the incident. Replaced with `needs_enrichment`, which the
+engine sets from its own completeness gate. Heuristics on text were the wrong
+instinct when the system already had an authoritative flag.
+
+**Also today:** enrichment was doing 6 rows a night against a 61-row backlog —
+ten days of deciding on raw agent text. Now 20.
+
+**Still open:** `capex_intensity` remains `applies_to='all'`. Not obviously
+wrong — capex ÷ revenue means something everywhere — but not knowingly chosen,
+so it stays the owner's call.
+
+---
+
 ## 2026-08-01 — the agents had been talking to nobody for two weeks
 
 The finding that framed the whole session: **166 agent proposals had accumulated
