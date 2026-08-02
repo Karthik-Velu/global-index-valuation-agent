@@ -26,6 +26,7 @@ const App = (() => {
   let outcome = null;   // {id, ok, text}
 
   const $ = id => document.getElementById(id);
+  const r_ = v => typeof v === 'string' && v.trim().length > 0;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -476,6 +477,33 @@ const App = (() => {
     }
     if (decision === 'decline' &&
         !confirm('Decline permanently? The agents will never raise this again.')) return;
+
+    // Approving something that never said why it matters or what will read it is
+    // the exact thing that went wrong on the first live approval: capex_intensity
+    // was approved off one line of agent text and landed across every sector.
+    // The warning banner alone wasn't enough — it sits above the fold and reads
+    // as informational. This makes it impossible to do UNKNOWINGLY, without
+    // taking the decision away: the missing pieces are named, and the nightly
+    // enricher is offered as the alternative.
+    if (decision === 'approve' && sel.needs_enrichment) {
+        // needs_enrichment is the authority here, not a check on the text. It is
+        // set by the same completeness gate the engine uses (reason AND
+        // expected_outcome AND how_used all present), so it catches the legacy
+        // rows whose `reason` is the non-answer "LLM sub-sector KPI proposal" —
+        // technically populated, which is why a length or null heuristic waves
+        // exactly the wrong proposals through. Naming the empty fields is just
+        // for the message; the gate itself is the flag.
+        const missing = [
+          !r_(sel.reason) && 'why it was raised',
+          !r_(sel.how_used) && 'what will use it afterwards',
+          !r_(sel.expected_outcome) && 'what should improve',
+        ].filter(Boolean);
+        if (!confirm(
+              'This proposal hasn\'t been written up yet' +
+              (missing.length ? ` — it doesn't say ${missing.join(', or ')}` : '') +
+              '.\n\nThe nightly job fills that in. Approving now means deciding ' +
+              'on the agent\'s raw text.\n\nApprove anyway?')) return;
+    }
 
     busy(btn, true);
     $('actMsg').innerHTML = '<span class="text-slate-400">Working…</span>';
