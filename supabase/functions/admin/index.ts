@@ -193,6 +193,14 @@ async function fileIssue(p: Record<string, unknown>): Promise<string | null> {
     "## Expected outcome", (p.expected_outcome as string) || "(not recorded)", "",
     "## How it gets used", (p.how_used as string) || "(not recorded)", "",
   ];
+  // The approver's own words at the moment they said yes. This was written to
+  // the DB and read by nothing, so an instruction given at decision time never
+  // reached the agent that implements it. It outranks the proposal: the agent
+  // proposed, the human decided, and this is what they decided.
+  if (p.decision_note) {
+    lines.push("## Instruction from the approver — follow this",
+               p.decision_note as string, "");
+  }
   if (ex.length) {
     lines.push("## Worked examples");
     for (const e of ex as Record<string, string>[]) {

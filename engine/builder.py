@@ -171,6 +171,7 @@ def draft(limit: int = 3, model_role: str = "coder") -> dict:
         # back. A single query so revisions can't starve behind new work.
         cur.execute(
             """select p.id, p.kind, p.target, p.proposal, p.reason, p.expected_outcome,
+                      p.how_used, p.decision_note,
                       s.id, coalesce(s.revision,0), s.feedback
                from proposals p
                left join lateral (
@@ -183,13 +184,31 @@ def draft(limit: int = 3, model_role: str = "coder") -> dict:
         rows = cur.fetchall()
 
     drafted, failed = [], []
-    for pid, kind, target, proposal, reason, outcome, _sid, last_rev, feedback in rows:
+    for (pid, kind, target, proposal, reason, outcome, how_used, note,
+         _sid, last_rev, feedback) in rows:
         blob, files = _context_blob(kind, target)
         payload = {
             "kind": kind, "target": target, "approved_proposal": proposal,
             "why_raised": reason, "expected_outcome": outcome,
+            # What is meant to consume this. Without it the Builder writes a check
+            # that fires into the void — it knows what to detect and nothing about
+            # who acts on the detection.
+            "how_it_will_be_used": how_used,
             "repository_excerpts": blob,
         }
+        if note:
+            # The admin's own words at the moment they approved. This was being
+            # written to the DB and read by nothing — proposal #64 was approved
+            # with "along with flagging - it should result in information being
+            # used by one of the agents to eventually suggest next steps", an
+            # explicit scope instruction the Builder would have silently ignored.
+            # It outranks the agent's original pitch: the agent proposed, the
+            # human decided, and this is what they decided.
+            payload["admin_instruction_at_approval"] = note
+            payload["note_on_priority"] = (
+                "admin_instruction_at_approval is a direct instruction from the "
+                "person who approved this. Where it conflicts with or extends the "
+                "original proposal, follow the instruction.")
         if feedback:
             # The admin's own words, verbatim and prominent. Paraphrasing here
             # is how a revision loop quietly drifts away from what was asked.
