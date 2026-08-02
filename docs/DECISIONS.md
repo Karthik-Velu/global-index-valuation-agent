@@ -9,6 +9,53 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-029 · A proposal must state what will CONSUME it; and scope is never widened silently
+- **Context:** the first real approval, 2026-08-02. `capex_intensity` read *"propose for
+  Industrial Materials: Capex Intensity"*. Its payload — a legacy backfilled row — carried
+  no sector at all, so `_apply_catalog_kpi` defaulted `applies_to` to `"all"` and the KPI
+  landed across **every sector**. The admin approved a sentence naming one sector and got a
+  row covering all of them. Separately, asked "does this apply only to certain segments?",
+  the console's chat answered "the record does not contain that" — truthfully, because the
+  chat context omitted `payload`, the one field holding sector, XBRL tags and definition.
+  Owner's verdict: *"right now i would mostly have to blindly take decision as there is not
+  enough details in admin panel"*, and then the directive — *"along with definition - a
+  'why' something is proposed and how it will be used going forward is clearly added for
+  all proposals going forward."*
+- **Choice, three parts:**
+  1. **`how_used` as a first-class column** (migration 0014), not another key in `payload`.
+     It is part of the fixed text a human reads, alongside `reason` and `expected_outcome`.
+     All three proposing agents ask for it at source; `enrich()` fills it for legacy rows;
+     it renders in the console, is sent to the chat, and is carried into the GitHub issue
+     the Builder reads as its brief.
+  2. **The console shows the WRITE, not the pitch.** A "Exactly what gets written" block
+     renders the row approval will create, read off the same payload the apply step
+     consumes. Where the prose names a sector the payload lacks, it says so in as many
+     words.
+  3. **Scope carries provenance.** Both apply paths recover a sector from the prose when the
+     payload has none, record in `notes` that it was INFERRED rather than declared, and
+     return which of declared/inferred/defaulted was used.
+- **Why `"all"` needed to stop being a fallback:** it is a real decision — collect this for
+  every company in the universe — that happened to be spelled the same way as "no data".
+  Silent defaults are only safe when the default is inert, and this one isn't.
+- **Why `needs_enrichment` gates approval rather than a check on the text:** approving an
+  un-written-up proposal now asks for confirmation. The first implementation tested the
+  prose with a length heuristic and let `"LLM sub-sector KPI proposal"` through at 27
+  characters — waving past the exact proposal that caused this. `needs_enrichment` is set
+  by the same completeness gate the engine uses, so the console and the engine cannot
+  disagree about what "written up" means.
+- **Rejected alternatives:** *fold how_used into `expected_outcome`* — they answer different
+  questions ("what improves" vs "what reads it"), and merging them is how the second one
+  gets dropped. *Block approval outright on an un-enriched proposal* — takes the decision
+  away from the owner; a named confirmation preserves agency while making the gap
+  impossible to miss. *Refuse to apply when scope is unknown* — would strand approvals on a
+  data problem the admin can't fix from the console.
+- **Follow-up left open:** `capex_intensity` is still `applies_to='all'`. Not obviously
+  wrong — capex ÷ revenue is meaningful in every sector — but it was not knowingly chosen,
+  so it is the owner's call to narrow, keep, or undo.
+- **Date:** 2026-08-02
+
+---
+
 ### ADR-028 · Proposals are decidable objects, deduped by DECISION not by wording; approved code goes through an English plan before any code exists
 - **Context:** `docs/AGENTS.md` always promised that an agent's output is a *proposal* which
   a human turns into a deterministic rule. Only the first half was ever built. Agents
