@@ -191,6 +191,7 @@ async function fileIssue(p: Record<string, unknown>): Promise<string | null> {
     "## Proposal", (p.proposal as string) || "(none)", "",
     "## Why it was raised", (p.reason as string) || "(not recorded)", "",
     "## Expected outcome", (p.expected_outcome as string) || "(not recorded)", "",
+    "## How it gets used", (p.how_used as string) || "(not recorded)", "",
   ];
   if (ex.length) {
     lines.push("## Worked examples");
