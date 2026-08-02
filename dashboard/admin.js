@@ -264,6 +264,8 @@ const App = (() => {
         ${outcome.text}
       </div>` : '';
 
+    const preview = decidable ? drawPreview(r) : '';
+
     $('detail').innerHTML = banner + `
       <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
         <div>
@@ -278,15 +280,19 @@ const App = (() => {
 
       ${section('What would change', esc(r.proposal))}
       ${r.reason ? section('Why it was raised', esc(r.reason)) : ''}
+      ${r.how_used ? section('How it gets used from here', esc(r.how_used)) : ''}
       ${r.expected_outcome ? section('What should improve', esc(r.expected_outcome)) : ''}
       ${examples}
-      ${r.needs_enrichment ? `<p class="text-xs text-slate-500 mb-4">This one hasn't been
-        written up in full yet — the nightly job does that. The raw text above is what
-        the agent actually said.</p>` : ''}
+      ${r.needs_enrichment ? `<p class="text-xs text-warn/90 mb-4">
+        <b>Not written up yet.</b> The text above is the agent's raw output — it may not
+        say why this matters or what will consume it. The nightly job fills that in;
+        deciding before then means deciding on less than the full picture.</p>` : ''}
 
       <div class="rounded-lg border border-line bg-panel2 p-3 text-xs text-slate-400 mb-4">
         ${effect}${evidence}
       </div>
+
+      ${preview}
 
       ${r.action_detail ? section('What happened', `<span class="text-xs">${esc(r.action_detail)}</span>` +
         (r.issue_url ? ` <a href="${esc(r.issue_url)}" target="_blank" rel="noopener" class="text-accent hover:underline text-xs">issue &rarr;</a>` : '')) : ''}
@@ -337,6 +343,73 @@ const App = (() => {
       if (ok) ok.onclick = () => solution(s.id, 'push_ok');
       if (no) no.onclick = () => solution(s.id, 'revising', $(`fb-${s.id}`)?.value);
     });
+  }
+
+  // The exact change approval will make, read off the payload the apply step
+  // actually uses — not a restatement of the prose.
+  //
+  // This exists because of a real miss on the first live approval. The proposal
+  // read "propose for Industrial Materials: Capex Intensity", but its payload
+  // (a legacy row) carried no sector, so the apply step defaulted applies_to to
+  // "all" and the KPI landed across every sector. The prose said one thing, the
+  // write did another, and nothing in the UI showed the difference. Prose is the
+  // agent's pitch; this is the diff.
+  function drawPreview(r) {
+    const p = r.payload ?? {};
+    const row = (k, v, warn) =>
+      `<tr><td class="pr-3 py-0.5 text-slate-500 align-top whitespace-nowrap">${k}</td>` +
+      `<td class="py-0.5 ${warn ? 'text-warn' : 'text-slate-300'}">${v}</td></tr>`;
+
+    if (r.kind === 'catalog_kpi') {
+      const tags = Array.isArray(p.xbrl_tags) ? p.xbrl_tags : [];
+      // Mirrors engine/proposals.py::_apply_catalog_kpi and the Edge Function's
+      // applyCatalogKpi. If those defaults change, change these with them.
+      const scope = p.applies_to || p.sector || p.proposed_for_sub_sector || null;
+      // Does the prose name a sector the payload doesn't carry? That mismatch is
+      // the thing worth shouting about, so look for it explicitly.
+      const named = /\bfor\s+([A-Z][\w&/ -]{2,40}?)\s*[::]/.exec(r.proposal || '');
+      const rows = [
+        row('code', `<code>${esc(r.target)}</code>`),
+        row('label', esc(p.label || r.target.replace(/_/g, ' '))),
+        row('applies to', scope
+          ? esc(scope)
+          : `<b>every sector</b>${named ? ` — but the text says “${esc(named[1])}”. ` +
+             `This proposal carries no sector field, so approving applies it market-wide.`
+            : ' (no sector given)'}`, !scope),
+        row('collected from', tags.length
+          ? `XBRL: <code>${tags.map(esc).join('</code>, <code>')}</code>`
+          : 'computed — no XBRL tags given, so nothing is fetched until someone ' +
+            'writes the formula', !tags.length),
+        p.definition ? row('definition', esc(p.definition)) : '',
+        row('importance', esc(p.importance || 'medium')),
+      ].join('');
+      return `<div class="rounded-lg border border-line bg-panel2 p-3 mb-4">
+        <div class="section-title">Exactly what gets written</div>
+        <table class="text-xs w-full">${rows}</table>
+        <p class="text-[11px] text-slate-500 mt-2">A row in <code>metric_catalog</code>.
+          The next data run collects it.</p></div>`;
+    }
+
+    if (r.kind === 'model_routing') {
+      const chain = Array.isArray(p.chain) ? p.chain : [];
+      return `<div class="rounded-lg border border-line bg-panel2 p-3 mb-4">
+        <div class="section-title">Exactly what gets written</div>
+        <table class="text-xs w-full">
+          ${row('role', esc(p.role || 'agent'))}
+          ${row('new chain', chain.length ? `<code>${chain.map(esc).join(' → ')}</code>` : '(none given)', !chain.length)}
+        </table>
+        <p class="text-[11px] text-warn mt-2">Recorded only. Model chains live in
+          environment variables, so this does <b>not</b> take effect until someone
+          sets it and redeploys.</p></div>`;
+    }
+
+    // Code kinds: the honest answer is that nothing is written yet.
+    return `<div class="rounded-lg border border-line bg-panel2 p-3 mb-4">
+      <div class="section-title">Exactly what happens</div>
+      <p class="text-xs text-slate-300">A GitHub issue is filed and the Builder
+        drafts a plain-English plan, which comes back here for you to approve.
+        <b>No data and no code change yet</b> — nothing is written until you approve
+        that plan too.</p></div>`;
   }
 
   function drawThread(msgs) {

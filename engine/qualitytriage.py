@@ -35,8 +35,19 @@ def triage_issues(report: dict, max_checks: int = 4) -> dict:
         'Return ONLY a JSON object: {"root_cause", "fix", '
         '"new_check": {"name": snake_case, "logic": "one paragraph, pseudocode-level", '
         '"rationale"}, "expected_outcome": "what measurably improves and how we would '
-        'know", "worked_examples": [2-3 of {"situation","today","after"} using REAL '
-        "identifiers from the sample — never invent numbers you were not given]}."
+        'know", '
+        '"how_used": "HOW THE CHECK WILL BE USED going forward — when it runs (every '
+        "ingest, daily pipeline), what it does when it fires (warn only, or block the "
+        "row), who or what acts on it, and roughly how many findings to expect at "
+        'current scale.", '
+        '"worked_examples": [2-3 of {"situation","today","after"} using REAL '
+        "identifiers from the sample — never invent numbers you were not given]}.\n"
+        # root_cause, expected_outcome and how_used are the whole basis for the
+        # owner's decision (directive 2026-08-02) — a check that fires 1,000× a day
+        # is a very different proposition from one that fires twice, and they can
+        # only weigh that if you say so up front.
+        "The owner decides from root_cause, expected_outcome and how_used alone. "
+        "Be concrete about firing volume and whether it blocks anything."
     )
     triaged = []
     for check_name, count in top:
@@ -68,6 +79,7 @@ def triage_issues(report: dict, max_checks: int = 4) -> dict:
                       f"{nc.get('logic', '')}").strip(),
             reason=(obj.get("root_cause") or "").strip() or None,
             expected_outcome=obj.get("expected_outcome"),
+            how_used=obj.get("how_used"),
             worked_examples=obj.get("worked_examples"),
             payload={"check_name": nc.get("name"), "logic": nc.get("logic"),
                      "rationale": nc.get("rationale"), "fix": obj.get("fix"),

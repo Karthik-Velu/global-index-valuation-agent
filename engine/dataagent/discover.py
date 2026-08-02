@@ -33,7 +33,10 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
             "Prefer sources usable by a PUBLIC product. Do not invent endpoints you are unsure of. "
             "Each source is reviewed by a non-engineer product owner who approves or "
             "rejects building an adapter for it, so also give, per source: "
-            '"reason" (what we cannot cover today without it), "expected_outcome" '
+            '"reason" (WHY: what we cannot cover today without it), "expected_outcome" '
+            '(what measurably improves), "how_used" (HOW IT WILL BE USED going '
+            'forward: which jobs query this source, how often, and what breaks '
+            'if it goes down), '
             "(what measurably improves and how we would know), and "
             '"worked_examples" ([2-3 of {"situation","today","after"}]).'
         )
@@ -67,6 +70,7 @@ def discover_for_needs(needs: list[dict], max_needs: int = 3) -> list[dict]:
                                   f"({s.get('provider', '?')}) to cover {need['kind']} for "
                                   f"{need['market_scope']}.").strip(),
                         reason=s.get("reason"), expected_outcome=s.get("expected_outcome"),
+                        how_used=s.get("how_used"),
                         worked_examples=s.get("worked_examples"),
                         payload={"source": s, "need": need})
                 memory.capture(

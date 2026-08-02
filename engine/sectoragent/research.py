@@ -30,10 +30,24 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
         'Return ONLY a JSON object: {"metrics": [ up to 5 of {"metric_code": snake_case, '
         '"label", "definition", "unit", "source_hint", "xbrl_tags": [exact US-GAAP/IFRS '
         "tag names ONLY if you are certain, else omit], "
-        '"reason": "what we cannot currently see without it", '
+        '"reason": "WHY this is being proposed — what we cannot currently see without '
+        'it, and what decision goes wrong today as a result. Never restate the '
+        'definition here.", '
         '"expected_outcome": "what measurably improves and how we would know", '
+        '"how_used": "HOW IT WILL BE USED going forward, concretely — which score or '
+        "view consumes it once collected (valuation scoring, growth scoring, the stock "
+        "breakdown, reference only), and which companies it is collected for. If "
+        "nothing consumes it yet and it would only be collected, say exactly that.\", "
         '"worked_examples": [2-3 of {"situation","today","after"} naming real companies '
-        "in this sub-sector] } ]}."
+        "in this sub-sector] } ]}.\n"
+        # The owner reads these four fields and nothing else before approving, so a
+        # non-answer in any of them is what makes a decision blind (directive
+        # 2026-08-02). Named explicitly because the pre-existing legacy proposals
+        # failed exactly here: reason was the literal string "LLM sub-sector KPI
+        # proposal", which says nothing at all.
+        "reason, expected_outcome and how_used are what the owner reads before "
+        "approving. Vague or self-referential answers there make the proposal "
+        "un-decidable — be concrete or say plainly that you are unsure."
     )
     researched = []
     for sub in subs:
@@ -63,7 +77,7 @@ def research_thin_subsectors(max_subsectors: int = 4) -> dict:
                     proposal=(f"Add `{d['metric_code']}` ({d.get('label', '')}) to the metric "
                               f"catalog: {d.get('definition', '')}").strip(),
                     reason=d.get("reason"), expected_outcome=d.get("expected_outcome"),
-                    worked_examples=d.get("worked_examples"),
+                    how_used=d.get("how_used"), worked_examples=d.get("worked_examples"),
                     payload={"label": d.get("label"), "definition": d.get("definition"),
                              "unit": d.get("unit"), "applies_to": sub,
                              "xbrl_tags": d.get("xbrl_tags") or [],
