@@ -313,11 +313,13 @@ def apply(proposal_id: int, *, actor: str = "system") -> dict:
     with db.connect() as c, c.cursor() as cur:
         cur.execute(
             "select kind, target, proposal, reason, expected_outcome, worked_examples, "
-            "payload, status from proposals where id=%s", (proposal_id,))
+            "payload, status, how_used, decision_note from proposals where id=%s",
+            (proposal_id,))
         row = cur.fetchone()
     if not row:
         return {"error": f"proposal {proposal_id} not found"}
-    kind, target, proposal, reason, outcome, examples, payload, status = row
+    (kind, target, proposal, reason, outcome, examples, payload, status,
+     how_used, note) = row
     if status not in {"approved", "failed"}:
         return {"error": f"proposal {proposal_id} is {status}, not approved"}
 
@@ -333,7 +335,8 @@ def apply(proposal_id: int, *, actor: str = "system") -> dict:
             return {"applied": True, "detail": detail}
 
         # CODE kinds -> GitHub issue -> Builder
-        url = _file_issue(proposal_id, kind, target, proposal, reason, outcome, examples)
+        url = _file_issue(proposal_id, kind, target, proposal, reason, outcome,
+                          examples, how_used, note)
         _finish(proposal_id, "queued_build",
                 f"filed {url}" if url else "no GITHUB_TOKEN — issue not filed, Builder "
                                            "will pick this up from the DB directly",
@@ -443,7 +446,8 @@ def _apply_model_routing(target: str, payload: dict) -> str:
 
 
 def _file_issue(proposal_id: int, kind: str, target: str, proposal: str,
-                reason: str | None, outcome: str | None, examples) -> str | None:
+                reason: str | None, outcome: str | None, examples,
+                how_used: str | None = None, note: str | None = None) -> str | None:
     """Open a GitHub issue carrying the reviewed spec. None without a token."""
     token = os.getenv("GITHUB_TOKEN", "").strip()
     if not token:
@@ -455,7 +459,12 @@ def _file_issue(proposal_id: int, kind: str, target: str, proposal: str,
     lines = [f"**Approved agent proposal #{proposal_id}** — `{kind}` / `{target}`", "",
              "## Proposal", proposal or "(none)", "",
              "## Why it was raised", reason or "(not recorded)", "",
-             "## Expected outcome", outcome or "(not recorded)", ""]
+             "## Expected outcome", outcome or "(not recorded)", "",
+             "## How it gets used", how_used or "(not recorded)", ""]
+    if note:
+        # The admin's instruction at approval time outranks the agent's pitch:
+        # the agent proposed, the human decided, and this is what they decided.
+        lines += ["## Instruction from the approver — follow this", note, ""]
     if ex:
         lines.append("## Worked examples")
         for e in ex:
