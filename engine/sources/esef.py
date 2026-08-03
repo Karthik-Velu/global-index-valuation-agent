@@ -207,24 +207,29 @@ def main(argv: list[str] | None = None) -> int:
         res = probe([c.strip().upper() for c in a.countries.split(",") if c.strip()] or None,
                     limit=a.limit)
         print(json.dumps(res, indent=2, default=str))
-        # The JSON is ~600 lines of log; the three numbers that decide anything
-        # are three of them. Print them LAST so they survive a tail.
+        # The JSON is ~600 lines of log; the numbers that decide anything are a
+        # handful of them, so repeat those last where a tail will find them.
+        #
+        # STDERR, not stdout: the workflow runs this through `tee probe.json`,
+        # so anything printed to stdout after the JSON lands INSIDE the file and
+        # the summary step's json.load() fails on it. That is exactly how run 3
+        # broke. stderr still reaches the log and leaves the artifact parseable.
         j = res.get("xbrl_json")
-        print("\n=== DIGEST " + "=" * 55)
+        out = ["\n=== DIGEST " + "=" * 55]
         if isinstance(j, dict):
-            print(f"  report            {j['entity']} ({j['country']})")
-            print(f"  facts             {j['total_facts']} across "
-                  f"{j['distinct_concepts']} distinct concepts")
-            print(f"  ALREADY MAPPED    {j['concepts_we_already_map']}"
-                  f"/{j['distinct_concepts']}  -> " + ", ".join(sorted(j["mapped"])))
+            out += [f"  report            {j['entity']} ({j['country']})",
+                    f"  facts             {j['total_facts']} across "
+                    f"{j['distinct_concepts']} distinct concepts",
+                    f"  ALREADY MAPPED    {j['concepts_we_already_map']}"
+                    f"/{j['distinct_concepts']}  -> " + ", ".join(sorted(j["mapped"]))]
         else:
-            print(f"  xbrl_json         {j}")
-        print(f"  json_url present  {res.get('json_url_available')} of sampled filings")
-        print("  countries         " +
-              ", ".join(f"{k}={v}" for k, v in (res.get("countries") or {}).items()))
-        print(f"  errors            {len(res.get('errors') or [])}")
-        for e in (res.get("errors") or []):
-            print(f"    - {e}")
+            out.append(f"  xbrl_json         {j}")
+        out += [f"  json_url present  {res.get('json_url_available')} of sampled filings",
+                "  countries         " +
+                ", ".join(f"{k}={v}" for k, v in (res.get("countries") or {}).items()),
+                f"  errors            {len(res.get('errors') or [])}"]
+        out += [f"    - {e}" for e in (res.get("errors") or [])]
+        print("\n".join(out), file=sys.stderr)
         # A probe that cannot reach the index is a failed probe; a probe that
         # reaches it and finds an awkward shape is a SUCCESSFUL probe with a
         # useful answer, so only the former is a non-zero exit.
