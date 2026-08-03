@@ -44,7 +44,17 @@ import requests
 from . import catalog
 
 ESEF_BASE = os.getenv("ESEF_BASE", "https://filings.xbrl.org/api").rstrip("/")
+# Report URLs come back RELATIVE ("/549300.../2021-12-31/ESEF/SE/1/....zip"), so
+# they need the site root, not the /api root. Measured from run 1 of the probe,
+# which failed on exactly this and is the reason the probe exists.
+ESEF_SITE = os.getenv("ESEF_SITE", "https://filings.xbrl.org").rstrip("/")
 _TIMEOUT = 30
+
+
+def _abs(url: str | None) -> str | None:
+    if not url:
+        return None
+    return url if url.startswith("http") else f"{ESEF_SITE}/{url.lstrip('/')}"
 
 # The provider asks heavy users to identify themselves rather than blocking them,
 # so we do, using the same descriptive-agent convention EDGAR requires.
@@ -69,7 +79,9 @@ def list_filings(country: str | None = None, limit: int = 10,
     real key set, because building a parser against a guessed shape is how you
     ship something that fails only in CI.
     """
-    params: dict = {"page[size]": max(1, min(limit, 100))}
+    # Newest first. The default order returned 2020-2022 filings from UA/SE/PL,
+    # which is a fine smoke test and a bad basis for judging current coverage.
+    params: dict = {"page[size]": max(1, min(limit, 100)), "sort": "-date_added"}
     if include_entity:
         params["include"] = "entity"
     if country:
@@ -136,33 +148,43 @@ def probe(countries: list[str] | None = None, limit: int = 5) -> dict:
         ent = _entity_of(f, idx)
         samples.append({
             "country": a.get("country"), "period_end": a.get("period_end"),
-            "entity": ent.get("name"), "lei": ent.get("identifier"),
+            "entity": ent.get("name"),
+            # NOT always an LEI: Ukrainian filings carry an 8-digit EDRPOU code
+            # here. Anything joining on this needs to cope with both.
+            "identifier": ent.get("identifier"),
             # Whichever of these exists is how we fetch the actual numbers.
-            "json_url": a.get("json_url"), "package_url": a.get("package_url"),
-            "report_url": a.get("report_url"), "error_count": a.get("error_count"),
+            "json_url": _abs(a.get("json_url")), "package_url": _abs(a.get("package_url")),
+            "report_url": _abs(a.get("report_url")), "error_count": a.get("error_count"),
         })
     out["samples"] = samples
+    # How often is the easy path available? Cloetta (SE) had a package but no
+    # json_url, so this ratio decides whether an iXBRL parser is optional or
+    # mandatory — a bigger question than any single filing answers.
+    out["json_url_available"] = f"{sum(1 for s in samples if s['json_url'])}/{len(samples)}"
 
-    # The decisive check: pull ONE report and see how many of its concepts we
-    # already map. One is enough to answer yes/no and costs the provider nothing.
-    target = next((s for s in samples if s.get("json_url")), None)
-    if not target:
+    # The decisive check: pull a report and see how many of its concepts we
+    # already map. Try each candidate rather than only the first, so one bad
+    # filing can't blank the answer we came here for.
+    targets = [s for s in samples if s.get("json_url")]
+    if not targets:
         out["xbrl_json"] = "no json_url on any sampled filing — iXBRL parsing required"
-    else:
+    for t in targets:
         try:
-            counts = _facts_from_xbrl_json(target["json_url"])
-            hits = {c: known[c] for c in counts if c in known}
-            out["xbrl_json"] = {
-                "url": target["json_url"], "entity": target["entity"],
-                "distinct_concepts": len(counts), "total_facts": sum(counts.values()),
-                "concepts_we_already_map": len(hits),
-                "mapped": dict(sorted(hits.items())),
-                "top_unmapped": sorted(
-                    ((c, n) for c, n in counts.items() if c not in known),
-                    key=lambda x: -x[1])[:25],
-            }
+            counts = _facts_from_xbrl_json(t["json_url"])
         except Exception as e:  # noqa: BLE001
-            out["errors"].append(f"xbrl-json fetch failed: {type(e).__name__}: {e}"[:300])
+            out["errors"].append(f"xbrl-json {t['json_url'][-60:]}: {type(e).__name__}: {e}"[:240])
+            continue
+        hits = {c: known[c] for c in counts if c in known}
+        out["xbrl_json"] = {
+            "url": t["json_url"], "entity": t["entity"], "country": t["country"],
+            "distinct_concepts": len(counts), "total_facts": sum(counts.values()),
+            "concepts_we_already_map": len(hits),
+            "mapped": dict(sorted(hits.items())),
+            "top_unmapped": sorted(
+                ((c, n) for c, n in counts.items() if c not in known),
+                key=lambda x: -x[1])[:25],
+        }
+        break
 
     for c in (countries or ["FI", "FR", "DE", "NL", "SE", "GB", "IT", "ES"]):
         try:
