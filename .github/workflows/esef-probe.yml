@@ -46,7 +46,7 @@ jobs:
         run: |
           python -m engine.sources.esef probe \
             ${{ inputs.countries && format('--countries {0}', inputs.countries) || '' }} \
-            --limit "${{ inputs.limit || 5 }}" | tee probe.json
+            --limit "${{ inputs.limit || 5 }}" --out probe.json
 
       - name: Summarise the answer that matters
         if: always()

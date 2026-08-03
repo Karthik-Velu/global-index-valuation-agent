@@ -201,19 +201,27 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("probe", help="verify the live API shape and IFRS concept overlap")
     p.add_argument("--countries", default="", help="comma-separated ISO-2 codes")
     p.add_argument("--limit", type=int, default=5)
+    p.add_argument("--out", default="", help="write the full JSON here instead of stdout")
     a = ap.parse_args(argv)
 
     if a.cmd == "probe":
         res = probe([c.strip().upper() for c in a.countries.split(",") if c.strip()] or None,
                     limit=a.limit)
-        print(json.dumps(res, indent=2, default=str))
+        blob = json.dumps(res, indent=2, default=str)
+        # Own the file rather than being `tee`d into one. Two rounds of grief came
+        # from that pipe: teeing stdout put the digest INSIDE probe.json and broke
+        # json.load; moving the digest to stderr fixed the file but a piped stdout
+        # is block-buffered, so the JSON flushed at exit and the "last" digest
+        # actually printed FIRST. With --out, stdout is purely human-facing and
+        # the digest really is the last thing in the log.
+        if a.out:
+            with open(a.out, "w", encoding="utf-8") as f:
+                f.write(blob)
+        else:
+            print(blob)
         # The JSON is ~600 lines of log; the numbers that decide anything are a
         # handful of them, so repeat those last where a tail will find them.
         #
-        # STDERR, not stdout: the workflow runs this through `tee probe.json`,
-        # so anything printed to stdout after the JSON lands INSIDE the file and
-        # the summary step's json.load() fails on it. That is exactly how run 3
-        # broke. stderr still reaches the log and leaves the artifact parseable.
         j = res.get("xbrl_json")
         out = ["\n=== DIGEST " + "=" * 55]
         if isinstance(j, dict):
@@ -229,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
                 ", ".join(f"{k}={v}" for k, v in (res.get("countries") or {}).items()),
                 f"  errors            {len(res.get('errors') or [])}"]
         out += [f"    - {e}" for e in (res.get("errors") or [])]
-        print("\n".join(out), file=sys.stderr)
+        print("\n".join(out))
         # A probe that cannot reach the index is a failed probe; a probe that
         # reaches it and finds an awkward shape is a SUCCESSFUL probe with a
         # useful answer, so only the former is a non-zero exit.
