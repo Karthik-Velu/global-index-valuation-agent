@@ -1,0 +1,90 @@
+name: ESEF probe (non-US fundamentals)
+
+# Learns the live shape of filings.xbrl.org and reports whether ESEF's IFRS
+# concepts line up with the tag map we already have (engine/sources/esef.py).
+#
+# This exists as a workflow because this repo's interactive sandbox cannot reach
+# filings.xbrl.org — its egress proxy refuses the CONNECT — while CI runners have
+# open egress. The same constraint applied to Frankfurter (ADR-026) and the
+# answer is the same: verify against the real endpoint in CI, not by guessing
+# locally and hoping.
+#
+# Manual only. It is a research probe, not a job — nothing downstream depends on
+# it and it should not run on a schedule until there is an ingest to feed.
+on:
+  workflow_dispatch:
+    inputs:
+      countries:
+        description: "comma-separated ISO-2 codes (blank = default spread)"
+        type: string
+        default: ""
+      limit:
+        description: "filings to sample"
+        type: string
+        default: "5"
+  # Same test-fire idiom as the other workflows: editing this file on the dev
+  # branch runs it once there, since sessions lack actions:write for API dispatch.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths: [".github/workflows/esef-probe.yml", "engine/sources/esef.py"]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+
+      - name: Probe filings.xbrl.org
+        env:
+          ESEF_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          python -m engine.sources.esef probe \
+            ${{ inputs.countries && format('--countries {0}', inputs.countries) || '' }} \
+            --limit "${{ inputs.limit || 5 }}" --out probe.json
+
+      - name: Summarise the answer that matters
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("probe.json"))
+          print("## ESEF probe\n")
+          if d.get("errors"):
+              print("**Errors**\n")
+              for e in d["errors"]:
+                  print(f"- `{e}`")
+              print()
+          j = d.get("xbrl_json")
+          if isinstance(j, dict):
+              print(f"**xBRL-JSON available** — {j['entity']}: {j['total_facts']} facts, "
+                    f"{j['distinct_concepts']} distinct concepts, "
+                    f"**{j['concepts_we_already_map']} already mapped** by catalog.xbrl_tag_map().\n")
+              if j.get("mapped"):
+                  print("| IFRS concept | maps to |\n|---|---|")
+                  for c, m in j["mapped"].items():
+                      print(f"| `{c}` | `{m}` |")
+                  print()
+              if j.get("top_unmapped"):
+                  print("Most common concepts we do NOT map yet:\n")
+                  print(", ".join(f"`{c}`({n})" for c, n in j["top_unmapped"][:15]))
+                  print()
+          elif j:
+              print(f"**No xBRL-JSON** — {j}\n")
+          print("**Per-country index reachability**\n")
+          print(", ".join(f"{k}: {v}" for k, v in (d.get("countries") or {}).items()))
+          print("\n<details><summary>filing attributes returned</summary>\n")
+          print("```\n" + ", ".join(d.get("filing_attribute_keys") or []) + "\n```\n</details>")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: esef-probe
+          path: probe.json
+          retention-days: 30

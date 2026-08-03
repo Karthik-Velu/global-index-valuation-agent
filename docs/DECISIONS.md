@@ -9,6 +9,58 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-031 · Non-US stock coverage comes from regulators, jurisdiction by jurisdiction — Europe (ESEF) first
+- **Context:** the stock universe is SEC/EDGAR-derived, so "US-market coverage == full
+  coverage" (ADR-017) was true only because the universe was US by construction. The
+  visible cost: 61 of 132 markets render "no stock-level breakdown", the bottom-up half
+  of the product simply does not exist outside America, and the dashboard's own India
+  framing (ADR-024/027) sits on top of a dataset with no Indian companies in it.
+- **Choice:** repeat the EDGAR pattern per jurisdiction rather than buying breadth.
+  **1. Europe via `filings.xbrl.org` (ESEF/UKSEF)** — one adapter, 28 countries,
+  ~25,000 annual filings, free, keyless, `redistribution_ok`.
+  **2. Japan via EDINET v2** — free key, Japan Public Data License 1.0 (CC-BY
+  compatible), ~4,000 companies, but a Japanese-language taxonomy we would have to map
+  ourselves, so it is second not first.
+  **3. India deferred, deliberately** — NSE/BSE publish XBRL but there is no documented
+  API, NSE actively blocks non-browser clients, and the redistribution terms are not
+  published. The source catalog rates it `confidence: low`. Shipping India means either
+  a paid feed with a commercial licence or an explicit decision to scrape; both are the
+  owner's call, not a default.
+- **Why Europe first, concretely:** we already speak the taxonomy. ESEF mandates IFRS
+  tagging and `catalog._CANONICAL` already pins the `ifrs-full` concepts — added for
+  20-F/40-F foreign filers. Measured, not assumed: **10 of 10** of those concepts
+  (`Revenue`, `ProfitLoss`, `EquityAttributableToOwnersOfParent`, …) are already in
+  `catalog.xbrl_tag_map()`. If the probe confirms the same concepts appear in real
+  filings, extraction and scoring downstream work unchanged and this is plumbing.
+- **The part that is NOT solved, stated up front so nothing is built on a false
+  premise:** this closes the fundamentals gap, not the valuation gap. Massive's grouped
+  endpoint is `/v2/aggs/grouped/locale/**us**/market/stocks/` — US locale only. A
+  European company ingested this way has revenue, earnings and equity but **no price**,
+  therefore no P/E, no P/B, and no place in the backtest. Fundamental growth, margins
+  and return-on-capital all work; every price-derived signal does not. Non-US valuation
+  needs a separate price-licence decision, and the UI must say which markets are
+  fundamentals-only rather than showing a blank ratio that reads as missing data.
+- **Rejected alternatives:** *EODHD / FMP / Finnhub / Twelve Data / Marketstack /
+  Tiingo / Yahoo* — between them they would solve fundamentals AND prices in one
+  purchase, and every one is personal-use-or-internal-only on the tier we would
+  actually buy; redistribution needs a negotiated commercial agreement. This product
+  publishes its outputs, so that is disqualifying until someone signs one.
+  *SimFin* — the one commercial vendor with a genuinely clean redistribution stance,
+  but its free tier is US-only and its own catalog entry calls non-US breadth "the
+  weakest of the paid options here", so it does not answer this question.
+  *FinancialReports.eu* — easier than parsing iXBRL, but the structured line items are
+  a paid tier and its licence is unpublished.
+  *Scraping NSE/BSE now* — see above.
+- **Verification:** `engine/sources/esef.py probe` run from CI (`esef-probe.yml`), not
+  locally: this sandbox's egress proxy refuses CONNECT to filings.xbrl.org, exactly as
+  it did to Frankfurter (ADR-026). The probe reports the real attribute set, whether
+  xBRL-JSON is served (which decides whether we ever parse iXBRL), and how many of the
+  report's concepts we already map. Building the ingest before that answer is known
+  would be guessing at a shape.
+- **Date:** 2026-08-03
+
+---
+
 ### ADR-030 · The approver's words are honoured by a typed field and a deterministic gate, never by parsing prose
 - **Context:** ADR-029 made the approver's note reach the places that act on it —
   `decision_note` now travels into the Builder's payload and into the filed issue. It
