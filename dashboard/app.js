@@ -334,9 +334,22 @@ function flagPills(m) {
 function renderFilters() {
   const regions = [...new Set(STATE.rows.map(m => m.region))].sort();
   const devs = [...new Set(STATE.rows.map(m => m.development))].sort();
+  // Rebuilding the options wipes the selection. render() re-runs on manual
+  // refresh, so without this a filter the user set silently un-sets itself.
+  const keepReg = $('#fRegion').value, keepDev = $('#fDev').value;
   $('#fRegion').innerHTML = `<option value="">All regions</option>` + regions.map(r => `<option>${r}</option>`).join('');
   $('#fDev').innerHTML = `<option value="">All markets</option>` + devs.map(r => `<option>${r}</option>`).join('');
-  ['#search', '#fRegion', '#fDev', '#fBand', '#fHideRich'].forEach(s => $(s).oninput = renderTable);
+  if (regions.includes(keepReg)) $('#fRegion').value = keepReg;
+  if (devs.includes(keepDev)) $('#fDev').value = keepDev;
+  // `input` for the text box (filter as you type); `change` for the dropdowns
+  // and the checkbox, because that is the event those controls are guaranteed
+  // to fire. WebKit does not fire `input` on a <select>, so binding the whole
+  // set to `oninput` left every dropdown on this page dead in Safari and in
+  // every iOS browser (all WebKit) while working perfectly in desktop Chrome.
+  // That asymmetry is why the region filter survived an earlier round of
+  // "fixing": the empty-state copy below got rewritten, the wiring never did.
+  $('#search').oninput = renderTable;
+  ['#fRegion', '#fDev', '#fBand', '#fHideRich'].forEach(s => $(s).onchange = renderTable);
 }
 function applyFilters() {
   const rows = focusedRows();
@@ -348,10 +361,12 @@ function applyFilters() {
     (!band || m.value_band === band) && (!hideRich || !m.overvalued));
 }
 // Why did this filter combination return nothing? A blank table reads as "the app
-// is broken" — most often it's a real, explainable coverage boundary. The common
-// one (reported by the user): focus=Sectors + region=Europe/Asia-Pacific, because
-// every sector proxy we track is a US or Global fund, so none carry a non-US
-// region tag. Name the actual cause and offer the way out.
+// is broken" — sometimes it's a real, explainable coverage boundary. The known
+// one: focus=Sectors + region=Asia-Pacific, because no liquid US-listed
+// Asia-Pacific SECTOR ETF exists (engine/universe.py documents the search).
+// Sectors DO now cover Europe (EUFN), so this is a per-region fact read off the
+// data, never a blanket "sectors are US-only" claim. Name the cause, offer a way
+// out — and do not let it excuse a filter that simply failed to fire.
 function emptyStateHTML() {
   const reg = $('#fRegion').value, dev = $('#fDev').value, band = $('#fBand').value;
   const q = $('#search').value.trim(), hideRich = $('#fHideRich').checked;
