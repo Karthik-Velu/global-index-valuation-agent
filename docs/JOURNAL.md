@@ -8,6 +8,102 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-03 — three bugs that all looked like something else
+
+A day about the gap between a thing being *wired* and a thing *working*. Three
+independent versions of it, none of which announced itself honestly.
+
+### 1. The approver's note reached the Builder and the Builder ignored it
+
+Yesterday's ADR-029 got `decision_note` into the Builder's payload. Proposal #64
+was then approved with *"along with flagging - it should result in information
+being used by one of the agents to eventually suggest next steps of
+improvements"* — and revision 1, drafted **on the merge commit of the PR that
+added the plumbing**, came back flagging-only with no mention of an agent. The
+instruction was sitting in the payload next to a `note_on_priority` field saying
+it outranked the proposal. The model simply deprioritised it.
+
+Auditing that turned up a second, quieter version on the DATA path: nothing read
+`decision_note` at all when applying a `catalog_kpi`. Approving with "only
+Industrial Materials" would still have written `applies_to='all'`.
+
+ADR-030 fixes both, deliberately differently. Scope became a **typed field** the
+approver edits in the console — never parsed out of the note, because inferring
+meaning from free text is the exact bug ADR-029 documents and doing it to the
+human's sentence would repeat it one level up. The Builder now must return
+`instruction_followed`, gets one corrective re-ask, and if it still misses, the
+plan is saved carrying a visible `[!]` line quoting what it ignored.
+
+**A payload field is a request; only a gate is a requirement.**
+
+### 2. Every dashboard filter was dead in Safari
+
+One line: `['#search','#fRegion','#fDev','#fBand','#fHideRich'].forEach(s =>
+$(s).oninput = renderTable)`. Right event for the text box, wrong one for the
+other four. Chrome fires `input` on a `<select>`; WebKit does not — so the
+region, market and band dropdowns and the hide-overvalued checkbox did nothing
+at all in Safari and on every iOS browser, while working perfectly in the
+desktop testing.
+
+The galling part: this was reported before, as "filtering Sectors by region
+returns nothing". It reproduced on Chrome as a genuinely empty result for Europe
+and Asia-Pacific, so the **empty-state copy** got rewritten to explain the
+coverage boundary — an accurate explanation of the wrong bug, which then made
+the dead control look intentional. A filter that cannot fire and a filter that
+legitimately matches nothing are indistinguishable from the outside.
+
+Fixed by splitting the binding by what each control emits. Found two more on the
+same path while verifying: `renderFilters()` was wiping the user's selection on
+every `render()`, and the comment claiming "every sector proxy is US or Global"
+had been false since EUFN was added on 07-31.
+
+### 3. Non-US coverage started, and the probe earned its keep immediately
+
+ADR-031: non-US fundamentals come from regulators, one jurisdiction at a time —
+the EDGAR pattern repeated. Europe first (`filings.xbrl.org`, one adapter for 28
+countries, free, `redistribution_ok`), Japan second (EDINET, public domain),
+India deferred with reasons rather than left looking like an oversight.
+
+Europe first because we already speak the taxonomy, and that was **measured**:
+all 10 `ifrs-full` concepts pinned in `catalog._CANONICAL` for 20-F filers are
+already in `xbrl_tag_map()`, and against a real ESEF filing `Revenue`,
+`ProfitLoss`, `ProfitLossFromOperatingActivities`,
+`CashFlowsFromUsedInOperatingActivities`, `Equity` and `GrossProfit` all resolve
+with no new mapping written. That is the full set the scoring path needs.
+
+Shipping the **probe** before the parser was the right call and paid immediately
+— run 1 found three wrong assumptions in my own code: `json_url`/`package_url`
+come back relative to the *site* root (so the one measurement the probe existed
+to take never happened), the default sort returns 2020-2022 filings, and
+`entity.identifier` is an LEI for SE/PL but an 8-digit EDRPOU code for UA.
+All three would otherwise have surfaced as a broken ingest.
+
+**Not solved, and recorded so nothing is built on a false premise:** ESEF closes
+the fundamentals gap, not the valuation gap. Massive is `/locale/us` only, so a
+European row has revenue and earnings but no price — growth, margins and ROE
+work; P/E, P/B and the backtest do not. Every broad feed that would fix both is
+personal-use-only on the tier we would buy.
+
+### The lesson that cost the most
+
+The probe went through four CI runs fighting my own logging, not the source.
+`tee`ing stdout put the digest inside `probe.json` and broke `json.load`; moving
+it to stderr fixed the file but a piped stdout is block-buffered, so the JSON
+flushed at exit and the digest I had just moved *to be last* printed **first**.
+`--out` fixed it properly. **A tool that emits both a machine-readable payload
+and a human summary must own its file rather than be piped — otherwise buffering
+decides the ordering for you.** Worth remembering next time a research script
+grows a second output.
+
+**Still open:** the non-US price licence decision; `capex_intensity` and
+`inventory_days` at `applies_to='all'` (cosmetic — both `in_xbrl=false`, so they
+compute nothing); proposal #64 revision 1 still needs *Send back for changes* to
+exercise the ADR-030 gate; and the ESEF ingest itself — keyed on
+`entity.identifier` + `period_end`, annual consolidated only, through
+`engine.metrics` into Tier B, plus a migration adding `securities.lei`.
+
+---
+
 ## 2026-08-03 — plumbing the instruction through was not the same as it being followed
 
 Yesterday's fix (ADR-029) made the approver's note *reach* the Builder. Today we
