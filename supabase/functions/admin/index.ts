@@ -333,7 +333,11 @@ const CHAT_SYSTEM =
   "agent's pitch, `will_write` is what actually happens. If they differ in a way " +
   "that matters (most importantly scope — a proposal that reads as sector-" +
   "specific but writes applies_to='all' affects every company), SAY SO UNPROMPTED. " +
-  "That mismatch has already caused one wrongly-scoped approval.";
+  "That mismatch has already caused one wrongly-scoped approval.\n" +
+  "`will_write.applies_to` is the DEFAULT, not the final answer: the approver can " +
+  "type a different scope in the console at the moment they approve, and what they " +
+  "type wins. If the default is wrong, say so and tell them they can correct it " +
+  "there rather than approving and undoing it afterwards.";
 
 /** What approval will actually write. Same defaults as applyCatalogKpi, so the
  *  answer the admin reads and the row that gets created cannot drift apart. */
@@ -351,6 +355,7 @@ function willWrite(p: Record<string, unknown>) {
       applies_to_source: declared ? "declared in the proposal"
         : inferred ? `inferred from the proposal text ("${inferred}")`
         : "NOT SPECIFIED — defaults to every sector",
+      applies_to_is_editable_at_approval: true,
       collected_via: tags.length ? `XBRL tags ${tags.join(", ")}`
         : "computed — no XBRL tags given, so nothing is collected until a formula is written",
       definition: pay.definition ?? null,
@@ -363,7 +368,9 @@ function willWrite(p: Record<string, unknown>) {
   }
   return { writes_nothing_yet: true,
            what_happens: "files a GitHub issue; the Builder drafts a plain-English " +
-                         "plan which the admin must approve before any code is written" };
+                         "plan which the admin must approve before any code is written",
+           note_carried: "a note left at approval is passed to the Builder as a " +
+                         "binding instruction and appears in the filed issue" };
 }
 
 async function handleChat(body: Record<string, unknown>, actor: string) {
