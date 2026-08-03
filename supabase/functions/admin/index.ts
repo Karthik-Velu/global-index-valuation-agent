@@ -136,36 +136,58 @@ function inferScope(proposal: string): string | null {
 
 async function applyCatalogKpi(
   target: string, payload: Record<string, unknown>, proposal = "",
+  override: string | null = null, note = "",
 ) {
   const tags = (payload.xbrl_tags as string[]) ?? [];
   const inXbrl = tags.length > 0;
   const declared = (payload.applies_to as string) ?? (payload.sector as string) ??
                    (payload.proposed_for_sub_sector as string) ?? null;
-  const inferred = declared ? null : inferScope(proposal);
-  const scope = declared ?? inferred ?? "all";
+  const chosen = (override ?? "").trim() || null;
+  const inferred = (chosen || declared) ? null : inferScope(proposal);
+  const scope = chosen ?? declared ?? inferred ?? "all";
+  // Mirrors engine/proposals.py::_apply_catalog_kpi. `chosen` is the scope the
+  // approver typed in the console and outranks everything — a guess read out of
+  // the agent's prose is still a guess; this is the human saying what they meant.
+  const prov = "added via admin-approved agent proposal" +
+    (chosen ? ` · scope "${chosen}" set by the approver` : "") +
+    (inferred ? ` · scope "${inferred}" INFERRED from the proposal text, not declared` : "") +
+    (!chosen && !declared && !inferred ? " · no scope given — applied to all sectors" : "") +
+    // The approver's own words, kept next to the row they changed. Without this
+    // the note lived only in proposals.decision_note, where nothing looking at
+    // the catalog would ever find it.
+    (note.trim() ? ` · approver's note: "${note.trim().slice(0, 400)}"` : "");
+  // Read first: PostgREST upsert replaces the whole row, so a defaulted or
+  // inferred scope would silently rewrite an existing one. Only a scope the
+  // approver typed may narrow a row that is already there.
+  const { data: existing } = await admin.from("metric_catalog")
+    .select("applies_to, definition, notes").eq("metric_code", target).maybeSingle();
+  const liveScope = existing ? (chosen ?? existing.applies_to ?? scope) : scope;
   // New KPIs land as `computed` unless the proposal names real XBRL tags. An
   // unverified tag guess is how 7 catalog metrics got auto-demoted for returning
   // the wrong concept; we don't repeat that on a model's say-so.
   const { error } = await admin.from("metric_catalog").upsert({
     metric_code: target,
     label: (payload.label as string) ?? target.replace(/_/g, " "),
-    definition: payload.definition ?? null,
+    definition: payload.definition ?? existing?.definition ?? null,
     unit: (payload.unit as string) ?? "ratio",
     category: (payload.category as string) ?? "sector_kpi",
-    applies_to: scope,
+    applies_to: liveScope,
     in_xbrl: inXbrl,
     xbrl_tags: tags,
     source_if_not_xbrl: inXbrl ? null : "computed",
     importance: (payload.importance as string) ?? "medium",
-    notes: "added via admin-approved agent proposal" +
-      (inferred ? ` · scope "${inferred}" INFERRED from the proposal text, not declared` : "") +
-      (!declared && !inferred ? " · no scope given — applied to all sectors" : ""),
+    notes: existing?.notes ? `${existing.notes} | ${prov}` : prov,
   }, { onConflict: "metric_code" });
   if (error) throw new Error(`metric_catalog upsert failed: ${error.message}`);
   // Say which scope was written and where it came from — the admin approved a
   // sentence, so the confirmation has to name what the sentence turned into.
-  const how = declared ? "declared" : inferred ? "inferred from the text" : "defaulted";
-  return `metric_catalog upserted: ${target} — applies_to="${scope}" (${how}), in_xbrl=${inXbrl}`;
+  const how = chosen ? "set by you at approval"
+    : declared ? "declared" : inferred ? "inferred from the text" : "defaulted";
+  return `metric_catalog upserted: ${target} — applies_to="${liveScope}" (${how}), ` +
+    `in_xbrl=${inXbrl}` +
+    // Saying "the next data run collects it" would be false: nothing fetches a
+    // metric with no XBRL tags until someone writes the formula.
+    (inXbrl ? "" : " — no XBRL tags, so nothing collects it yet");
 }
 
 async function applyModelRouting(target: string, payload: Record<string, unknown>) {
@@ -264,7 +286,9 @@ async function handleDecide(body: Record<string, unknown>, actor: string) {
   try {
     if (DATA_KINDS.has(p.kind)) {
       const detail = p.kind === "catalog_kpi"
-        ? await applyCatalogKpi(p.target, p.payload ?? {}, p.proposal ?? "")
+        ? await applyCatalogKpi(p.target, p.payload ?? {}, p.proposal ?? "",
+                                (body.applies_to as string) ?? null,
+                                (body.note as string) ?? "")
         : await applyModelRouting(p.target, p.payload ?? {});
       await admin.from("proposals").update({
         status: "actioned", actioned_at: new Date().toISOString(), action_detail: detail,

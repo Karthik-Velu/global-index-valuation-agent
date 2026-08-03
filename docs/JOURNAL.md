@@ -8,6 +8,56 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-03 — plumbing the instruction through was not the same as it being followed
+
+Yesterday's fix (ADR-029) made the approver's note *reach* the Builder. Today we
+found out that reaching is not obeying.
+
+Proposal #64 was approved at 08:40 with the instruction *"along with flagging - it
+should result in information being used by one of the agents to eventually suggest
+next steps of improvements."* Builder run #14 drafted revision 1 at 10:12 on sha
+`187b112c` — the merge commit of the very PR that added the plumbing — so the
+sentence WAS in the payload, next to a `note_on_priority` field saying it outranks
+the original proposal. The plan came back flagging-only:
+
+> *"…raises a warning with the two values, dates and the inferred scaling factor…
+> so the pipeline now flags likely unit-mismatch cases earlier."*
+
+No agent. No next steps. The model simply deprioritised it, and nothing in the
+system noticed. **A payload field is a request; only a gate is a requirement.**
+
+The audit that followed found a second, quieter version of the same thing on the
+DATA path: the note was written to `proposals.decision_note` and read by *nothing*
+when applying a `catalog_kpi`. A note saying "only Industrial Materials" would have
+produced `applies_to='all'` exactly as before.
+
+Both are fixed, in deliberately different ways — see ADR-030. Scope is now an
+editable field in the console (typed, never parsed out of prose); the Builder must
+return `instruction_followed`, gets one corrective re-ask, and if it still misses,
+the plan is saved carrying a visible `[!]` line quoting the instruction it ignored.
+
+**Also learned, and worth not re-deriving:** approving a `catalog_kpi` with no XBRL
+tags changes no number. `catalog.load()` reads `engine/sources/metric_catalog.json`;
+the Postgres `metric_catalog` table is a mirror the engine never consults for
+computation, and `validate_catalog()` only walks `in_xbrl` metrics. So
+`capex_intensity` and `inventory_days` are recorded definitions awaiting a formula,
+not live metrics. The console and the action detail now say so instead of claiming
+"the next data run collects it."
+
+**Correction to yesterday's read:** the Builder schedule is irregular, not broken.
+Run #14 fired three minutes after I called it dead, and every hour since has fired
+(21:13, 22:14, 23:16, 01:00, 04:52 …). Approval → draft took ~92 minutes. The
+measured drops in `builder.yml`'s comment stand; the conclusion drawn from them
+didn't.
+
+**Still open:** `capex_intensity` and `inventory_days` sit at `applies_to='all'`
+from before the fix — narrowing them is the owner's call. #64's revision 1 is still
+the flagging-only plan; sending it back through the console now produces a gated
+revision 2. 53 of the 61 queued proposals are still un-written-up (enrich runs 20
+a night from the next pipeline run; run #39 predated that limit and did 6).
+
+---
+
 ## 2026-08-02 — the first real approval did something other than what it said
 
 The queue went live and the owner approved one proposal: `capex_intensity`,

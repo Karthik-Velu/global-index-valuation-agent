@@ -255,7 +255,8 @@ def enrich(limit: int = 6, model_role: str = "cheap") -> dict:
 # --------------------------------------------------------------------------- #
 
 def decide(proposal_id: int, action: str, *, actor: str, note: str = "",
-           park_until: str | None = None, park_min_evidence: int | None = None) -> dict:
+           park_until: str | None = None, park_min_evidence: int | None = None,
+           applies_to: str | None = None) -> dict:
     """approve | decline | park. Every transition is audited.
 
     Terminal states are refused rather than silently overwritten: re-deciding an
@@ -290,7 +291,7 @@ def decide(proposal_id: int, action: str, *, actor: str, note: str = "",
     result = {"id": proposal_id, "status": new, "kind": kind}
     if new == "approved":
         # "once that i have approved - get actioned immediately."
-        result["action_result"] = apply(proposal_id, actor=actor)
+        result["action_result"] = apply(proposal_id, actor=actor, applies_to=applies_to)
     return result
 
 
@@ -298,7 +299,8 @@ def decide(proposal_id: int, action: str, *, actor: str, note: str = "",
 # apply — actioning
 # --------------------------------------------------------------------------- #
 
-def apply(proposal_id: int, *, actor: str = "system") -> dict:
+def apply(proposal_id: int, *, actor: str = "system",
+          applies_to: str | None = None) -> dict:
     """Action an approved proposal. Dispatches on kind; never guesses.
 
     DATA kinds change the live system here and now. CODE kinds cannot — no button
@@ -325,7 +327,8 @@ def apply(proposal_id: int, *, actor: str = "system") -> dict:
 
     try:
         if kind == "catalog_kpi":
-            detail = _apply_catalog_kpi(target, payload or {}, proposal or "")
+            detail = _apply_catalog_kpi(target, payload or {}, proposal or "",
+                                        override=applies_to, note=note or "")
             _finish(proposal_id, "actioned", detail, actor)
             return {"applied": True, "detail": detail}
 
@@ -377,11 +380,11 @@ def _infer_scope(proposal: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def _apply_catalog_kpi(target: str, payload: dict, proposal: str = "") -> str:
+def _apply_catalog_kpi(target: str, payload: dict, proposal: str = "",
+                       override: str | None = None, note: str = "") -> str:
     """Add (or re-enable) a KPI in the live metric_catalog table.
 
-    This is a real, immediate change: the next ingestion run collects it. New
-    KPIs land as `computed` unless the proposal names actual XBRL tags — an
+    New KPIs land as `computed` unless the proposal names actual XBRL tags — an
     unverified tag guess is how the catalog got 7 metrics auto-demoted for
     returning the wrong concept (engine/sectoragent/validate.py), so we don't
     repeat it on a model's say-so.
@@ -389,18 +392,32 @@ def _apply_catalog_kpi(target: str, payload: dict, proposal: str = "") -> str:
     Scope resolution is deliberately explicit about provenance. "all" is a real
     decision (collect this for every company), not a neutral fallback, so where
     it came from is written into `notes` and echoed in the returned detail.
+
+    `override` is the scope the approver typed in the console, and it outranks
+    everything: a guess read out of the agent's prose is still a guess, whereas
+    this is the human saying what they meant. It is a typed field rather than
+    something parsed back out of `note`, because inferring meaning from free
+    text is the exact failure this argument exists to fix.
     """
     tags = payload.get("xbrl_tags") or []
     in_xbrl = bool(tags)
     declared = (payload.get("applies_to") or payload.get("sector")
                 or payload.get("proposed_for_sub_sector"))
-    inferred = None if declared else _infer_scope(proposal)
-    scope = declared or inferred or "all"
-    note = "added via admin-approved agent proposal"
-    if inferred:
-        note += f' · scope "{inferred}" INFERRED from the proposal text, not declared'
+    chosen = (override or "").strip() or None
+    inferred = None if (chosen or declared) else _infer_scope(proposal)
+    scope = chosen or declared or inferred or "all"
+    prov = "added via admin-approved agent proposal"
+    if chosen:
+        prov += f' · scope "{chosen}" set by the approver'
+    elif inferred:
+        prov += f' · scope "{inferred}" INFERRED from the proposal text, not declared'
     elif not declared:
-        note += " · no scope given — applied to all sectors"
+        prov += " · no scope given — applied to all sectors"
+    if note.strip():
+        # The approver's own words, kept next to the row they changed. Without
+        # this the note lived only in `proposals.decision_note`, where nothing
+        # looking at the catalog would ever find it.
+        prov += f' · approver\'s note: "{note.strip()[:400]}"'
     with db.connect() as c, c.cursor() as cur:
         cur.execute(
             """insert into metric_catalog
@@ -410,19 +427,30 @@ def _apply_catalog_kpi(target: str, payload: dict, proposal: str = "") -> str:
                on conflict (metric_code) do update set
                  label = excluded.label,
                  definition = coalesce(excluded.definition, metric_catalog.definition),
-                 notes = coalesce(metric_catalog.notes,'') || ' [admin-approved proposal]'
-               returning metric_code""",
+                 -- Only a scope the approver typed may narrow an existing row.
+                 -- A defaulted or inferred one must not silently rewrite what is
+                 -- already there.
+                 applies_to = case when %s then excluded.applies_to
+                                   else metric_catalog.applies_to end,
+                 notes = coalesce(metric_catalog.notes,'') || ' | ' || excluded.notes
+               returning metric_code, applies_to""",
             (target, payload.get("label") or target.replace("_", " ").title(),
              payload.get("definition"), payload.get("unit") or "ratio",
              payload.get("category") or "sector_kpi", scope,
              in_xbrl, json.dumps(tags),
              None if in_xbrl else "computed", payload.get("importance") or "medium",
-             note))
-        code = cur.fetchone()[0]
+             prov, bool(chosen)))
+        code, live_scope = cur.fetchone()
         c.commit()
-    how = "declared" if declared else "inferred from the text" if inferred else "defaulted"
-    return (f'metric_catalog upserted: {code} — applies_to="{scope}" ({how}), '
-            f"in_xbrl={in_xbrl}")
+    how = ("set by you at approval" if chosen else "declared" if declared
+           else "inferred from the text" if inferred else "defaulted")
+    detail = (f'metric_catalog upserted: {code} — applies_to="{live_scope}" ({how}), '
+              f"in_xbrl={in_xbrl}")
+    if not in_xbrl:
+        # Saying "the next data run collects it" would be false: nothing fetches
+        # a metric with no XBRL tags until someone writes the formula.
+        detail += " — no XBRL tags, so nothing collects it yet"
+    return detail
 
 
 def _apply_model_routing(target: str, payload: dict) -> str:
