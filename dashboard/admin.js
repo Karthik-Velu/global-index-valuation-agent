@@ -372,11 +372,18 @@ const App = (() => {
       const rows = [
         row('code', `<code>${esc(r.target)}</code>`),
         row('label', esc(p.label || r.target.replace(/_/g, ' '))),
-        row('applies to', scope
-          ? esc(scope)
-          : `<b>every sector</b>${named ? ` — but the text says “${esc(named[1])}”. ` +
-             `This proposal carries no sector field, so approving applies it market-wide.`
-            : ' (no sector given)'}`, !scope),
+        // Editable, not a verdict. Showing the admin that a one-sector proposal
+        // was about to land market-wide was only half the fix — they still had
+        // no way to say "no, just this sector" short of undoing it afterwards.
+        // Whatever is in this box is what gets written.
+        row('applies to',
+          `<input id="scopeOverride" class="ctrl text-xs px-2 py-0.5 w-48" ` +
+          `value="${esc(scope || named?.[1] || 'all')}" spellcheck="false">` +
+          (scope ? '' : named
+            ? ` <span class="text-warn">the proposal carries no sector field — ` +
+              `pre-filled from its text (“${esc(named[1])}”), change it if that's wrong</span>`
+            : ` <span class="text-warn">no sector given — <b>all</b> means every ` +
+              `company, every sector</span>`), !scope),
         row('collected from', tags.length
           ? `XBRL: <code>${tags.map(esc).join('</code>, <code>')}</code>`
           : 'computed — no XBRL tags given, so nothing is fetched until someone ' +
@@ -388,7 +395,10 @@ const App = (() => {
         <div class="section-title">Exactly what gets written</div>
         <table class="text-xs w-full">${rows}</table>
         <p class="text-[11px] text-slate-500 mt-2">A row in <code>metric_catalog</code>.
-          The next data run collects it.</p></div>`;
+          ${tags.length ? 'The next data run collects it.'
+            : 'With no XBRL tags it is a definition only — nothing collects it until ' +
+              'someone writes the formula, so approving this records the decision ' +
+              'rather than changing any number.'}</p></div>`;
     }
 
     if (r.kind === 'model_routing') {
@@ -469,6 +479,12 @@ const App = (() => {
     const btn = $(decision);
     const note = $('note')?.value ?? '';
     let extra = {};
+    if (decision === 'approve' && sel.kind === 'catalog_kpi') {
+      // Sent as a typed field, never parsed back out of the note. Inferring
+      // meaning from free text is what put capex_intensity on every sector.
+      const s = ($('scopeOverride')?.value ?? '').trim();
+      if (s) extra.applies_to = s;
+    }
     if (decision === 'park') {
       // "come up for discussion later as more data accumulates" — the default is
       // evidence-based rather than a date, because the agents re-raising it IS

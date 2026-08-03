@@ -9,6 +9,47 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-030 · The approver's words are honoured by a typed field and a deterministic gate, never by parsing prose
+- **Context:** ADR-029 made the approver's note reach the places that act on it —
+  `decision_note` now travels into the Builder's payload and into the filed issue. It
+  was not enough. Proposal #64 was approved with *"along with flagging - it should
+  result in information being used by one of the agents to eventually suggest next
+  steps of improvements."* The Builder drafted revision 1 **with that sentence in its
+  payload**, alongside a `note_on_priority` telling it the instruction outranks the
+  original proposal — and produced a flagging-only plan that never mentioned an agent.
+  Separately, on the DATA path the note changed nothing at all: it was stored on
+  `proposals` and displayed, but `_apply_catalog_kpi` never read it, so a note saying
+  "only Industrial Materials" would still have written `applies_to='all'`.
+- **Choice:** two mechanisms, deliberately different in kind.
+  - **DATA path — a typed field, not an interpretation.** The console renders the
+    resolved scope as an editable input pre-filled from the payload (or, failing that,
+    from the sector named in the prose), and sends it as `applies_to`. It outranks
+    declared and inferred scope; only an approver-set scope may narrow an existing
+    catalog row. The note is *recorded* verbatim into `metric_catalog.notes` so it
+    travels with the row it changed — but it is never parsed for meaning.
+  - **CODE path — a deterministic gate, not a stronger prompt.** When a
+    `decision_note` exists, the draft must return `instruction_followed`; if it
+    doesn't, the Builder re-asks once with a corrective message. If the second
+    attempt also misses, the plan is still saved but carries a visible
+    `[!] This plan does not say how it addresses your instruction` line quoting the
+    note, so the admin reads the gap instead of an incomplete plan that looks complete.
+- **Why:** the note is free text and free text is where silent inference goes wrong —
+  reading a sector back out of an agent's sentence is exactly the bug ADR-029 exists
+  to document, and doing the same thing to the human's sentence would repeat it one
+  level up. So intent that must *change a write* gets a field; intent that must
+  *shape a judgement* gets checked for presence, and the judgement stays human.
+  Prompt strength was already tried and measurably failed once.
+- **Rejected alternatives:** *regex the note for "only for X" / "limit to X"* — a
+  wrong parse silently narrows or widens a live catalog row, and the admin's preview
+  would no longer match what happens. *Fail the draft outright when the instruction
+  isn't addressed* — retries hourly forever against a model that may never comply, and
+  hides the attempt from the person best placed to judge it. *Have a second model
+  score whether the instruction was honoured* — cost in the hot path, and it replaces
+  a human judgement with a cheaper one at exactly the point the human asked to decide.
+- **Date:** 2026-08-03
+
+---
+
 ### ADR-029 · A proposal must state what will CONSUME it; and scope is never widened silently
 - **Context:** the first real approval, 2026-08-02. `capex_intensity` read *"propose for
   Industrial Materials: Capex Intensity"*. Its payload — a legacy backfilled row — carried

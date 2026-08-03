@@ -148,15 +148,33 @@ _DRAFT_SYSTEM = (
     "Ground every claim in the repository excerpts given — name real functions and "
     "real files. If the excerpts don't show you enough to be sure, say exactly "
     "what you'd need; do not invent structure.\n"
+    "If `admin_instruction_at_approval` is present it is BINDING. The agent "
+    "proposed; the human decided; that sentence is the decision. It is not "
+    "background colour and it is not optional — a plan that implements the "
+    "original proposal but not the instruction is a REJECTED plan. Where the "
+    "instruction asks for more than the proposal did, the plan covers the more.\n"
     "Return ONLY a JSON object with these keys:\n"
     '  "plan": 3-6 sentences of plain English. What changes, where, and how it '
     "behaves differently afterwards. Written for someone who will never read the diff.\n"
+    '  "instruction_followed": REQUIRED whenever admin_instruction_at_approval is '
+    "present. Quote what they asked for, then say concretely which part of your "
+    "plan delivers it. If you cannot deliver it from what you were shown, say that "
+    'plainly instead. Use "" only when no instruction was given.\n'
     '  "files_touched": array of repo-relative paths you would edit or create.\n'
     '  "risks": what could break or regress, honestly. If something is genuinely '
     "risky, say so — an approved bad change is worse than a rejected good one.\n"
     '  "test_plan": how we would know it worked, concretely — the command to run '
     "and the observable result to expect."
 )
+
+
+def _addresses(obj: dict) -> bool:
+    """Did the draft actually answer the approver's instruction?
+
+    Deliberately a presence check on a field the model must fill, not a judgement
+    about whether the answer is good — that call belongs to the human reading it.
+    """
+    return len((obj.get("instruction_followed") or "").strip()) >= 25
 
 
 def draft(limit: int = 3, model_role: str = "coder") -> dict:
@@ -215,11 +233,27 @@ def draft(limit: int = 3, model_role: str = "coder") -> dict:
             payload["admin_requested_changes"] = feedback
             payload["note"] = ("Revision %d was rejected. Address the admin's "
                                "requested changes directly." % last_rev)
+        ask = json.dumps(payload, default=str)[:52_000]
         try:
             txt, model_id = llm.call_with_model(
-                model_role, _DRAFT_SYSTEM, json.dumps(payload, default=str)[:52_000],
-                max_tokens=1800, json_mode=True)
+                model_role, _DRAFT_SYSTEM, ask, max_tokens=1800, json_mode=True)
             obj = json.loads(txt)
+            # Prompting alone did not hold. Revision 1 of proposal #64 was drafted
+            # WITH the instruction in the payload and still came back as
+            # flagging-only, silently dropping "it should result in information
+            # being used by one of the agents". So the instruction gets a
+            # deterministic gate, not just a stronger sentence: ask again, and if
+            # it still isn't addressed, say so in the plan the admin reads rather
+            # than presenting an incomplete plan as a complete one.
+            if note and not _addresses(obj):
+                txt, model_id = llm.call_with_model(
+                    model_role, _DRAFT_SYSTEM,
+                    ask + "\n\nYour previous plan did not address "
+                    "admin_instruction_at_approval. That instruction is the "
+                    "decision you are implementing. Redo the plan so it does, and "
+                    'fill in "instruction_followed".',
+                    max_tokens=1800, json_mode=True)
+                obj = json.loads(txt)
         except Exception as e:  # noqa: BLE001 — one bad draft must not stop the batch
             failed.append({"proposal_id": pid, "error": str(e)[:160]})
             continue
@@ -229,13 +263,21 @@ def draft(limit: int = 3, model_role: str = "coder") -> dict:
             touched = files
         touched = [f for f in touched if isinstance(f, str) and _safe_path(f)]
 
+        plan = (obj.get("plan") or "").strip() or "(no plan produced)"
+        if note:
+            plan += ("\n\nYour instruction at approval: " + obj["instruction_followed"].strip()
+                     if _addresses(obj) else
+                     "\n\n[!] This plan does not say how it addresses your instruction "
+                     f'at approval — "{note.strip()[:300]}" — and the Builder was asked '
+                     "twice. Send it back for changes if that matters.")
+
         with db.connect() as c, c.cursor() as cur:
             cur.execute(
                 """insert into proposal_solutions
                    (proposal_id, revision, plan, files_touched, risks, test_plan,
                     status, model_id)
                    values (%s,%s,%s,%s,%s,%s,'draft',%s) returning id, revision""",
-                (pid, last_rev + 1, (obj.get("plan") or "").strip() or "(no plan produced)",
+                (pid, last_rev + 1, plan,
                  json.dumps(touched), obj.get("risks"), obj.get("test_plan"), model_id))
             sid, rev = cur.fetchone()
             _event(cur, pid, "solution_drafted", actor=f"builder/{model_id}",
