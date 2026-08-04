@@ -13,6 +13,7 @@ major currencies and the CLIENT does the multiplication, for display only.
 from __future__ import annotations
 
 import os
+import time
 
 import requests
 
@@ -24,13 +25,34 @@ CURRENCIES = ["EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "CNY", "HKD", "SGD",
               "INR", "KRW", "BRL", "MXN", "ZAR", "SEK", "NOK", "NZD"]
 
 
+_ATTEMPTS = 3
+_BACKOFF = (2, 6)          # seconds before attempt 2, then before attempt 3
+
+
 def fetch_latest(base: str = "USD") -> dict:
-    """Latest ECB reference rates, base USD. {"date": iso, "base": "USD", "rates": {...}}."""
-    r = requests.get(f"{FRANKFURTER_BASE}/latest",
-                     params={"base": base, "symbols": ",".join(CURRENCIES)}, timeout=15)
-    r.raise_for_status()
-    data = r.json()
-    return {"date": data["date"], "base": data["base"], "rates": data["rates"]}
+    """Latest ECB reference rates, base USD. {"date": iso, "base": "USD", "rates": {...}}.
+
+    Retried, because a single 15s attempt measurably was not enough: the daily
+    pipeline logged `rates: 0` with a Frankfurter read timeout on 2026-08-02 and
+    again on 2026-08-04 — two failures in three days, which is a flaky endpoint
+    rather than an outage. One retry pair costs at most 8 idle seconds on a job
+    that runs for two hours, and the alternative is the dashboard quietly serving
+    a staler snapshot every third day.
+    """
+    last: Exception | None = None
+    for attempt in range(_ATTEMPTS):
+        if attempt:
+            time.sleep(_BACKOFF[attempt - 1])
+        try:
+            r = requests.get(f"{FRANKFURTER_BASE}/latest",
+                             params={"base": base, "symbols": ",".join(CURRENCIES)},
+                             timeout=20)
+            r.raise_for_status()
+            data = r.json()
+            return {"date": data["date"], "base": data["base"], "rates": data["rates"]}
+        except Exception as e:  # noqa: BLE001 — retry any transport/HTTP failure
+            last = e
+    raise last  # type: ignore[misc]
 
 
 def ingest() -> dict:
