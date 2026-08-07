@@ -66,6 +66,16 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
 
     # 4. Record this run's prediction, then let feedback re-tune the weights
     ledger.record_predictions(df, asof=asof)
+    # …and persist the scoreboard itself. `predictions` keeps the scores but not
+    # the ratios, so P/E and P/B existed nowhere but the rewritten JSON file —
+    # nothing to diff a published number against, and no history to notice one
+    # moving implausibly. Best-effort: a store that fails must not stop the
+    # refresh that is the actual product.
+    try:
+        steps_ix = ledger.record_index_metrics(df, asof=asof)
+        print(f"   index_metrics: {steps_ix['metrics']} rows @ {steps_ix['asof']}")
+    except Exception as e:
+        print(f"   WARNING: index_metrics persist failed: {str(e)[:160]}")
     tune = tuning.retune()
     if tune.get("tuned"):
         print(f"   auto-tuned opportunity weights from {tune['evaluations_used']} runs: "
