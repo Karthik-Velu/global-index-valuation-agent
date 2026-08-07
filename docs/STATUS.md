@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-08-01.
+> Last updated: 2026-08-07.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -25,7 +25,8 @@ secrets — a dev cloud session needs its own copy):
 | `GROQ_API_KEY` | Groq (fallback tier) | GitHub secret ✅ |
 | `SEC_USER_AGENT` | polite UA for EDGAR | GitHub secret ✅ |
 
-⚠️ **Rotate `OLLAMA_API_KEY` and `GROQ_API_KEY`** — they were pasted into chat during setup.
+✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
+pasted into chat during setup).
 
 ## Live / working now
 
