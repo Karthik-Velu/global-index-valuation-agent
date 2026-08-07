@@ -390,7 +390,16 @@ console read. No operator action outstanding.
 against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
-0. **Open the console and decide the first few proposals** — that is what proves the loop
+0. **Decide whether to fund the delisted backfill (survivorship).** Measured 2026-08-07
+   (ADR-032): **16.9%** of 2024Q3 operating filers are delisted and invisible to the
+   backtest — 894 companies. That is the real bias; the other 37.9% of "missing" is our
+   own size cut, not bias. Before committing, run one cheap probe: **does Massive serve
+   price history for delisted tickers?** Fundamentals are free (companyfacts keeps dead
+   CIKs forever), so prices decide whether the fix is possible at all. Re-run the
+   measurement across more quarters with
+   `python -m engine.sources.secfsds coverage --year Y --quarter Q` (CI:
+   `survivorship-probe.yml`, manual dispatch).
+0b. **Open the console and decide the first few proposals** — that is what proves the loop
    closes. `capex_intensity` (raised 15×) and `timeseries_jump` (8×) are the top two.
    Requires step 1 below to have run at least once.
 1. **Operator action needed to activate Phase D in production:** add `SUPABASE_URL` /
