@@ -46,6 +46,119 @@ def record_predictions(df: pd.DataFrame, asof: str | None = None) -> int:
     return len(rows)
 
 
+# --- index-level scoreboard, persisted with history ------------------------
+
+# A ratio that moves more than this between consecutive snapshots is almost
+# certainly a data problem, not a market move: index P/E is a slow aggregate and
+# these are weekly-to-daily snapshots. Not a hard error — a flag for a human.
+_DRIFT_FACTOR = 1.5
+
+
+def record_index_metrics(df: pd.DataFrame, asof: str | None = None,
+                         source: str = "pipeline") -> dict:
+    """Persist the index-level scoreboard to Postgres, keyed (index_key, asof).
+
+    Until 2026-08 the scoreboard lived ONLY in dashboard/dashboard_data.json:
+    one file, rewritten each refresh, no history and no second copy. That made a
+    whole class of question unanswerable — "was this P/E the same yesterday?",
+    "does the published number match what the engine computed?" — and it showed:
+    an external source put COWZ at 11.9x against our 15.9x and there was nothing
+    to reconcile against. `index_metrics` has been in the schema since
+    0001_core.sql and nothing ever wrote to it.
+
+    Also refreshes `indices`, which the FK points at and which had gone stale —
+    93 rows against a universe of 133, so a straight insert would have failed
+    the foreign key for every index added since it was last seeded.
+
+    Returns row counts plus any drift flagged against the previous snapshot.
+    """
+    from . import universe
+
+    asof = asof or date.today().isoformat()
+    ix_rows = [(ix.key, ix.name, ix.proxy, ix.country, ix.region, ix.kind)
+               for ix in universe.UNIVERSE]
+    rows = [(r["key"], asof, _f(r.get("pe")), _f(r.get("pb")), _f(r.get("ps")),
+             _f(r.get("dividend_yield")), _f(r.get("value_score")),
+             _f(r.get("growth_score")), _f(r.get("momentum_score")),
+             _f(r.get("opportunity_score")), bool(r.get("overvalued")),
+             bool(r.get("value_trap")), bool(r.get("garp")), source)
+            for _, r in df.iterrows()]
+
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.executemany(
+            """insert into indices (key,name,proxy_etf,country,region,index_kind)
+               values (%s,%s,%s,%s,%s,%s)
+               on conflict (key) do update set name=excluded.name,
+                 proxy_etf=excluded.proxy_etf, country=excluded.country,
+                 region=excluded.region, index_kind=excluded.index_kind""", ix_rows)
+        # Rows whose key isn't a tracked index would violate the FK and abort the
+        # whole batch. Drop them here, and SAY which — silently writing 131 of 133
+        # is how you end up trusting a store that quietly lost things.
+        cur.execute("select key from indices")
+        known = {k for (k,) in cur.fetchall()}
+        keep = [r for r in rows if r[0] in known]
+        skipped = sorted({r[0] for r in rows} - known)
+        cur.executemany(
+            """insert into index_metrics
+               (index_key,asof,pe,pb,ps,dividend_yield,value_score,growth_score,
+                momentum_score,opportunity_score,overvalued,value_trap,garp,source)
+               values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               on conflict (index_key,asof) do update set
+                 pe=excluded.pe, pb=excluded.pb, ps=excluded.ps,
+                 dividend_yield=excluded.dividend_yield,
+                 value_score=excluded.value_score, growth_score=excluded.growth_score,
+                 momentum_score=excluded.momentum_score,
+                 opportunity_score=excluded.opportunity_score,
+                 overvalued=excluded.overvalued, value_trap=excluded.value_trap,
+                 garp=excluded.garp, source=excluded.source""", keep)
+        conn.commit()
+
+    out = {"indices": len(ix_rows), "metrics": len(keep), "asof": asof}
+    if skipped:
+        out["skipped_unknown_index"] = skipped
+        print(f"   WARNING: {len(skipped)} scoreboard rows have no `indices` entry "
+              f"and were NOT persisted: {', '.join(skipped[:8])}"
+              f"{' …' if len(skipped) > 8 else ''}")
+    drift = index_metric_drift(asof)
+    if drift:
+        out["drift"] = drift
+        print(f"   index drift vs previous snapshot: {len(drift)} ratio(s) moved >"
+              f"{_DRIFT_FACTOR}x — {', '.join(d['index_key'] + '.' + d['field'] for d in drift[:6])}")
+    return out
+
+
+def index_metric_drift(asof: str, factor: float = _DRIFT_FACTOR) -> list[dict]:
+    """P/E or P/B that moved more than `factor` (either way) since the previous
+    snapshot. This is the check the single-JSON-file design could not do at all:
+    with no history there was nothing to compare a published ratio against.
+    Returns [] when there is no earlier snapshot yet."""
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute("select max(asof) from index_metrics where asof < %s", (asof,))
+        row = cur.fetchone()
+        prev = row[0] if row else None
+        if not prev:
+            return []
+        cur.execute(
+            """with cur as (
+                 select index_key, unnest(array['pe','pb']) as field,
+                        unnest(array[pe,pb]) as val
+                   from index_metrics where asof=%s),
+               prv as (
+                 select index_key, unnest(array['pe','pb']) as field,
+                        unnest(array[pe,pb]) as val
+                   from index_metrics where asof=%s)
+               select c.index_key, c.field, p.val, c.val
+                 from cur c join prv p
+                   on p.index_key=c.index_key and p.field=c.field
+                where c.val is not null and p.val is not null
+                  and p.val > 0 and c.val > 0
+                  and (c.val / p.val > %s or p.val / c.val > %s)
+                order by 1, 2""",
+            (asof, prev, factor, factor))
+        return [{"index_key": k, "field": fld, "prev": pv, "cur": cv,
+                 "prev_asof": str(prev)} for k, fld, pv, cv in cur.fetchall()]
+
+
 # --- market feedback: did past calls work? ---------------------------------
 
 def evaluate_accuracy(current_prices: dict[str, float], asof: str | None = None,

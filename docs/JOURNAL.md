@@ -8,6 +8,81 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-07 — market-readiness review, and two things that were never wired
+
+Session spent on "what's left before this can be shown to anyone". The audit is
+in the conversation; the durable part is what it found, because two of the four
+blockers turned out to be **code that was never written**, not code that broke.
+
+### The daily job was re-ingesting the whole market for nothing
+
+`recent_filer_ciks()` asked EDGAR's daily index for *"CIKs that filed ANYTHING in
+the last 7 days"* — its own docstring said so. Nearly every listed issuer files a
+Form 4 in a given week, so that set is very nearly "is a public company": ~2,000
+of ~3,000 tickers re-pulled **daily**, growing through earnings season
+(1,709 → 1,763 → 1,857 → 1,949 over four days) and taking the job from 1h55m to
+2h34m against GitHub's 6h ceiling.
+
+Nearly all of it wrote nothing. `ingest_tickers()` reads companyfacts XBRL and
+nothing else, and companyfacts only changes on a **periodic report**. Now
+filtered to 10-K/10-Q/20-F/40-F (+ `/A`).
+
+Parsing the form column is a new way to be wrong, so there's a guard: if more
+rows carry a filing path than parse to a readable form, distrust the filter and
+re-read unfiltered, loudly. **That guard shipped with the exact bug it exists to
+prevent** — `forms=None` still demanded a parseable form, so the fallback dropped
+the very rows that triggered it and returned an empty set. The test asserting
+"the fallback is non-empty" caught it. A shrinking ingest and a quiet week look
+identical from outside; only one of them may happen silently.
+
+### The scoreboard existed in one file and nowhere else
+
+`index_metrics` has been in the schema since `0001_core.sql` with **0 rows** —
+nothing ever wrote to it. So the entire index-level product lived in
+`dashboard_data.json`, rewritten each refresh, no history, no second copy.
+`predictions` keeps the scores but not the ratios, so P/E, P/B, P/S and dividend
+yield existed nowhere else at all.
+
+That made questions unanswerable rather than merely hard, and it bit: an external
+source put COWZ at 11.9x against our 15.9x and there was nothing to reconcile
+against. Now persisted per `(index_key, asof)`, best-effort.
+
+Two things it turned up on the way: `indices` had gone stale at 93 rows against a
+133-row universe, and it's the FK target — a straight insert would have failed
+for every index added since. And with history there's finally something to check
+against, so `index_metric_drift()` flags a P/E or P/B moving >1.5x between
+snapshots. A slow aggregate on a weekly cadence shouldn't do that.
+
+### The front page claimed a track record it didn't have
+
+The header read `IC -0.00 · hit 100% (3 runs)` — no measured skill next to a
+perfect-looking hit rate that is purely an artefact of n=3. Below 12 evaluations
+it now says "not yet meaningful — 3/12". The provisional figures moved to the
+tooltip rather than vanishing: the goal is to stop the number being read as
+evidence, not to stop it being seen. 12 is a floor for "worth showing", not a
+significance test — a t-stat on the IC series should replace it.
+
+### Evaluated and rejected: Supabase as a GitHub Actions replacement
+
+Edge Functions cap at **400s wall clock / 256MB** (docs checked, not recalled).
+The pipeline runs 9,240s in Python with pandas + duckdb and already OOM'd twice
+on 7GB runners. Not a close call. Supabase **Cron** would genuinely fix the
+scheduling drift (starts logged 06:26–08:52 against a 06:00 cron; Builder gaps to
+3h43m) via `pg_cron` → `pg_net` → `workflow_dispatch` — but that needs a PAT with
+`actions:write`, a deliberate widening from today's Issues-only token. Owner's
+call, not taken.
+
+**Still open:** the backtest gaps are the remaining launch blocker — survivorship
+bias above all (universe = *current* SEC filers, so anything delisted before
+ingestion is invisible, which flatters every result), plus transaction costs,
+benchmark-relative Sharpe and TTM multiples. Then non-US: the ESEF ingest isn't
+built, and non-US prices still need a licence decision (ADR-031). Smaller:
+proposal #64 awaits "Send back for changes"; `capex_intensity`/`inventory_days`
+sit at `applies_to='all'`; ToS, privacy policy, rate limiting and error tracking
+are all still unticked in ARCHITECTURE.md §6.
+
+---
+
 ## 2026-08-03 — three bugs that all looked like something else
 
 A day about the gap between a thing being *wired* and a thing *working*. Three
