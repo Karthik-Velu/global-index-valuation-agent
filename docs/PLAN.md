@@ -240,10 +240,10 @@ sector-research lessons decayed unused). See ADR-028.
 - ✅ **Sign-in config is live** — the 2026-08-01 `refresh.yml` run published `meta.supabase`
   (url + anon key) into `dashboard_data.json`, so the console authenticates as soon as this
   deploys. No operator action left.
-- ⬜ **Not yet proven end-to-end:** the Edge Function couldn't be exercised over HTTP from
-  the build sandbox (network policy blocks the Supabase host), so its handlers are verified
-  by construction and against a client harness, not a live round trip. The first real click
-  in the console is the true test.
+- ✅ **Proven end-to-end 2026-08-02.** It shipped unproven — the build sandbox can't reach
+  the Supabase host, so the handlers were verified by construction and against a client
+  harness, never a live round trip. The first real click settled it: decide → apply →
+  `metric_catalog` row, over real HTTP.
 - ✅ **The loop is proven** — first real approval 2026-08-02 (`capex_intensity`, raised 15×):
   decided in the console, actioned by the Edge Function, `metric_catalog` row created.
 - ✅ **Proposals must state what will consume them** (ADR-029, migration 0014) — new
@@ -253,8 +253,10 @@ sector-research lessons decayed unused). See ADR-028.
   as "for Industrial Materials" to every sector, because the sector lived only in the prose.
   The console now shows the exact row approval writes, and apply records whether scope was
   declared, inferred from the text, or defaulted.
-- ⬜ **60 proposals still undecided**, and the nightly enricher has not yet had a full pass
-  (run #39 was mid-flight). Approving an un-written-up proposal now warns first.
+- 🔁 **The enrichment backlog has drained.** It was 60 undecided and 53 un-written-up on
+  08-02; the nightly `enrich()` (limit 20) did 6 / 17 / 15 / 17 / 4 on successive runs, and
+  the falling tail is the queue emptying, not the job stalling. Deciding them is the part
+  that stays open — approving an un-written-up proposal warns first.
 
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
@@ -277,5 +279,6 @@ sector-research lessons decayed unused). See ADR-028.
 - ⬜ `testable`-lesson re-verification; embeddings backfill (`ollama pull nomic-embed-text`)
 
 ## Housekeeping  🔁
-- ⬜ **Rotate `OLLAMA_API_KEY` + `GROQ_API_KEY`** (were pasted in chat during setup)
+- ✅ **Rotate `OLLAMA_API_KEY` + `GROQ_API_KEY`** — done 2026-07 week 5 (they had been
+  pasted in chat during setup)
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session
