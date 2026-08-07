@@ -73,7 +73,12 @@ def _ingest_universe(full: bool) -> tuple[list[str], dict, str]:
     if full:
         return sorted(tracked_tk | set(new_seed)), seed, "full"
     try:
-        recent = edgar.recent_filer_ciks(days=7)
+        # Periodic reports ONLY. "Filed anything in 7 days" is very nearly "is a
+        # listed company" — nearly every issuer files a Form 4 in a given week —
+        # so the unfiltered set re-pulled ~2,000 of ~3,000 tickers daily and grew
+        # through earnings season while writing almost no new metrics. Only
+        # 10-K/10-Q/20-F/40-F change companyfacts, which is all ingest reads.
+        recent = edgar.recent_filer_ciks(days=7, forms=edgar.FUNDAMENTAL_FORMS)
         fresh = {t for t, cik in tracked if cik and cik.isdigit() and int(cik) in recent}
         return sorted(fresh | set(new_seed)), seed, "incremental"
     except Exception as e:  # index unreachable -> fall back to a full sweep
