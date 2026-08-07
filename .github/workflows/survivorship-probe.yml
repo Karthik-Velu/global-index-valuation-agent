@@ -67,13 +67,19 @@ jobs:
           if pct is None:
               print(d.get("note", "no comparison available"))
               raise SystemExit(0)
-          print(f"**{pct}% of {d['year']}Q{d['quarter']} periodic filers are missing "
-                f"from the current universe.**\n")
+          print(f"**{pct}% of {d['year']}Q{d['quarter']} operating-company filers are "
+                f"missing from the current universe.**\n")
+          if not d.get("sic_available"):
+              print("> `sub.txt` had no `sic` column — no filtering applied, so this "
+                    "is the raw upper bound.\n")
           print("| | count |\n|---|---|")
-          print(f"| filed that quarter | {d['filed_that_quarter']} |")
+          print(f"| filed that quarter (operating) | {d['filed_that_quarter']} |")
           print(f"| present in `securities` | {d['covered']} |")
           print(f"| **missing** | **{d['missing_from_universe']}** |")
           print(f"| our universe (total CIKs) | {d['universe_ciks']} |")
+          print(f"| _all_ periodic filers (incl. funds/trusts/shells) | "
+                f"{d['filed_that_quarter_all']} → "
+                f"{d['survivorship_hole_pct_all_filers']}% upper bound |")
           print(f"\nEvery one of those missing companies is invisible at every "
                 f"rebalance date in that quarter, so the backtest's reported skill "
                 f"is flattered by their absence.")

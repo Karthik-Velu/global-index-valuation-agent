@@ -14,6 +14,12 @@ submission, with the filer's CIK — which is exactly a snapshot of who was fili
 in that quarter. Comparing that set against `securities.cik` measures the hole
 directly rather than estimating it.
 
+The raw comparison overstates it, though: plenty of periodic filers are closed-end
+funds, ABS trusts and blank-check shells that were never candidates for a stock
+ranking, so counting them as "missing" measures the wrong thing. The headline is
+therefore taken over operating companies only (non-operating SIC codes dropped),
+with the unfiltered figure reported alongside as an explicit upper bound.
+
 MEASURE FIRST. Actually closing the gap means backfilling delisted CIKs
 (companyfacts still serves them — EDGAR keeps a CIK forever) plus their price
 history, which is a substantial piece of work and depends on whether the price
@@ -42,6 +48,21 @@ _TIMEOUT = 120
 # that filed only an 8-K that quarter isn't evidence of an ingestible filer.
 PERIODIC_FORMS = frozenset({"10-K", "10-Q", "20-F", "40-F"})
 
+# Registrants that file periodic reports but were never candidates for a stock
+# ranking: funds, asset-backed trusts and blank-check shells. `securities` is
+# built from ticker-bearing operating companies, so counting these as "missing"
+# would inflate the hole instead of measuring it — the raw filer count is an
+# upper bound, not the answer.
+NON_OPERATING_SIC = {
+    "6189": "asset-backed securities (trusts, no equity)",
+    "6722": "open-end investment offices (mutual funds)",
+    "6726": "investment offices NEC (closed-end funds, ETFs, unit trusts)",
+    "6770": "blank checks (SPACs and shells)",
+}
+# A registrant with no SIC is almost always a trust or shell too, but that is a
+# weaker inference than an explicit code, so it is counted and reported apart.
+_BLANK_SIC = {"", "0000", "0"}
+
 
 def _headers() -> dict:
     from ..config import sec_user_agent
@@ -49,8 +70,13 @@ def _headers() -> dict:
 
 
 def filer_ciks(year: int, quarter: int,
-               forms: frozenset[str] | None = PERIODIC_FORMS) -> tuple[set[int], dict]:
-    """CIKs that filed in `year`Q`quarter`. Returns (ciks, stats).
+               forms: frozenset[str] | None = PERIODIC_FORMS) -> tuple[dict[str, set[int]], dict]:
+    """CIKs that filed in `year`Q`quarter`. Returns ({"all", "operating"}, stats).
+
+    "operating" drops funds, ABS trusts and blank-check shells by SIC — the set
+    that is actually comparable to a ticker-bearing stock universe. A CIK counts
+    as operating if ANY of its rows that quarter carries a rankable SIC, so a
+    registrant with mixed rows isn't discarded on its worst one.
 
     Columns are looked up BY NAME from sub.txt's header rather than by position —
     the layout has changed across years, and a positional read would silently
@@ -73,21 +99,43 @@ def filer_ciks(year: int, quarter: int,
                 i_cik, i_form = header.index("cik"), header.index("form")
             except ValueError as e:
                 raise RuntimeError(f"sub.txt header missing cik/form: {header[:12]}") from e
+            # `sic` is not load-bearing the way cik/form are: without it the
+            # headline just falls back to the raw upper bound, which the digest
+            # then says out loud rather than quietly passing off as refined.
+            i_sic = header.index("sic") if "sic" in header else None
+            need = max(i_cik, i_form, i_sic if i_sic is not None else 0)
+
             ciks: set[int] = set()
+            operating: set[int] = set()
+            blank_sic: set[int] = set()
             rows = kept = 0
             for row in rdr:
                 rows += 1
-                if len(row) <= max(i_cik, i_form):
+                if len(row) <= need:
                     continue
                 if forms is not None and row[i_form].strip().upper() not in forms:
                     continue
                 try:
-                    ciks.add(int(row[i_cik]))
+                    cik = int(row[i_cik])
                 except ValueError:
                     continue
+                ciks.add(cik)
                 kept += 1
-    stats.update({"submissions": rows, "periodic_submissions": kept, "distinct_ciks": len(ciks)})
-    return ciks, stats
+                if i_sic is None:
+                    operating.add(cik)
+                    continue
+                sic = row[i_sic].strip().lstrip("0").rjust(4, "0") if row[i_sic].strip() else ""
+                if sic in _BLANK_SIC:
+                    blank_sic.add(cik)
+                elif sic not in NON_OPERATING_SIC:
+                    operating.add(cik)
+
+    stats.update({"submissions": rows, "periodic_submissions": kept,
+                  "distinct_ciks": len(ciks), "operating_ciks": len(operating),
+                  "excluded_non_operating": len(ciks) - len(operating),
+                  "excluded_blank_sic": len(blank_sic - operating),
+                  "sic_available": i_sic is not None})
+    return {"all": ciks, "operating": operating}, stats
 
 
 def coverage(year: int, quarter: int) -> dict:
@@ -101,11 +149,12 @@ def coverage(year: int, quarter: int) -> dict:
 
     out: dict = {"year": year, "quarter": quarter}
     try:
-        theirs, stats = filer_ciks(year, quarter)
+        sets, stats = filer_ciks(year, quarter)
     except Exception as e:  # noqa: BLE001 — a probe reports failure, never raises
         out["error"] = f"{type(e).__name__}: {e}"[:300]
         return out
     out.update(stats)
+    theirs, theirs_all = sets["operating"], sets["all"]
 
     if not db.have_db():
         out["note"] = "DATABASE_URL not set — cannot compare against securities"
@@ -120,14 +169,22 @@ def coverage(year: int, quarter: int) -> dict:
                 continue
 
     missing = theirs - ours
+    missing_all = theirs_all - ours
     out.update({
         "universe_ciks": len(ours),
+        # THE number: of the operating companies filing periodic reports back
+        # then, what share is invisible to the backtest today?
         "filed_that_quarter": len(theirs),
         "covered": len(theirs & ours),
         "missing_from_universe": len(missing),
-        # THE number: of everyone filing periodic reports back then, what share is
-        # invisible to the backtest today?
         "survivorship_hole_pct": round(100 * len(missing) / len(theirs), 1) if theirs else None,
+        # The unfiltered comparison, kept so the refinement is auditable rather
+        # than something you have to take on trust — it is an UPPER BOUND, since
+        # its denominator counts funds and trusts we would never have ranked.
+        "filed_that_quarter_all": len(theirs_all),
+        "missing_from_universe_all": len(missing_all),
+        "survivorship_hole_pct_all_filers":
+            round(100 * len(missing_all) / len(theirs_all), 1) if theirs_all else None,
         "sample_missing_ciks": sorted(missing)[:20],
     })
     return out
@@ -161,11 +218,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {res.get('note') or 'no comparison available'}")
         return 0
     print(f"  quarter           {res['year']}Q{res['quarter']}")
-    print(f"  filed back then   {res['filed_that_quarter']} CIKs (periodic reports)")
+    print(f"  filed back then   {res['filed_that_quarter']} operating companies "
+          f"(periodic reports, funds/trusts/shells excluded by SIC)")
     print(f"  in our universe   {res['covered']}")
     print(f"  MISSING           {res['missing_from_universe']}"
-          f"  ->  {res['survivorship_hole_pct']}% of that quarter's filers are "
-          f"invisible to the backtest")
+          f"  ->  {res['survivorship_hole_pct']}% of that quarter's operating "
+          f"filers are invisible to the backtest")
+    print(f"  upper bound       {res['survivorship_hole_pct_all_filers']}% if you "
+          f"count all {res['filed_that_quarter_all']} periodic filers "
+          f"({res['excluded_non_operating']} dropped as non-operating)")
+    if not res.get("sic_available"):
+        print("  NOTE: sub.txt had no `sic` column, so NO filtering was applied — "
+              "both figures above are the raw upper bound.")
     return 0
 
 
