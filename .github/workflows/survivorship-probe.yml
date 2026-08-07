@@ -80,9 +80,22 @@ jobs:
           print(f"| _all_ periodic filers (incl. funds/trusts/shells) | "
                 f"{d['filed_that_quarter_all']} → "
                 f"{d['survivorship_hole_pct_all_filers']}% upper bound |")
-          print(f"\nEvery one of those missing companies is invisible at every "
-                f"rebalance date in that quarter, so the backtest's reported skill "
-                f"is flattered by their absence.")
+          if d.get("survivorship_pct") is not None:
+              print(f"\n### Of the missing, how many are actually gone?\n")
+              print("| | count | share of that quarter |\n|---|---|---|")
+              print(f"| **delisted** — filed then, not listed now | "
+                    f"**{d['missing_and_delisted']}** | **{d['survivorship_pct']}%** |")
+              print(f"| still listed, outside our size cut | "
+                    f"{d['missing_but_still_listed']} | {d['universe_truncation_pct']}% |")
+              print(f"\nOnly the first row is survivorship bias — those companies are "
+                    f"gone from the market, so the backtest never sees them however far "
+                    f"we scale the universe, and it is their *manner of leaving* "
+                    f"(bankruptcy, acquisition, delisting) that flatters returns. The "
+                    f"second row is a universe-size choice we made and can undo by "
+                    f"ingesting more.")
+          elif d.get("delisted_split_error"):
+              print(f"\n> Could not split delisted vs below-cut: "
+                    f"`{d['delisted_split_error']}`")
           PY
 
       - uses: actions/upload-artifact@v4

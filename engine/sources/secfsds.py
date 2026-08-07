@@ -138,12 +138,27 @@ def filer_ciks(year: int, quarter: int,
     return {"all": ciks, "operating": operating}, stats
 
 
-def coverage(year: int, quarter: int) -> dict:
-    """How much of that quarter's filer population is missing from `securities`?
+def _live_ciks() -> set[int]:
+    """CIKs in EDGAR's current company_tickers.json — i.e. still listed today."""
+    from . import edgar
+    return {info["cik"] for info in edgar._tickers().values()}
 
-    The missing set is the survivorship hole for any rebalance date in that
-    quarter: companies that demonstrably existed and filed then, which the
-    backtest cannot see because they aren't in the universe now.
+
+def coverage(year: int, quarter: int) -> dict:
+    """How much of that quarter's filer population is missing from `securities`,
+    and how much of THAT is survivorship rather than universe selection?
+
+    "Missing from `securities`" is not the same as "dead". The universe was
+    deliberately capped (~2,500 US + 483 foreign, chosen by size), so a company
+    that is alive and listed today but below that cut is also absent — that is
+    truncation we chose, symmetric across winners and losers, and not what
+    flatters a backtest.
+
+    Survivorship is the asymmetric part: filed back then, NOT listed now. Those
+    companies delisted, were acquired or went bankrupt, they are missing because
+    of how they ended, and their absence is what biases the result. Splitting the
+    two is the difference between "our universe is small" and "our universe is
+    built from winners" — separate problems with separate fixes.
     """
     from .. import db
 
@@ -187,6 +202,30 @@ def coverage(year: int, quarter: int) -> dict:
             round(100 * len(missing_all) / len(theirs_all), 1) if theirs_all else None,
         "sample_missing_ciks": sorted(missing)[:20],
     })
+
+    # Split the missing set: gone-from-the-market vs merely-outside-our-cut.
+    # Best-effort — if company_tickers.json can't be fetched the rest of the
+    # measurement still stands, so this reports unavailable instead of failing.
+    try:
+        live = _live_ciks()
+    except Exception as e:  # noqa: BLE001
+        out["delisted_split_error"] = f"{type(e).__name__}: {e}"[:200]
+        return out
+
+    delisted = {c for c in missing if c not in live}     # filed then, not listed now
+    below_cut = missing - delisted                       # alive, just not in our universe
+    out.update({
+        "live_ciks_now": len(live),
+        # THE survivorship number: gone from the market entirely, so the backtest
+        # never sees them however far we scale the universe.
+        "missing_and_delisted": len(delisted),
+        "survivorship_pct": round(100 * len(delisted) / len(theirs), 1) if theirs else None,
+        # Still listed — a universe-size choice, fixable by ingesting more, and
+        # not the asymmetry that flatters returns.
+        "missing_but_still_listed": len(below_cut),
+        "universe_truncation_pct": round(100 * len(below_cut) / len(theirs), 1) if theirs else None,
+        "sample_delisted_ciks": sorted(delisted)[:20],
+    })
     return out
 
 
@@ -227,6 +266,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  upper bound       {res['survivorship_hole_pct_all_filers']}% if you "
           f"count all {res['filed_that_quarter_all']} periodic filers "
           f"({res['excluded_non_operating']} dropped as non-operating)")
+    if res.get("delisted_split_error"):
+        print(f"  (could not split delisted vs below-cut: {res['delisted_split_error']})")
+    elif res.get("survivorship_pct") is not None:
+        print("  --- of which -----------------------------------------------")
+        print(f"  DELISTED          {res['missing_and_delisted']}"
+              f"  ->  {res['survivorship_pct']}%  TRUE SURVIVORSHIP: filed then, "
+              f"not listed now. No amount of universe scaling recovers these.")
+        print(f"  still listed      {res['missing_but_still_listed']}"
+              f"  ->  {res['universe_truncation_pct']}%  universe truncation: alive "
+              f"today, just outside our size cut. Fixable by ingesting more.")
     if not res.get("sic_available"):
         print("  NOTE: sub.txt had no `sic` column, so NO filtering was applied — "
               "both figures above are the raw upper bound.")
