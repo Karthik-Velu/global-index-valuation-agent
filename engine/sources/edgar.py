@@ -12,6 +12,7 @@ US fundamentals gap. SEC asks for a descriptive User-Agent (set SEC_USER_AGENT).
 """
 from __future__ import annotations
 
+import re
 import time
 
 import requests
@@ -224,16 +225,73 @@ def ingest_tickers(tickers: list[str], sector_by_ticker: dict | None = None,
     return stats
 
 
-def recent_filer_ciks(days: int = 7) -> set[int]:
-    """CIKs that filed ANYTHING in the last `days` calendar days, from EDGAR's
-    public daily indexes (one small text file per business day). This is what
-    makes daily ingestion INCREMENTAL: only companies with fresh filings get
-    their companyfacts re-pulled, so runtime stays flat as the universe grows.
-    Weekends/holidays 404 and are skipped."""
-    import re
+# The only forms that put new numbers into companyfacts XBRL — which is the ONLY
+# thing ingest_tickers() reads. Everything else in the daily index (Form 4 insider
+# trades, 8-K, 13F/13G, S-1, 424B, …) leaves fundamentals untouched, so re-pulling
+# a company because of one is pure cost.
+FUNDAMENTAL_FORMS = frozenset({
+    "10-K", "10-K/A", "10-Q", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A",
+})
+
+# A form-type column: short, upper-case, may contain a single space ("SC 13G/A").
+_FORM_RE = re.compile(r"^[A-Z0-9][A-Z0-9 /.\-]{0,19}$")
+_PATH_RE = re.compile(r"edgar/data/(\d+)/")
+
+
+def _ciks_from_idx(text: str, forms: frozenset[str] | None) -> tuple[set[int], int, int]:
+    """Parse one daily company.idx. Returns (ciks, matched_rows, unparsed_rows).
+
+    Columns are separated by runs of 2+ spaces:
+        COMPANY NAME          10-Q      320193    2026-08-06   edgar/data/320193/….txt
+    `unparsed_rows` counts rows that carry a filing path but whose form column
+    didn't look like a form type — the caller uses it to decide whether the
+    filter can be trusted at all.
+    """
+    ciks: set[int] = set()
+    matched = unparsed = 0
+    for line in text.splitlines():
+        m = _PATH_RE.search(line)
+        if not m:
+            continue
+        if forms is None:
+            # "Anything" must mean anything — including rows whose form column we
+            # can't read. Requiring a parseable form here would make the unfiltered
+            # FALLBACK drop the same rows that triggered it, which is exactly the
+            # silent-shrink failure the fallback exists to prevent.
+            ciks.add(int(m.group(1)))
+            matched += 1
+            continue
+        cols = re.split(r"\s{2,}", line.strip())
+        form = cols[1].strip().upper() if len(cols) >= 2 else ""
+        if not _FORM_RE.match(form):
+            unparsed += 1
+            continue
+        if form in forms:
+            ciks.add(int(m.group(1)))
+            matched += 1
+    return ciks, matched, unparsed
+
+
+def recent_filer_ciks(days: int = 7, forms: frozenset[str] | None = None) -> set[int]:
+    """CIKs that filed one of `forms` in the last `days` days (EDGAR daily index).
+
+    `forms=None` means ANY filing — the original behaviour, kept for callers that
+    genuinely want it. Pass FUNDAMENTAL_FORMS to get only companies whose numbers
+    can actually have changed.
+
+    Why this matters: "filed anything in 7 days" is very nearly "is a listed
+    company". Almost every issuer files a Form 4 in any given week, so the
+    unfiltered set covered ~2,000 of our ~3,000 tickers every single day, grew
+    through earnings season (1,709 → 1,949 over four days, 2026-08), and pushed
+    the daily job from 1h55m to 2h34m against a 6h ceiling — while writing almost
+    no new metrics, because a Form 4 changes no fundamentals.
+
+    Weekends/holidays 404 and are skipped.
+    """
     from datetime import date, timedelta
 
     ciks: set[int] = set()
+    total_matched = total_unparsed = 0
     today = date.today()
     for d in (today - timedelta(days=i) for i in range(days)):
         q = (d.month - 1) // 3 + 1
@@ -245,8 +303,24 @@ def recent_filer_ciks(days: int = 7) -> set[int]:
             continue
         if r.status_code != 200:
             continue
-        ciks.update(int(m) for m in re.findall(r"edgar/data/(\d+)/", r.text))
+        got, matched, unparsed = _ciks_from_idx(r.text, forms)
+        ciks |= got
+        total_matched += matched
+        total_unparsed += unparsed
         time.sleep(0.1)  # SEC fair-use
+
+    # A parser that silently stops recognising the format would quietly shrink the
+    # daily ingest to nothing, and a shrinking ingest looks identical to a quiet
+    # week. If most rows didn't parse, distrust the filter and re-read unfiltered
+    # rather than under-ingesting in silence.
+    if forms is not None and total_unparsed > total_matched:
+        print(f"   WARNING: daily index parse looks wrong ({total_unparsed} rows with a "
+              f"filing path had no readable form vs {total_matched} matched) — "
+              f"falling back to UNFILTERED filer set")
+        return recent_filer_ciks(days=days, forms=None)
+    if forms is not None:
+        print(f"   daily index: {len(ciks)} companies filed a periodic report in {days}d "
+              f"({total_matched} filings matched, {total_unparsed} rows unparsed)")
     return ciks
 
 
