@@ -130,9 +130,24 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
   Coverage will vary by market (only holdings we've actually EDGAR-ingested get
   a breakdown; foreign/thin markets may show nothing) — that's expected, not a
   bug, given the current ~2,983-company US-heavy universe.
-- ⬜ **Backtest follow-ups (documented gaps, not solved yet):** survivorship-bias
-  control (universe = current SEC filers only — a delisted-before-ingestion company
-  is invisible to the whole backtest), transaction costs, benchmark-relative Sharpe
+- ✅ **Survivorship bias MEASURED (2026-08-07)** — `engine/sources/secfsds.py` +
+  `survivorship-probe.yml`, against SEC Financial Statement Data Sets (public domain).
+  2024Q3: **5,303 operating companies filed periodic reports, we hold 2,399, 2,904
+  missing (54.8%)** — but that headline splits in two, and only one half is bias:
+  **894 (16.9%) DELISTED** — filed then, not in `company_tickers.json` now. Gone from
+  the market, absent *because of how they ended*, unrecoverable by scaling the
+  universe. **This is the survivorship number.** ≈8%/yr attrition, which matches
+  historical US delisting rates — an independent check that the measure is sound.
+  2,010 (37.9%) **still listed**, just outside our ~2,500-US size cut. Symmetric
+  across winners and losers; fixed by ingesting more, not a bias in the same sense.
+  Measurement only — the fix is scoped below and not yet funded.
+- ⬜ **Survivorship FIX (needs a decision):** backfill the ~894 delisted CIKs per
+  quarter — companyfacts still serves them (EDGAR keeps a CIK forever), so
+  fundamentals are free; **prices are the open question**, since Massive's coverage
+  of delisted tickers is unverified and that gates the whole thing. Probe prices for
+  a sample of delisted CIKs before committing to the backfill.
+- ⬜ **Backtest follow-ups (documented gaps, not solved yet):**
+  transaction costs, benchmark-relative Sharpe
   (needs an index-level price series over the same window), TTM (trailing-twelve-
   month) multiples instead of latest-FY-only (up to ~12mo stale for calendar-quarter
   reporters), forward (analyst-estimate) growth at stock level,

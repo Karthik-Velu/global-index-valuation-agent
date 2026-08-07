@@ -1,0 +1,106 @@
+name: Survivorship probe (backtest bias)
+
+# Measures how much of a past quarter's filer population is missing from our
+# `securities` universe — i.e. the size of the backtest's survivorship hole.
+#
+# In CI because this sandbox cannot reach sec.gov (its egress proxy refuses the
+# CONNECT), the same wall Frankfurter and filings.xbrl.org hit. Read-only: it
+# downloads a public-domain SEC ZIP and runs one SELECT. Nothing is written.
+#
+# Manual only — it is a research probe, not a job.
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "calendar year to sample (e.g. 2024)"
+        type: string
+        default: "2024"
+      quarter:
+        description: "quarter 1-4"
+        type: string
+        default: "3"
+  # Same test-fire idiom as the other workflows: editing this file (or the module)
+  # on the dev branch runs it once there, since sessions lack actions:write.
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths:
+      - ".github/workflows/survivorship-probe.yml"
+      - "engine/sources/secfsds.py"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+
+      - name: Measure the survivorship hole
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          python -m engine.sources.secfsds coverage \
+            --year "${{ inputs.year || 2024 }}" \
+            --quarter "${{ inputs.quarter || 3 }}" \
+            --out coverage.json
+
+      - name: Put the number in the job summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          p = pathlib.Path("coverage.json")
+          if not p.exists():
+              print("## Survivorship probe\n\nNo output — the probe failed before writing.")
+              raise SystemExit(0)
+          d = json.loads(p.read_text())
+          print("## Survivorship probe\n")
+          if d.get("error"):
+              print(f"**Failed:** `{d['error']}`")
+              raise SystemExit(0)
+          pct = d.get("survivorship_hole_pct")
+          if pct is None:
+              print(d.get("note", "no comparison available"))
+              raise SystemExit(0)
+          print(f"**{pct}% of {d['year']}Q{d['quarter']} operating-company filers are "
+                f"missing from the current universe.**\n")
+          if not d.get("sic_available"):
+              print("> `sub.txt` had no `sic` column — no filtering applied, so this "
+                    "is the raw upper bound.\n")
+          print("| | count |\n|---|---|")
+          print(f"| filed that quarter (operating) | {d['filed_that_quarter']} |")
+          print(f"| present in `securities` | {d['covered']} |")
+          print(f"| **missing** | **{d['missing_from_universe']}** |")
+          print(f"| our universe (total CIKs) | {d['universe_ciks']} |")
+          print(f"| _all_ periodic filers (incl. funds/trusts/shells) | "
+                f"{d['filed_that_quarter_all']} → "
+                f"{d['survivorship_hole_pct_all_filers']}% upper bound |")
+          if d.get("survivorship_pct") is not None:
+              print(f"\n### Of the missing, how many are actually gone?\n")
+              print("| | count | share of that quarter |\n|---|---|---|")
+              print(f"| **delisted** — filed then, not listed now | "
+                    f"**{d['missing_and_delisted']}** | **{d['survivorship_pct']}%** |")
+              print(f"| still listed, outside our size cut | "
+                    f"{d['missing_but_still_listed']} | {d['universe_truncation_pct']}% |")
+              print(f"\nOnly the first row is survivorship bias — those companies are "
+                    f"gone from the market, so the backtest never sees them however far "
+                    f"we scale the universe, and it is their *manner of leaving* "
+                    f"(bankruptcy, acquisition, delisting) that flatters returns. The "
+                    f"second row is a universe-size choice we made and can undo by "
+                    f"ingesting more.")
+          elif d.get("delisted_split_error"):
+              print(f"\n> Could not split delisted vs below-cut: "
+                    f"`{d['delisted_split_error']}`")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: survivorship-coverage
+          path: coverage.json
+          retention-days: 30

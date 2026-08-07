@@ -9,6 +9,44 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-032 · Survivorship bias is measured, and reported apart from universe truncation
+- **Context:** the backtest's biggest documented gap was survivorship bias, and its size
+  was unknown — nothing in the system could say whether it was 2% or 40%, so nobody could
+  judge how urgently it needed fixing or what fixing it was worth. Guessing was the
+  status quo.
+- **Choice:** measure it against the SEC's quarterly **Financial Statement Data Sets**
+  (public domain, no key). `sub.txt` is one row per submission, so a quarterly ZIP is
+  literally a snapshot of who was filing then; comparing that set against `securities.cik`
+  gives the hole directly. Run in CI (`survivorship-probe.yml`) because the sandbox
+  cannot reach sec.gov. **Report the hole split three ways, not as one number:**
+  1. **Delisted (16.9% for 2024Q3)** — filed then, not in `company_tickers.json` now.
+     *This is survivorship bias.*
+  2. **Still listed but outside our size cut (37.9%)** — universe truncation.
+  3. **Funds/ABS trusts/shells** — excluded by SIC; never rankable, so counting them
+     would only inflate the number.
+- **Why:** the three have nothing in common except "absent from `securities`", and lumping
+  them together points at the wrong work. Truncation is symmetric across winners and
+  losers and is closed by ingesting more companies. Survivorship is asymmetric —
+  those companies are missing *because of how they ended* (bankruptcy, acquisition,
+  delisting), which is exactly the correlation that inflates measured skill — and is
+  closed only by backfilling dead CIKs and their prices. The combined 54.8% would have
+  read as a catastrophe and sent effort at the cheap half; 16.9% is the real, and much
+  more tractable, problem. Independent check: 16.9% over ~2 years is ≈8%/yr attrition,
+  squarely in line with historical US delisting rates, so the measure is behaving.
+- **Rejected alternatives:** *estimate it from published attrition rates* — the whole
+  point was to stop guessing, and it would not identify WHICH companies are missing.
+  *Fix it first, measure later* — backfilling delisted CIKs plus price history is
+  substantial work gated on whether the price source even covers delisted tickers;
+  sizing it against a guess is how you over- or under-build. *Report the single 54.8%* —
+  true but actively misleading about where the work is.
+- **Consequence:** the fix is now a scoped, decidable piece of work rather than an
+  open-ended worry. It is **not started**: fundamentals for dead CIKs are free
+  (companyfacts serves them forever), but price coverage for delisted tickers on Massive
+  is unverified and gates everything. Probe that before committing.
+- **Date:** 2026-08-07
+
+---
+
 ### ADR-031 · Non-US stock coverage comes from regulators, jurisdiction by jurisdiction — Europe (ESEF) first
 - **Context:** the stock universe is SEC/EDGAR-derived, so "US-market coverage == full
   coverage" (ADR-017) was true only because the universe was US by construction. The

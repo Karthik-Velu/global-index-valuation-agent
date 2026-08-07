@@ -8,6 +8,64 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-08-07 (later) — the survivorship hole, measured: 16.9%, not 55%
+
+Picked up the top remaining launch blocker: the backtest's survivorship bias had been
+"documented but unquantified" for weeks, which is a polite way of saying nobody knew
+whether it mattered. Built `engine/sources/secfsds.py` to measure it against the SEC's
+quarterly Financial Statement Data Sets, and `survivorship-probe.yml` to run it in CI
+(the sandbox still cannot reach sec.gov — same egress wall as Frankfurter and
+filings.xbrl.org).
+
+**The interesting part is that the first two answers were both wrong, in the same way.**
+
+Run 1 said **56.8%** of 2024Q3 periodic filers are missing from `securities`. True, and
+close to useless: `sub.txt` counts every periodic filer, including closed-end funds, ABS
+trusts with no equity, and blank-check shells that were never candidates for a stock
+ranking. Filtered those out by SIC → **54.8%**. The filter moved it by 2 points, because
+`PERIODIC_FORMS` had already excluded most funds (they file N-CSR, not 10-K). Small
+confound, correctly removed, barely mattered.
+
+The confound *underneath* it was the big one. "Missing from `securities`" is not "dead".
+The universe was deliberately capped at ~2,500 US + 483 foreign by size, so a company
+alive and listed today but below that cut also counts as missing. Splitting the missing
+set against the current `company_tickers.json`:
+
+| | count | share of 2024Q3 operating filers |
+|---|---|---|
+| **delisted** — filed then, not listed now | **894** | **16.9%** |
+| still listed, outside our size cut | 2,010 | 37.9% |
+| *(total missing)* | *2,904* | *54.8%* |
+
+Only the first row is survivorship bias. Those companies are gone from the market and
+absent *because of how they ended* — bankruptcy, acquisition, delisting — which is the
+correlation that flatters returns. The second row is a size choice we made, symmetric
+across winners and losers, and undone by ingesting more.
+
+So the number is **16.9%**, not 55%. Still material — every backtest figure is flattered
+— but a third of the headline, and it points at completely different work. Sanity check
+that made me trust it: 16.9% over ~2 years is ≈8%/yr attrition, right on historical US
+delisting rates.
+
+**The lesson, and it is the same lesson twice in one session:** a number that is
+*arithmetically correct* can still answer the wrong question, and it will look
+authoritative while doing it. Both times the fix was to ask "what else could produce
+this number besides the thing I am claiming it measures?" I caught the fund confound
+before reporting. I nearly reported 54.8% as the survivorship figure and only caught the
+truncation confound because the SIC filter moved so little that it was worth asking why.
+
+### Still open
+- **The fix is NOT started, deliberately.** Fundamentals for dead CIKs are free —
+  companyfacts serves them forever, EDGAR never reuses a CIK. **Prices are the
+  question:** Massive's coverage of delisted tickers is unverified and gates the whole
+  backfill. Probe a sample of delisted CIKs for price history before committing.
+- One quarter (2024Q3) measured. The probe takes `--year/--quarter`, so a sweep across
+  several quarters would show whether 16.9% is stable or drifting.
+- The other backtest gaps are untouched: transaction costs, benchmark-relative Sharpe,
+  TTM multiples, forward growth at stock level.
+
+---
+
 ## 2026-08-07 — market-readiness review, and two things that were never wired
 
 Session spent on "what's left before this can be shown to anyone". The audit is

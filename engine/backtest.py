@@ -17,24 +17,20 @@ backtest. Known gaps (documented, not silent):
     that delisted before being ingested is simply absent from the whole backtest.
   * No transaction costs, no benchmark-relative Sharpe (needs an index-level price
     series over the same window — a documented follow-up, not built here).
-  * The significance check is a simple one-sample t-stat on the period-IC series,
-    not a formal Newey-West/autocorrelation-adjusted test (no scipy/statsmodels
-    dependency yet) — treat `significant` as a rough gate, not a rigorous p-value.
   * REBALANCE_FREQ="W-FRI" (ADR-022, 2026-07-25): weekly, not monthly. Adjacent
     periods' forward-return windows overlap heavily (a 1m-forward return measured
     a week apart shares 3/4 of its window with the previous one; 3/6/12m horizons
-    overlap even more, and already did at monthly cadence) — this makes the
-    per-period IC series SERIALLY CORRELATED, which the t-stat/`significant` gate
-    does NOT account for (it assumes independent samples). `n_periods` at weekly
-    cadence is a count of overlapping windows, not independent trials — treat
-    `significant: true` here as a WEAKER signal than it would be at true-monthly
-    cadence with the same n_periods, not a stronger one just because n is bigger.
-    Chosen anyway (over waiting ~3 months for organic monthly-period accumulation,
-    or a paid data-tier upgrade) because it's free, immediate, and the existing
-    gate was already not adjusting for autocorrelation at 3/6/12m horizons even
-    at monthly cadence — this doesn't introduce a new class of problem, it makes
-    an existing documented one quantitatively worse in exchange for more data to
-    look at sooner. A real fix (Newey-West-adjusted effective-N) is future work.
+    overlap even more, and already did at monthly cadence), so the per-period IC
+    series is SERIALLY CORRELATED and `n_periods` counts overlapping windows, not
+    independent trials.
+    `significant` IS corrected for this — it is decided on a Newey-West (Bartlett
+    kernel) HAC t-stat, with the naive t-stat kept alongside for comparison; see
+    _newey_west_se / _effective_lag. The residual caveat is narrower than "not
+    adjusted at all": the HAC lag is capped at n/4 for estimator stability, so at
+    horizons where that cap binds the correction is INCOMPLETE and the t-stat is
+    still somewhat optimistic. `lag_capped` reports exactly where, and
+    _significance_caveat() surfaces it in the result rather than leaving it to
+    this docstring. More price history is what fully resolves it.
 
   python -m engine.backtest run
 """
