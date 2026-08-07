@@ -173,13 +173,42 @@ function renderTuning(t) {
   el.innerHTML = `<span style="color:#34d399">⚙ auto-tuned</span> <span class="text-slate-500">v${(w.value*100|0)}/m${(w.momentum*100|0)}/r${(w.mean_reversion*100|0)} · ${t.evaluations_used} runs</span>`;
 }
 
+// "Track record" is a claim about SKILL, and a handful of evaluations cannot
+// support one. On 2026-08-03 this widget read `IC -0.00 · hit 100% (3 runs)` —
+// i.e. no measured skill sitting next to a perfect-looking hit rate that is
+// purely an artefact of n=3. Rendering that under the words "track record" is
+// the single most misleading thing on the page, and ARCHITECTURE.md §6 already
+// gates launch on "a real backtest before any track record is presented as
+// trustworthy".
+//
+// Below the floor we say plainly that it means nothing yet. The provisional
+// numbers stay visible on hover rather than being hidden — concealing them
+// would be its own kind of dishonesty, and the point is to stop the figure
+// being read as evidence, not to stop it being seen.
+//
+// 12 is a floor for "worth displaying at all", NOT a significance test. A real
+// gate needs a t-stat on the IC series; when the backtest carries enough
+// history to compute one, this should become that instead.
+const MIN_TRACK_EVALS = 12;
+
 function renderTrackRecord(acc) {
   const el = $('#trackrecord');
-  if (!acc || !acc.evaluations) { el.innerHTML = `<span class="text-slate-500">track record: building…</span>`; return; }
-  const ic = acc.avg_rank_ic, hr = acc.avg_hit_rate;
+  if (!acc || !acc.evaluations) {
+    el.innerHTML = `<span class="text-slate-500">track record: building…</span>`;
+    return;
+  }
+  const ic = acc.avg_rank_ic, hr = acc.avg_hit_rate, n = acc.evaluations;
+  if (n < MIN_TRACK_EVALS) {
+    el.innerHTML = `<span class="text-slate-500" title="Provisional and not evidence of skill: `
+      + `rank-IC ${fmt(ic, 3)}, hit rate ${fmt(hr * 100, 0)}% over ${n} evaluation(s). `
+      + `Too few periods to distinguish from chance — shown once there are ${MIN_TRACK_EVALS}.">`
+      + `track record: <span class="text-warn">not yet meaningful</span> `
+      + `— ${n}/${MIN_TRACK_EVALS} evaluations</span>`;
+    return;
+  }
   const good = ic > 0.05;
   el.innerHTML = `track record: <span class="font-semibold" style="color:${good ? '#34d399' : '#fbbf24'}">
-    IC ${fmt(ic, 2)}</span> · hit ${fmt(hr * 100, 0)}% <span class="text-slate-500">(${acc.evaluations} runs)</span>`;
+    IC ${fmt(ic, 2)}</span> · hit ${fmt(hr * 100, 0)}% <span class="text-slate-500">(${n} runs)</span>`;
 }
 
 // ---- 2. insight cards ----
