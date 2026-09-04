@@ -27,6 +27,9 @@ const regColor = r => REGION_COLORS[r] || '#94a3b8';
 // ---- formatting helpers ----
 const fmt = (v, d = 1) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d);
 const pct = (v, d = 1) => (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(d) + '%';
+// `null * 100` is 0 in JS, so an ungradeable hit rate used to render as a
+// confident '0%'. Say we don't know instead.
+const hitPct = v => (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(0) + '%';
 const scoreColor = s => s == null ? '#475569'
   : `hsl(${Math.round((s / 100) * 140)} 65% 55%)`; // red(0)->green(140)
 const retColor = v => v == null ? '#94a3b8' : v >= 0 ? '#34d399' : '#f87171';
@@ -200,7 +203,7 @@ function renderTrackRecord(acc) {
   const ic = acc.avg_rank_ic, hr = acc.avg_hit_rate, n = acc.evaluations;
   if (n < MIN_TRACK_EVALS) {
     el.innerHTML = `<span class="text-slate-500" title="Provisional and not evidence of skill: `
-      + `rank-IC ${fmt(ic, 3)}, hit rate ${fmt(hr * 100, 0)}% over ${n} evaluation(s). `
+      + `rank-IC ${fmt(ic, 3)}, hit rate ${hitPct(hr)} over ${n} evaluation(s). `
       + `Too few periods to distinguish from chance — shown once there are ${MIN_TRACK_EVALS}.">`
       + `track record: <span class="text-warn">not yet meaningful</span> `
       + `— ${n}/${MIN_TRACK_EVALS} evaluations</span>`;
@@ -208,7 +211,7 @@ function renderTrackRecord(acc) {
   }
   const good = ic > 0.05;
   el.innerHTML = `track record: <span class="font-semibold" style="color:${good ? '#34d399' : '#fbbf24'}">
-    IC ${fmt(ic, 2)}</span> · hit ${fmt(hr * 100, 0)}% <span class="text-slate-500">(${n} runs)</span>`;
+    IC ${fmt(ic, 2)}</span> · hit ${hitPct(hr)} <span class="text-slate-500">(${n} runs)</span>`;
 }
 
 // ---- 2. insight cards ----
