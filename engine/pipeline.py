@@ -56,10 +56,26 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
     # 2. Score (deterministic)
     df = metrics.compute(df)
 
-    # 3. Market-feedback: evaluate older predictions against today's prices
-    current_prices = {r["key"]: r["price"] for _, r in df.iterrows() if r.get("price")}
-    accuracy_runs = ledger.evaluate_accuracy(current_prices, asof=asof)
-    accuracy = ledger.accuracy_summary()
+    # 3. Market-feedback: evaluate older predictions against today's prices.
+    #    `_clean` here is load-bearing, not tidying: an index with no quote is
+    #    NaN in a float column, NaN is truthy, so a bare `if r.get("price")`
+    #    let it through to be graded as if it were a price.
+    current_prices = {r["key"]: px for _, r in df.iterrows()
+                      if (px := _clean(r.get("price")))}
+    # Grading past calls is valuable, but it is not the product. One ungradeable
+    # cohort must not stop the week's publish — the same rule already applied to
+    # the metric store below. Three weekly refreshes died here before it did.
+    try:
+        accuracy_runs = ledger.evaluate_accuracy(current_prices, asof=asof)
+    except Exception as e:
+        accuracy_runs = []
+        print(f"   WARNING: accuracy evaluation failed, refresh continues: {e}")
+    try:
+        accuracy = ledger.accuracy_summary()
+    except Exception as e:
+        accuracy = {"evaluations": 0, "avg_rank_ic": None, "avg_hit_rate": None,
+                    "history": []}
+        print(f"   WARNING: accuracy summary failed, refresh continues: {e}")
     if accuracy_runs:
         print(f"   evaluated {len(accuracy_runs)} past run(s); "
               f"avg rank-IC {accuracy['avg_rank_ic']}, hit-rate {accuracy['avg_hit_rate']}")

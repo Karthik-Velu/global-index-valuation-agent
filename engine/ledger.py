@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import date
 
 import numpy as np
@@ -15,11 +16,29 @@ from . import db
 
 
 def _f(v):
+    """A storable float, or None.
+
+    NaN *and* +/-inf are rejected. Both are truthy in Python, so a missing
+    number sails through an `if value:` guard; both are legal in a Postgres
+    `double precision` column but illegal in `jsonb`. That combination turns a
+    single absent price into a crash several call-frames away, which is exactly
+    how three weekly refreshes died (see `evaluate_accuracy`).
+    """
     try:
         v = float(v)
-        return None if np.isnan(v) else v
+        return v if math.isfinite(v) else None
     except Exception:
         return None
+
+
+def _r(v, ndigits: int):
+    """Round for storage, or None when the value is not a real number.
+
+    None records "this was not gradeable". Rounding a NaN just launders it into
+    the database as a number-shaped hole.
+    """
+    v = _f(v)
+    return None if v is None else round(v, ndigits)
 
 
 # --- prediction ledger -----------------------------------------------------
@@ -177,20 +196,29 @@ def evaluate_accuracy(current_prices: dict[str, float], asof: str | None = None,
                         (pd_date,))
             recs = []
             for key, sym, price, opp in cur.fetchall():
-                now = current_prices.get(key)
-                if price and now and opp is not None:
-                    recs.append((opp, now / price - 1.0))
+                # `price and now` is a truthiness test, and NaN is truthy. An
+                # index with no quote reaches us as NaN (pandas stores a missing
+                # float that way), passed this guard, and produced a NaN return
+                # that poisoned rank_ic for every name in the cohort.
+                px, now, o = _f(price), _f(current_prices.get(key)), _f(opp)
+                if px and now is not None and o is not None:
+                    recs.append((o, now / px - 1.0))
             if len(recs) < 5:
                 continue
-            opp_arr = np.array([x[0] for x in recs])
-            fwd = np.array([x[1] for x in recs])
+            opp_arr = np.array([x[0] for x in recs], dtype=float)
+            fwd = np.array([x[1] for x in recs], dtype=float)
             ic = _spearman(opp_arr, fwd)
             order = np.argsort(opp_arr)
             q = max(1, len(recs) // 4)
             bottom, top = fwd[order[:q]].mean(), fwd[order[-q:]].mean()
+            # hit_rate is a verdict on a past call, so it must not be invented:
+            # `float(NaN > NaN)` is 0.0, which would record "that call failed"
+            # about a cohort we could not grade at all.
+            t, b = _f(top), _f(bottom)
+            hit = None if (t is None or b is None) else float(t > b)
             rec = {"asof": str(pd_date), "horizon_days": int(horizon),
-                   "rank_ic": round(float(ic), 3), "hit_rate": float(top > bottom), "n": len(recs),
-                   "top_q_ret": round(float(top), 4), "bottom_q_ret": round(float(bottom), 4)}
+                   "rank_ic": _r(ic, 3), "hit_rate": hit, "n": len(recs),
+                   "top_q_ret": _r(top, 4), "bottom_q_ret": _r(bottom, 4)}
             cur.execute(
                 """insert into accuracy(asof,horizon_days,rank_ic,hit_rate,n,detail)
                    values (%s,%s,%s,%s,%s,%s)
@@ -209,7 +237,10 @@ def _spearman(a: np.ndarray, b: np.ndarray) -> float:
     ra, rb = pd.Series(a).rank().values, pd.Series(b).rank().values
     if ra.std() == 0 or rb.std() == 0:
         return 0.0
-    return float(np.corrcoef(ra, rb)[0, 1])
+    # A NaN anywhere makes std() NaN, and `NaN == 0` is False — so the guards
+    # above cannot catch it. Check the answer, not just the inputs.
+    ic = float(np.corrcoef(ra, rb)[0, 1])
+    return ic if math.isfinite(ic) else 0.0
 
 
 def accuracy_summary() -> dict:
@@ -218,11 +249,16 @@ def accuracy_summary() -> dict:
         rows = cur.fetchall()
     if not rows:
         return {"evaluations": 0, "avg_rank_ic": None, "avg_hit_rate": None, "history": []}
-    hist = [{"asof": str(r[0]), "horizon_days": r[1], "rank_ic": r[2], "hit_rate": r[3], "n": r[4]}
-            for r in rows]
+    hist = [{"asof": str(r[0]), "horizon_days": r[1], "rank_ic": _f(r[2]),
+             "hit_rate": _f(r[3]), "n": r[4]} for r in rows]
+
+    def _avg(vals):
+        vals = [v for v in (_f(v) for v in vals) if v is not None]
+        return round(float(np.mean(vals)), 3) if vals else None
+
     return {"evaluations": len(rows),
-            "avg_rank_ic": round(float(np.mean([r[2] for r in rows])), 3),
-            "avg_hit_rate": round(float(np.mean([r[3] for r in rows])), 3), "history": hist}
+            "avg_rank_ic": _avg([r[2] for r in rows]),
+            "avg_hit_rate": _avg([r[3] for r in rows]), "history": hist}
 
 
 # --- user feedback ---------------------------------------------------------
