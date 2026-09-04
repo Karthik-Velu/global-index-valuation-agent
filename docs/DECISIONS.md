@@ -9,6 +9,41 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-033 · Grading past calls must never block publishing the dashboard
+- **Context:** `refresh.yml` (the weekly production refresh, Mondays 07:00 UTC) failed
+  three weeks running — 2026-08-17, 08-24, 08-31 — and the dashboard the user actually
+  reads sat unchanged from 2026-08-10 while `data-pipeline.yml` stayed green every day.
+  The daily health check only watched the pipeline workflow, so the staleness went
+  unreported for three weeks.
+- **Cause:** an index with no quote (GULF, FM) is `NaN` in a pandas float column, and
+  **`NaN` is truthy**. `if r.get("price")` in `pipeline.run`, and `if price and now` in
+  `ledger.evaluate_accuracy`, both admitted it. The NaN return poisoned the whole
+  cohort's `rank_ic`; `json.dumps` writes that as a bare `NaN`, which Postgres accepts in
+  a `double precision` column but **rejects in `jsonb`** — so the insert raised
+  `InvalidTextRepresentation: Token "NaN" is invalid` and killed the entire run, after the
+  expensive work was already done. One absent quote cost the week's publish.
+- **Choice:** three layers.
+  1. *Don't let it in* — every float crossing into the ledger goes through `_f`, which now
+     rejects `±inf` as well as `NaN`, and prices are filtered with the existing `_clean`.
+  2. *Don't invent it* — an ungradeable cohort stores `NULL`, not `0.0`. `hit_rate` was
+     the worst offender: `float(NaN > NaN)` is `0.0`, which records "that call failed"
+     about a cohort we could not grade at all. That is fabricated evidence in the market
+     feedback loop, and it is worse than the crash because it is silent.
+  3. *Don't let it be fatal* — the accuracy evaluation is now best-effort, matching the
+     rule already applied to `record_index_metrics` one call below it: a store that fails
+     must not stop the refresh that is the actual product.
+- **Why:** grading past calls is one of the two required feedback loops, but it is
+  *diagnostic*. The dashboard is the deliverable. A subsystem that reports on the product
+  must not be able to take the product down — especially one whose inputs are third-party
+  quotes we do not control, where a missing price is normal, not exceptional.
+- **Rejected alternatives:** *`json.dumps(..., allow_nan=False)`* — converts a Postgres
+  error into a Python error at the same point; the run still dies. *Dropping the `detail`
+  jsonb column* — loses the per-cohort audit trail that makes the grade checkable.
+  *Coercing NaN to 0.0* — the silent-fabrication failure described above.
+- **Date:** 2026-09-04
+
+---
+
 ### ADR-032 · Survivorship bias is measured, and reported apart from universe truncation
 - **Context:** the backtest's biggest documented gap was survivorship bias, and its size
   was unknown — nothing in the system could say whether it was 2% or 40%, so nobody could

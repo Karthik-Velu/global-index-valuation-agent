@@ -8,6 +8,47 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-09-04 — NaN is truthy, and it cost three weeks of dashboard
+
+**The dashboard had been stale since 2026-08-10 and the daily health check never said so.**
+`refresh.yml` failed on 08-17, 08-24 and 08-31; `data-pipeline.yml` was green throughout.
+The check only ever looked at the pipeline workflow, so "healthy" was reported every
+morning while the user-facing artifact rotted. That is a gap in the check, not bad luck.
+
+**The bug.** `psycopg.errors.InvalidTextRepresentation: Token "NaN" is invalid`, from
+`ledger.evaluate_accuracy`. The chain, reproduced end to end before touching anything:
+
+1. GULF and FM have no quote — the run log even prints `px=None`.
+2. In a pandas float column `None` becomes `NaN`, and **`bool(NaN) is True`**.
+3. So `if r.get("price")` (pipeline) and `if price and now` (ledger) both let it through.
+4. `now / price - 1.0` is `NaN`, which poisons `rank_ic` for the *entire* cohort — and
+   `_spearman`'s zero-variance guard cannot catch it, because `NaN.std()` is `NaN` and
+   `NaN == 0` is `False`. Checking the inputs was never enough; check the answer.
+5. `json.dumps` emits bare `NaN`. Postgres takes that in `double precision` and **rejects
+   it in `jsonb`** — so the insert dies, and with it the whole weekly refresh, *after* all
+   the expensive fetching was done.
+
+**Worth more than the crash:** `hit_rate = float(top > bottom)` evaluates to `0.0` when
+both are NaN. Had the `detail` column not been jsonb, this would never have crashed — it
+would have quietly written "that call failed" about cohorts we could not grade at all,
+into the market feedback loop that is supposed to keep the system honest. The jsonb
+rejection was doing us a favour. Fixed to store NULL.
+
+**Fixed** in `engine/ledger.py` + `engine/pipeline.py` (ADR-033): keep non-finite values
+out, store NULL rather than inventing a number, and make the grading best-effort so it
+can never again take down the publish.
+
+**Also learned:** I told the user twice that this was a "growth-fetch failure" and asked
+for approval to make that stage non-fatal. That was wrong — I had pattern-matched on the
+Yahoo 404s filling the log (`MARI.KA`, `UBL.KA`, …) without reading to the traceback. The
+growth fetch was fine; it reached 750/799 and those 404s are per-symbol and tolerated. The
+real failure was 40 lines further down. Read to the traceback before naming a cause.
+
+**Still open:** widening the daily health check to every scheduled workflow, so a green
+`data-pipeline.yml` can never again mask a dead `refresh.yml`.
+
+---
+
 ## 2026-08-07 (later) — the survivorship hole, measured: 16.9%, not 55%
 
 Picked up the top remaining launch blocker: the backtest's survivorship bias had been

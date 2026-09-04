@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-08-07.
+> Last updated: 2026-09-04.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -390,6 +390,14 @@ console read. No operator action outstanding.
 against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
+0aa. **Watch that Monday 2026-09-07's `refresh.yml` goes green.** It had failed three
+   Mondays running (08-17, 08-24, 08-31) on a NaN reaching a `jsonb` column, leaving the
+   published dashboard frozen at 2026-08-10 while `data-pipeline.yml` stayed green daily.
+   Fixed 2026-09-04 (ADR-033). If it fails again, read to the **traceback** — the Yahoo
+   404s that fill the log are per-symbol and tolerated, not the cause.
+0ab. **Widen the daily health check to every scheduled workflow.** It watched only
+   `data-pipeline.yml`, which is the sole reason three weeks of dashboard staleness went
+   unreported. A green pipeline must not be able to mask a dead `refresh.yml`.
 0. **Decide whether to fund the delisted backfill (survivorship).** Measured 2026-08-07
    (ADR-032): **16.9%** of 2024Q3 operating filers are delisted and invisible to the
    backtest — 894 companies. That is the real bias; the other 37.9% of "missing" is our

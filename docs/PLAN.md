@@ -296,4 +296,12 @@ sector-research lessons decayed unused). See ADR-028.
 ## Housekeeping  🔁
 - ✅ **Rotate `OLLAMA_API_KEY` + `GROQ_API_KEY`** — done 2026-07 week 5 (they had been
   pasted in chat during setup)
+- ✅ **Fix the weekly refresh dying on a NaN** (2026-09-04, ADR-033) — `refresh.yml` had
+  failed 3 Mondays (08-17/24/31), freezing the published dashboard at 2026-08-10. A
+  missing quote is `NaN`, `NaN` is truthy, so it passed `if price:`, poisoned `rank_ic`,
+  and `jsonb` rejected the bare `NaN`. Non-finite values are now kept out, ungradeable
+  cohorts store `NULL` instead of a fabricated `0.0` `hit_rate`, and the grading step is
+  best-effort so it can never take down the publish.
+- ⬜ **Widen the daily health check to all scheduled workflows** — it watched only
+  `data-pipeline.yml`, so three weeks of dashboard staleness were reported as "healthy".
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session
