@@ -8,6 +8,54 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-09-06 — the full price rebuild finished, and we now know how deep it goes
+
+The first-Sunday monthly full sweep (run #74, 08:12→13:03 UTC, 4h50m, all 23 steps
+green) completed the **full price history rebuild** for the first time. It walked
+backwards from cursor 2025-12-12 and terminated on its own:
+
+```
+backfill COMPLETE — history floor: 403 NOT_AUTHORIZED (plan history limit)
+prices: {'tickers': 3027, 'written': 906437, 'days': 330, 'missing': [],
+         'mode': 'full', 'floor': '403 NOT_AUTHORIZED (plan history limit)'}
+```
+
+This is designed behaviour, not a fault — `prices.py` walks back until the plan
+refuses and records the floor (`_meta_write(full_rebuild_started=False, floor=…)`).
+What is new is the **number**. We are willing to go back `_MAX_LOOKBACK_YEARS = 11`;
+Massive's current plan cut us off after ~330 trading days, at a cursor around
+**2024-09/10**. So our price history is floored at roughly **two years**, and that
+floor is a billing limit, not a data-availability one.
+
+**Why this matters more than it looks.** Three open decisions were all resting on the
+assumption that price history simply accumulates:
+- `STATUS.md` step 4 says to re-run the backtest "as more price history accumulates"
+  until `n_periods >= 12` clears the significance gate. History accumulates *forward*
+  only. The bottom of the window is fixed until the plan changes, so patience alone
+  will not deepen the backtest — it only widens it one day at a time.
+- `STATUS.md` step 5 (decide on Massive Starter, $29/mo, 5y) now has a measured
+  justification rather than a hypothetical one: 5y vs the ~2y we actually have.
+- The survivorship backfill (ADR-032) is gated on "does Massive serve price history
+  for delisted tickers?" This result adds a prior question that applies to *live*
+  tickers too: even where it serves them, it only serves ~2 years. A 2024Q3 cohort
+  sits right at that edge.
+
+Nothing to fix; the number just needs to be on the record before those decisions get
+made on a stale assumption.
+
+**Rest of the sweep, for completeness:** mode `full`, 3,037 candidates → 2,989
+securities, 5,871,760 metrics, 132,935 filings, `tierb_only=True`, no `tierb_error`;
+Tier-B export a clean no-op; store 5,954,457 rows; corp actions over the full
+2025-08-02..2026-09-06 window (6,952 dividends, 132 splits matched); fx `2026-09-04`
+(Friday's close — correct, the weekend has no session). The two full-sweep-only steps
+both did real work rather than skipping: universe refresh ran 3m06s and pushed
+`data(universe): monthly refresh (universescan)`, and the store bundle rebuilt to
+70.3 MB and uploaded to the `tierb-store` release. Quality 72/100 with 1,686 issues
+(4 error) versus 1,670 (3) on the dailies — the rise tracks the universe growing, not
+a regression.
+
+---
+
 ## 2026-09-04 — NaN is truthy, and it cost three weeks of dashboard
 
 **The dashboard had been stale since 2026-08-10 and the daily health check never said so.**
