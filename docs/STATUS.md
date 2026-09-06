@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-09-04.
+> Last updated: 2026-09-06.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -424,9 +424,17 @@ against a client harness; the first real click in the console is the true end-to
    next time `quality.run()` raises issues.
 4. Re-run `backtest.yml` periodically as more price history accumulates —
    `n_periods >= 12` is what's needed to clear the significance gate on the
-   strongest signal (`opportunity_score`).
+   strongest signal (`opportunity_score`). **Caveat measured 2026-09-06:** the full
+   price rebuild has now COMPLETED and hit its floor at `403 NOT_AUTHORIZED (plan
+   history limit)`, ~330 trading days back (cursor ≈ 2024-09/10). We ask for 11 years
+   (`_MAX_LOOKBACK_YEARS`); the plan gives ~2. History therefore accumulates
+   **forward only** — waiting will not deepen the backtest window, only widen it a day
+   at a time. Deepening it requires step 5.
 5. Decide on a paid Massive tier (Starter $29/mo, 5y) for more usable periods
-   per horizon once growth stabilizes.
+   per horizon once growth stabilizes. **Now quantified:** the current plan's floor is
+   ~2 years (measured 2026-09-06, see step 4), so Starter's 5y is a 2.5× deepening of
+   every horizon in the backtest — and it also bears on step 0, since a 2024Q3
+   delisted cohort sits right at the current floor's edge.
 
 ## Superseded (kept for context): the original proving-window plan
 **Gate A PASSED against the real DB** (CI run `tierb-activate.yml` #1, 2026-07-06):
