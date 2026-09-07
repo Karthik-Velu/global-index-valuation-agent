@@ -8,6 +8,42 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-09-07 — the dashboard is unfrozen, and the fix is verified end to end
+
+`refresh.yml` run #15 succeeded (13:12→13:25 UTC) — the first green weekly refresh since
+2026-08-10, and the proof that ADR-033 was the right diagnosis.
+
+Worth recording *how* it was verified, because "the job exited 0" would not have been
+enough. The chain checked was: workflow success → `dashboard_data.json` committed with
+`asof 2026-09-07` (commit `d065f57`, first touch since 08-10) → Vercel **production**
+deployment on that exact commit READY. Only the last link proves a reader sees new
+numbers, and it needed checking rather than assuming, because the workflow's
+"Trigger Vercel redeploy" step shows as **skipped** — it is gated on
+`env.VERCEL_DEPLOY_HOOK != ''` and that secret is unset, so deploys ride Vercel's Git
+integration. The data commit carries `[skip ci]`, which looked like it might suppress the
+build; the Vercel deployment list says otherwise. Assumption checked, assumption wrong.
+
+The direct evidence that the NaN fix works: `accuracy` in the published payload is
+`{evaluations: 10, avg_rank_ic: 0.141, avg_hit_rate: 1.0}`. That is the exact code path
+that killed three refreshes, now completing and grading ten past cohorts. `avg_hit_rate`
+of 1.0 is flattering and should not be read as skill at n=10 — `MIN_TRACK_EVALS = 12`
+still renders it as "not yet meaningful — 10/12", which is the point of that guard. Note
+it is a *real* 1.0, not the fabricated `0.0` the old `float(NaN > NaN)` would have
+written.
+
+**Also today:** the daily health check was widened to all three scheduled workflows
+(`data-pipeline.yml`, `refresh.yml`, `builder.yml`). Its narrowness was the actual
+failure in this whole episode — the bug froze the dashboard, but the check is why nobody
+was told for three weeks. Fixing the bug without fixing the check would have left the
+blind spot in place.
+
+Monday's pipeline run (#75) was healthy and incremental: 65 candidates, `tierb_only=True`,
+Tier-B export a clean no-op, quality 72/100 at 1,686 issues. Prices wrote **0 rows,
+days: 0** — correct, not a gap: Sunday's full sweep already carried Friday's close and
+Monday's pre-market run has no new session to fetch.
+
+---
+
 ## 2026-09-06 — the full price rebuild finished, and we now know how deep it goes
 
 The first-Sunday monthly full sweep (run #74, 08:12→13:03 UTC, 4h50m, all 23 steps
