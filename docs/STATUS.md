@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-09-06.
+> Last updated: 2026-09-07.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -390,14 +390,29 @@ console read. No operator action outstanding.
 against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
-0aa. **Watch that Monday 2026-09-07's `refresh.yml` goes green.** It had failed three
-   Mondays running (08-17, 08-24, 08-31) on a NaN reaching a `jsonb` column, leaving the
-   published dashboard frozen at 2026-08-10 while `data-pipeline.yml` stayed green daily.
-   Fixed 2026-09-04 (ADR-033). If it fails again, read to the **traceback** — the Yahoo
-   404s that fill the log are per-symbol and tolerated, not the cause.
-0ab. **Widen the daily health check to every scheduled workflow.** It watched only
-   `data-pipeline.yml`, which is the sole reason three weeks of dashboard staleness went
-   unreported. A green pipeline must not be able to mask a dead `refresh.yml`.
+0aa. ✅ **DONE — `refresh.yml` is green again and the dashboard is unfrozen.** It had
+   failed three Mondays running (08-17, 08-24, 08-31) on a NaN reaching a `jsonb` column,
+   leaving the published dashboard frozen at 2026-08-10 while `data-pipeline.yml` stayed
+   green daily. Fixed 2026-09-04 (ADR-033); confirmed by run
+   [#15](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/34126087496)
+   on 2026-09-07 (13:12→13:25 UTC). Verified end to end, not just "the job exited 0":
+   `dashboard_data.json` advanced to `asof 2026-09-07` (commit `d065f57`, first touch
+   since 08-10), the Vercel **production** deployment on that commit reached READY, and
+   the market-feedback loop that used to crash now returns real numbers —
+   `{evaluations: 10, avg_rank_ic: 0.141, avg_hit_rate: 1.0}`. With `MIN_TRACK_EVALS = 12`
+   the dashboard still shows that as "not yet meaningful — 10/12", which is the honest
+   framing; do not read 100% hit rate as skill at n=10.
+   *Note for whoever debugs this next:* the workflow's "Trigger Vercel redeploy" step is
+   **skipped** by design (`if: env.VERCEL_DEPLOY_HOOK != ''`, and that secret is unset).
+   Deployment happens through Vercel's Git integration instead, and the `[skip ci]` in the
+   data commit does **not** stop it — verified against the Vercel deployment list, not
+   assumed.
+0ab. ✅ **DONE — the daily health check now covers every scheduled workflow**
+   (`data-pipeline.yml`, `refresh.yml`, `builder.yml`), 2026-09-07. It previously watched
+   only `data-pipeline.yml`, which is the sole reason three weeks of dashboard staleness
+   were reported as "healthy" every morning. This is a change to the monitoring routine,
+   not to this repo — there is no code here to inspect. A green pipeline can no longer
+   mask a dead `refresh.yml`.
 0. **Decide whether to fund the delisted backfill (survivorship).** Measured 2026-08-07
    (ADR-032): **16.9%** of 2024Q3 operating filers are delisted and invisible to the
    backtest — 894 companies. That is the real bias; the other 37.9% of "missing" is our
