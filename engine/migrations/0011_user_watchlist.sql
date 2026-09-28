@@ -22,9 +22,14 @@ alter table user_watchlist enable row level security;
 -- RLS defaults to deny (matching every other table in this schema, which is
 -- rls_enabled with zero policies today). No UPDATE policy in v1 — insert
 -- (pin) + delete (unpin) only; add one later only if a "note" edit ships.
+-- DROP ... IF EXISTS first: Postgres has no CREATE POLICY IF NOT EXISTS, and a
+-- migration that cannot be re-run safely jams the whole queue behind it.
+drop policy if exists "watchlist: owner select" on user_watchlist;
 create policy "watchlist: owner select" on user_watchlist
   for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "watchlist: owner insert" on user_watchlist;
 create policy "watchlist: owner insert" on user_watchlist
   for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "watchlist: owner delete" on user_watchlist;
 create policy "watchlist: owner delete" on user_watchlist
   for delete to authenticated using (auth.uid() = user_id);

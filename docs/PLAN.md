@@ -294,6 +294,14 @@ sector-research lessons decayed unused). See ADR-028.
 - ⬜ `testable`-lesson re-verification; embeddings backfill (`ollama pull nomic-embed-text`)
 
 ## Housekeeping  🔁
+- ✅ **Unjam the migration queue** (2026-09-28) — `schema_migrations` recorded only
+  `0001..0012`: 0013/0014 had been applied out-of-band, so the runner retried 0013 every
+  run, hit the non-idempotent `create policy` (Postgres has no `CREATE POLICY IF NOT
+  EXISTS`; `DuplicateObject` isn't the `UniqueViolation` the forgiving branch catches),
+  and **aborted the whole batch** — silently blocking 0014 and any future migration for
+  ~8 weeks behind one truncated WARNING in a green run. Policies in 0013 and 0011 now
+  `drop … if exists` first (verified twice-through against the live schema in a rolled-back
+  transaction); the failure message now names the file and the migrations stuck behind it.
 - ✅ **Rotate `OLLAMA_API_KEY` + `GROQ_API_KEY`** — done 2026-07 week 5 (they had been
   pasted in chat during setup)
 - ✅ **Fix the weekly refresh dying on a NaN** (2026-09-04, ADR-033) — `refresh.yml` had

@@ -98,9 +98,18 @@ def apply_migrations() -> list[str]:
                                 "on conflict (name) do nothing", (f.name,))
                 conn.commit()
                 applied_now.append(f.name)
-            except Exception:
+            except Exception as e:
                 conn.rollback()
-                raise
+                # Aborting is the safe choice — a later migration may assume this
+                # one's schema. But the cost of aborting is that EVERY migration
+                # behind this one stops applying, and that has to be said out loud:
+                # 0013 failed on a non-idempotent CREATE POLICY for weeks, and all
+                # anyone saw was one truncated warning line in a green pipeline run.
+                blocked = [p.name for p in sorted(MIGRATIONS_DIR.glob("*.sql"))
+                           if p.name > f.name and p.name not in done]
+                detail = (f" — {len(blocked)} later migration(s) blocked behind it: "
+                          f"{', '.join(blocked)}") if blocked else ""
+                raise RuntimeError(f"migration {f.name} failed: {e}{detail}") from e
     return applied_now
 
 

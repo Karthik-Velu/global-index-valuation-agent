@@ -99,8 +99,10 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
             if applied:
                 print(f"   applied migrations: {applied}")
         except Exception as e:
-            steps["migrations"] = {"error": str(e)[:160]}
-            print(f"   WARNING: migration apply failed: {str(e)[:160]}")
+            # 400, not 160: apply_migrations names the file that failed AND the
+            # migrations stuck behind it, and that tail is the actionable half.
+            steps["migrations"] = {"error": str(e)[:400]}
+            print(f"   WARNING: migration apply failed: {str(e)[:400]}")
 
     # 1. Source health/license probe (deterministic part of the ingestion role).
     try:

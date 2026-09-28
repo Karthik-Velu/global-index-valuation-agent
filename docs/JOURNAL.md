@@ -8,6 +8,74 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-09-28 — the migration queue had been jammed since August, in a green run
+
+Today's health check was routine — all three scheduled workflows green, `refresh.yml` #18
+published `asof 2026-09-28` — but one line in the pipeline log turned out not to be noise:
+
+```
+WARNING: migration apply failed: policy "admins: read" for table "admins" already exists
+```
+
+It was in the previous day's log too, so the first instinct was "known, benign." It was
+neither. Reading `db.apply_migrations()` rather than pattern-matching on the word WARNING:
+
+* Postgres has **no `CREATE POLICY IF NOT EXISTS`**. Every other statement in
+  `0013_admin_proposals.sql` is guarded (`create table if not exists`, `create index if
+  not exists`, `create or replace function`, `on conflict do nothing`); the nine policies
+  were the one class that isn't re-runnable.
+* The runner has a branch that forgives already-exists DDL — but it catches
+  `psycopg.errors.UniqueViolation` (23505, the pg_type catalog race). A duplicate policy
+  raises **`DuplicateObject` (42710)**, which falls to the bare `raise` below it.
+* That `raise` is inside the `for f in sorted(...)` loop, so it doesn't just skip 0013 —
+  **it aborts the whole batch.** Every migration sorting after the failure never runs.
+
+Confirmed against the live DB rather than inferred: `schema_migrations` records
+`0001..0012` only — 0013 and 0014 are *not* recorded — yet all five tables, all nine
+policies, `is_admin()` and `proposals.how_used` are present. So 0013/0014 were applied
+out-of-band (Supabase SQL editor / MCP `apply_migration`, which records into
+`supabase_migrations.schema_migrations`, not our own table). The engine therefore retried
+0013 on **every single pipeline run**, died on the first policy, and skipped 0014 — for
+roughly eight weeks.
+
+**Nothing is currently broken because of it.** The schema happens to be correct, so no
+code is reading a missing column. What was broken is the *mechanism*: the next migration
+anyone adds (0015+) would never have applied, and the only symptom would have been a
+truncated warning line in a green run. That is the same failure shape as the NaN bug on
+2026-09-04 — a real fault wearing a success exit code — and the second time in a month
+that the interesting information was below where I stopped reading.
+
+Fixed:
+* `0013` and `0011` (same latent trap, but it applied cleanly first time so it never
+  jammed) now `drop policy if exists` before each `create policy`. Verified for real:
+  ran the whole RLS block twice through inside a transaction against the production
+  schema and rolled it back — clean both passes, 9 policies before and after, no trace.
+* `apply_migrations()` now raises a message that **names the file that failed and lists
+  the migrations stuck behind it** (`migration 0013_… failed: … — 1 later migration(s)
+  blocked behind it: 0014_proposal_how_used.sql`). Abort-on-failure is kept: a later
+  migration may assume an earlier one's schema, so continuing past a failure is the more
+  dangerous choice. The bug was never the abort — it was the silence.
+* `datapipeline.py` truncates that message at 400 chars instead of 160, because the
+  actionable half is the tail.
+
+Next pipeline run should print `applied migrations: ['0013_admin_proposals.sql',
+'0014_proposal_how_used.sql']` once, and then never mention them again.
+
+**Open, unchanged, all awaiting a decision:** `shares_multiclass_unsummed` (1231 of 1691
+issues — the single change between quality 72/100 and ~90); the delisted-price probe
+gating the survivorship backfill; a price-store freshness assertion; and the ~50-60 min
+unattributed window in each pipeline run.
+
+Also noted for the weeks ahead: the accuracy panel is still suppressed
+(`MIN_TRACK_EVALS = 12`, 10 evaluations exist) and will *stay* at 10 until the 5 October
+refresh, because `min_horizon_days = 25` and the three-week freeze left no cohort between
+2026-08-10 and 2026-09-07. It crosses 12 around 12 October — and it will go live reading
+`avg_hit_rate 1.0`, which is 12 heavily overlapping measurements of one market episode
+against a single terminal price snapshot, not 12 independent wins. Worth reshaping before
+a reader sees it, not after.
+
+---
+
 ## 2026-09-07 — the dashboard is unfrozen, and the fix is verified end to end
 
 `refresh.yml` run #15 succeeded (13:12→13:25 UTC) — the first green weekly refresh since
