@@ -175,6 +175,14 @@ create index if not exists ix_proposal_solutions_p on proposal_solutions(proposa
 -- are unaffected (RLS is not enforced for the owner); the Edge Function uses
 -- the service-role key, which bypasses RLS by design. So these policies govern
 -- exactly one caller: a browser holding a signed-in user's JWT.
+--
+-- Every CREATE POLICY below is preceded by DROP POLICY IF EXISTS. Postgres has
+-- no CREATE POLICY IF NOT EXISTS, so a re-run of this file raises DuplicateObject
+-- on the first policy — which is not hypothetical: this migration's objects were
+-- applied out-of-band and never recorded in `schema_migrations`, so the runner
+-- retried it on every single pipeline run, died here, and silently blocked every
+-- migration sorting after it (0014 among them) for weeks. Additive DDL must be
+-- re-runnable; a policy is the one statement in this file that wasn't.
 -- ---------------------------------------------------------------------------
 alter table admins enable row level security;
 alter table proposals enable row level security;
@@ -183,6 +191,7 @@ alter table proposal_messages enable row level security;
 alter table proposal_solutions enable row level security;
 
 -- An admin may see the admin list (to render "you're signed in as"), never edit it.
+drop policy if exists "admins: read" on admins;
 create policy "admins: read" on admins
   for select to authenticated using (is_admin());
 
@@ -191,27 +200,35 @@ create policy "admins: read" on admins
 -- must not be forgeable (actioning, evidence counts) lives server-side in the
 -- Edge Function under the service role. This UPDATE policy exists so an admin
 -- can park/annotate directly if the function is ever down.
+drop policy if exists "proposals: admin read" on proposals;
 create policy "proposals: admin read" on proposals
   for select to authenticated using (is_admin());
+drop policy if exists "proposals: admin update" on proposals;
 create policy "proposals: admin update" on proposals
   for update to authenticated using (is_admin()) with check (is_admin());
 
 -- Audit log: readable, insertable, and deliberately NOT updatable or deletable.
+drop policy if exists "events: admin read" on proposal_events;
 create policy "events: admin read" on proposal_events
   for select to authenticated using (is_admin());
+drop policy if exists "events: admin insert" on proposal_events;
 create policy "events: admin insert" on proposal_events
   for insert to authenticated with check (is_admin());
 
 -- Chat: an admin may read the thread and post their own questions. Assistant
 -- rows are written server-side, so the role check stops a client from forging
 -- a model answer into the record.
+drop policy if exists "messages: admin read" on proposal_messages;
 create policy "messages: admin read" on proposal_messages
   for select to authenticated using (is_admin());
+drop policy if exists "messages: admin insert" on proposal_messages;
 create policy "messages: admin insert" on proposal_messages
   for insert to authenticated with check (is_admin() and role = 'admin');
 
 -- Solutions: an admin reads the Builder's plan and may set feedback / push_ok.
+drop policy if exists "solutions: admin read" on proposal_solutions;
 create policy "solutions: admin read" on proposal_solutions
   for select to authenticated using (is_admin());
+drop policy if exists "solutions: admin update" on proposal_solutions;
 create policy "solutions: admin update" on proposal_solutions
   for update to authenticated using (is_admin()) with check (is_admin());

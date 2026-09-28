@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-09-07.
+> Last updated: 2026-09-28.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -29,6 +29,17 @@ secrets — a dev cloud session needs its own copy):
 pasted into chat during setup).
 
 ## Live / working now
+
+> **Migrations, 2026-09-28:** `public.schema_migrations` recorded only `0001..0012` —
+> 0013/0014 had been applied out-of-band (Supabase records into
+> `supabase_migrations.schema_migrations`, not ours), so `apply_migrations()` retried 0013
+> every run, died on its non-idempotent `create policy`, and **aborted the batch**,
+> blocking 0014 and any future migration for ~8 weeks. Schema was never wrong; the
+> mechanism was. Fixed: policies now `drop … if exists` first, and the failure names the
+> migrations stuck behind it. **Expect the next pipeline run to print
+> `applied migrations: ['0013_admin_proposals.sql', '0014_proposal_how_used.sql']` once.**
+> If it doesn't, the queue is still jammed — check that line, not just the exit code.
+
 
 **Product (Phase 1, index level)** — public dashboard on Vercel (~90 indices, value +
 fundamental growth + GARP). Repo (private, MIT): `Karthik-Velu/global-index-valuation-agent`.
