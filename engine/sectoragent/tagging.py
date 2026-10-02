@@ -20,7 +20,7 @@ def _submission(cik: int) -> dict | None:
 
 
 def tag_securities(limit: int | None = None, sleep: float = 0.15) -> dict:
-    stats = {"tagged": 0, "changed": 0, "unknown": 0}
+    stats = {"tagged": 0, "changed": 0, "unknown": 0, "fetch_errors": 0}
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select id, ticker, cik from securities where cik is not null"
                     + (f" limit {int(limit)}" if limit else ""))
@@ -28,7 +28,17 @@ def tag_securities(limit: int | None = None, sleep: float = 0.15) -> dict:
 
     with db.connect() as conn:
         for sec_id, ticker, cik in rows:
-            sub = _submission(int(cik))
+            # One slow SEC response used to kill the whole pipeline run (2026-10-02:
+            # a 20s read timeout on a single CIK). A tag that
+            # can't be fetched today is simply refreshed tomorrow — the same thing
+            # the non-200 branch below already does — so skip it, but keep the
+            # first error's text: a bare count can't be diagnosed from the log.
+            try:
+                sub = _submission(int(cik))
+            except requests.RequestException as e:
+                stats["fetch_errors"] += 1
+                stats.setdefault("first_error", f"{ticker}: {str(e)[:160]}")
+                continue
             if not sub:
                 continue
             sic = sub.get("sic")

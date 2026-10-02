@@ -294,6 +294,11 @@ sector-research lessons decayed unused). See ADR-028.
 - ⬜ `testable`-lesson re-verification; embeddings backfill (`ollama pull nomic-embed-text`)
 
 ## Housekeeping  🔁
+- ✅ **Tagging can no longer kill the pipeline** (2026-10-02) — run #100 died on one
+  `data.sec.gov` read timeout inside `tag_securities()`, the only unwrapped network step;
+  the failed job also skipped the Tier B cache save. Per-CIK errors now skip+count (with
+  the first error's text), and the step is wrapped like fx/corp actions. Step now prints
+  its own `seconds` (flushed) to test whether it is most of the ~50-60 min window.
 - ✅ **Unjam the migration queue** (2026-09-28) — `schema_migrations` recorded only
   `0001..0012`: 0013/0014 had been applied out-of-band, so the runner retried 0013 every
   run, hit the non-idempotent `create policy` (Postgres has no `CREATE POLICY IF NOT

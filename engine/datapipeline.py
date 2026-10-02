@@ -20,6 +20,7 @@ docs/AGENTS.md. They are dormant until an API key / model is configured.
 from __future__ import annotations
 
 import json
+import time
 from datetime import date, datetime, timezone
 
 from . import config, db, llm, memory, quality, recalibration
@@ -197,8 +198,21 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         steps["fx"] = {"error": str(e)[:160]}
         print(f"   WARNING: fx ingestion failed: {str(e)[:160]}")
 
-    # 3. Tag securities (deterministic).
-    steps["tagging"] = tagging.tag_securities()
+    # 3. Tag securities (deterministic). Best-effort like the steps above: tags are
+    #    refreshed daily, so a failure here costs one day's refresh at most — it must
+    #    not cost the quality scan, recalibration and agents that run after it, which
+    #    is exactly what a single SEC timeout did on 2026-10-02.
+    #    Timed and flushed because this step makes one SEC call per security (~3,000)
+    #    and is the prime suspect for the run's ~50-60 min unattributed window;
+    #    stdout is block-buffered in CI, so without flush the line lands at exit.
+    t0 = time.monotonic()
+    try:
+        steps["tagging"] = tagging.tag_securities()
+    except Exception as e:
+        steps["tagging"] = {"error": str(e)[:160]}
+        print(f"   WARNING: tagging failed: {str(e)[:160]}", flush=True)
+    steps["tagging"]["seconds"] = round(time.monotonic() - t0)
+    print(f"   tagging: {steps['tagging']}", flush=True)
 
     # 4. Validate + auto-fix the metric catalog (deterministic self-correction).
     val = sector_validate.validate_catalog()
