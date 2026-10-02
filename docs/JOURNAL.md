@@ -8,6 +8,46 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-02 — one SEC timeout killed a whole run; the log proved the buffering theory
+
+`data-pipeline.yml` run #100 failed — the first red daily run in the series. Read to the
+traceback: `sectoragent/tagging.py::_submission` → `requests.ReadTimeout` from
+`data.sec.gov` (20s read timeout, after an SSL-handshake timeout), raised out of
+`tag_securities()` and out of `datapipeline.run()`, because step 3 (tagging) was the
+one network step NOT wrapped "recorded, not fatal" like its neighbours (corp actions,
+fx). One slow response for one company took down the quality scan, recalibration and
+all three agents that run after it.
+
+**Knock-on, measured not assumed:** the job's step list shows `Post Restore Tier B
+store` **skipped** — `actions/cache` only saves on success — so the run's Tier B writes
+(Thursday's prices, new fundamentals) were discarded with the runner. Self-healing: the
+price ingest catches up over a 30-day window, so the next run should report `days: 2`
+(that is the catch-up, not a new gap), and fundamentals re-scan the 7-day filing window.
+
+**Fixed (PR, merged):** per-company — a `RequestException` skips that CIK and counts
+it (`fetch_errors`), keeping the first error's text so it is diagnosable; a tag missed
+today is refreshed tomorrow, exactly what the existing non-200 branch already did.
+Per-step — tagging is wrapped like fx/corp actions. Reproduced first: the old code
+raises the same `ReadTimeout` on a mocked mid-loop timeout; the new code tags the
+others and records `fetch_errors: 1` with the message.
+
+**The buffering theory, confirmed by this failure:** in the log, the `corp actions:`
+and `fx:` lines appear *after* the traceback, though those steps ran long before
+tagging. stderr (traceback) is unbuffered; stdout is block-buffered in CI and flushed
+at exit. That is the mechanism behind the "~50-60 min unattributed window" (every
+stdout line from corp actions to `pipeline done` lands with one timestamp). Tagging is
+the prime suspect for most of that window — one SEC call plus ~4 Supabase round trips
+(Tokyo, from a US runner) per security, ~3,000 securities, every day — and the run died
+at 12:24, almost exactly when green runs finish. That is inference; the step now prints
+its own `seconds`, flushed, so the next run measures it. If confirmed, the obvious
+follow-up is to re-tag only untagged/stale securities (SIC codes rarely change), which
+would also remove ~3,000 daily chances of this failure. Not done — measure first.
+
+Also: yesterday's partial dividend fetch (`n_errors: 1`, page 12 timeout) self-healed
+as the code predicted — today 747 matched, no errors.
+
+---
+
 ## 2026-09-28 — the migration queue had been jammed since August, in a green run
 
 Today's health check was routine — all three scheduled workflows green, `refresh.yml` #18
