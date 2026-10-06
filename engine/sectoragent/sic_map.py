@@ -23,6 +23,14 @@ _OVERRIDE = {
     "6798": ("Real Estate", "REITs"),
     "1311": ("Energy", "Oil & Gas E&P"),
     "2911": ("Energy", "Refining"),
+    # The 3800-3899 range rule says Healthcare, which is right for 384x/3851 but not
+    # for these — they were being valued against drug makers (found 2026-10-06, when
+    # Northrop surfaced as "cheap vs Healthcare peers"). 3823/3826/3829 stay in the
+    # range rule: they genuinely mix life-science tools (DHR, TMO, WAT) with
+    # industrial instruments, so a code-level override would be wrong either way.
+    "3812": ("Industrials", "Aerospace & Defense"),     # LHX, NOC, DRS, TDY, LUNR
+    "3825": ("Technology", "Test & Measurement"),       # TER, AEHR, COHU, ITRI
+    "3827": ("Technology", "Optics & Semi Equipment"),  # KLAC, CAMT, NVMI, COHR
 }
 
 # (lo, hi) inclusive 4-digit ranges -> (sector, sub_sector or '').
