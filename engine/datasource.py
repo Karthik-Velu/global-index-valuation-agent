@@ -43,6 +43,7 @@ class Snapshot:
     ret_6m: float | None = None
     ret_12m: float | None = None
     ma200_ratio: float | None = None     # price / 200d MA - 1
+    ma252_ratio: float | None = None     # price / 52-week (252d) MA - 1
     pct_52w_range: float | None = None   # 0 (at low) .. 1 (at high)
     drawdown_52w: float | None = None    # price / 52w high - 1  (<= 0)
     # Fundamental growth (weighted from top holdings; set by enrich_growth)
@@ -95,6 +96,10 @@ def _price_signals(close: pd.Series) -> dict:
         ma200 = close.tail(200).mean()
         if ma200:
             out["ma200_ratio"] = round(float(close.iloc[-1]) / float(ma200) - 1.0, 4)
+    if len(close) >= 252:
+        ma252 = close.tail(252).mean()
+        if ma252:
+            out["ma252_ratio"] = round(float(close.iloc[-1]) / float(ma252) - 1.0, 4)
     last_year = close.tail(252)
     if len(last_year) > 20:
         hi, lo = float(last_year.max()), float(last_year.min())

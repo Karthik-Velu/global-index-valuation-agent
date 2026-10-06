@@ -54,6 +54,19 @@ _SHARES_TAG_PRIORITY = {
     "us-gaap:CommonStockSharesOutstanding": 1,
     "us-gaap:CommonStockSharesIssued": 2,
 }
+_SHARES_ISSUED_TAG = "us-gaap:CommonStockSharesIssued"
+# How old an OUTSTANDING count may be and still beat a fresher ISSUED one. Issued
+# includes treasury stock, so it overstates market cap by however much the company
+# has bought back — McDonald's: 1,661M issued vs 710M outstanding (2.3x, P/E 45
+# instead of ~19), because its 10-Q cover-page count is missing and the balance-
+# sheet "issued" line is quarterly. A year-old outstanding count is off by that
+# year's buybacks/issuance (typically a few %); treasury stock can be 50%+.
+SHARES_OUTSTANDING_MAX_AGE_DAYS = 400
+# ...and how SMALL it may be. Treasury stock above ~75% of issued is rare (Travel +
+# Leisure, 72%, is the deepest real case on file); an outstanding count far below
+# issued is more often ONE share class of several (Levi's: 10% — Class A only),
+# where the issued total is the better of two wrong answers.
+SHARES_MIN_OUTSTANDING_TO_ISSUED = 0.25
 
 
 def _resolve_shares_concept(df: pd.DataFrame) -> pd.DataFrame:
@@ -71,7 +84,20 @@ def _resolve_shares_concept(df: pd.DataFrame) -> pd.DataFrame:
     shares = (shares.sort_values(["security_id", "period_end", "_pri"])
                     .drop_duplicates(["security_id", "period_end"], keep="first")
                     .drop(columns="_pri"))
-    return pd.concat([df[~is_shares], shares], ignore_index=True)
+    # Across dates too: an issued count newer than a recent outstanding count is
+    # dropped, so the latest-value pick lands on the outstanding one (see
+    # SHARES_OUTSTANDING_MAX_AGE_DAYS). 307 of 2,885 securities with a share count resolved to
+    # "issued" on 2026-10-05, 157 of them with an outstanding count also on file.
+    issued = shares["raw_tag"] == _SHARES_ISSUED_TAG
+    last_out = (shares.loc[~issued].sort_values("period_end")
+                      .groupby("security_id").tail(1).set_index("security_id"))
+    out_pe = shares["security_id"].map(last_out["period_end"])
+    out_val = shares["security_id"].map(last_out["value"])
+    newest = shares.groupby("security_id")["period_end"].transform("max")
+    shadowed = (issued & out_pe.notna() & (shares["period_end"] > out_pe)
+                & ((newest - out_pe).dt.days <= SHARES_OUTSTANDING_MAX_AGE_DAYS)
+                & (out_val >= SHARES_MIN_OUTSTANDING_TO_ISSUED * shares["value"]))
+    return pd.concat([df[~is_shares], shares[~shadowed]], ignore_index=True)
 
 
 def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
@@ -90,7 +116,8 @@ def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
 def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
     """One row per security_id: latest pe/pb/ps/pcf inputs + trailing YoY growth,
     all knowable as of `asof` (tierb.metrics_asof — no look-ahead)."""
-    empty_cols = ["security_id"] + list(ALL_CODES) + ["rev_growth", "earnings_growth"]
+    empty_cols = ["security_id"] + list(ALL_CODES) + ["rev_growth", "earnings_growth",
+                                                      "reporting_currency"]
     rows = tierb.metrics_asof(asof, metric_codes=list(ALL_CODES),
                               security_ids=security_ids, source="xbrl")
     if not rows:
@@ -120,14 +147,23 @@ def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
 
     out["rev_growth"] = _yoy("total_revenue")
     out["earnings_growth"] = _yoy("net_income")
+
+    # The currency the income statement is reported in. ~250 filers (EUR, CNY, JPY,
+    # KRW, BRL…) report in local currency while our prices are USD, so their P/E,
+    # P/S and P/B are off by the exchange rate (KEP/KB at P/E ~0.002, TME at 3.4).
+    # Carried so screens can refuse to call those numbers plausible; converting
+    # them via the fx table is the real fix and is not done here.
+    rc = flow[flow["metric_code"].isin(["total_revenue", "net_income"])] \
+        .sort_values(["period_end", "filed_date"]).groupby("security_id")["unit"].last()
+    out["reporting_currency"] = rc.reindex(idx)
     return out.reset_index()
 
 
 def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> pd.DataFrame:
     """One row per security_id: latest close as of `asof` + momentum/mean-reversion
     inputs from the trailing `lookback_days` of Tier B prices (date <= asof only)."""
-    cols = ["security_id", "price", "ret_3m", "ret_6m", "ret_12m",
-            "ma200_ratio", "pct_52w_range", "drawdown_52w"]
+    cols = ["security_id", "price", "ret_1m", "ret_3m", "ret_6m", "ret_12m",
+            "ma200_ratio", "ma252_ratio", "pct_52w_range", "drawdown_52w"]
     if not security_ids or not tierb.have_prices():
         return pd.DataFrame(columns=cols)
     con = tierb.connect()
@@ -151,12 +187,17 @@ def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> 
         window = g.tail(260)  # ~1 trading year if fully populated
         hi, lo = float(window["close"].max()), float(window["close"].min())
         ma200 = g["close"].tail(200).mean()
+        # A true 52-week average needs a full year of closes; NaN otherwise (the
+        # screens fall back to the 200-day average, not to a shorter window).
+        ma252 = g["close"].tail(252).mean() if len(g) >= 252 else np.nan
         out.append({
             "security_id": sid, "price": price,
+            "ret_1m": _ret_at(g, price, last_date, 30),
             "ret_3m": _ret_at(g, price, last_date, 91),
             "ret_6m": _ret_at(g, price, last_date, 182),
             "ret_12m": _ret_at(g, price, last_date, 365),
             "ma200_ratio": (price / ma200 - 1.0) if ma200 else np.nan,
+            "ma252_ratio": (price / ma252 - 1.0) if ma252 and not np.isnan(ma252) else np.nan,
             "pct_52w_range": (price - lo) / (hi - lo) if hi > lo else 0.5,
             "drawdown_52w": (price / hi - 1.0) if hi else np.nan,
         })

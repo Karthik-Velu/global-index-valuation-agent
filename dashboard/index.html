@@ -42,6 +42,16 @@
       <div id="focus" class="flex gap-1 flex-wrap"></div>
     </div>
 
+    <!-- 0. Top picks: what to look at first, and why (engine/picks.py — rule-based,
+         every reason line assembled from the numbers). Hidden until the data has it. -->
+    <section id="picks" class="hidden rounded-xl bg-panel border border-accent/30 p-5 mb-5">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
+        <h2 class="text-base font-semibold text-white">Top picks this week</h2>
+        <p id="picksEvidence" class="text-[11px] text-slate-500 max-w-[720px]"></p>
+      </div>
+      <div id="picksBody"></div>
+    </section>
+
     <!-- 1. The headline read -->
     <section id="brief" class="rounded-xl bg-gradient-to-br from-panel to-panel2 border border-line p-5 mb-5">
       <div class="text-[11px] uppercase tracking-wider text-accent mb-2">Strategist read</div>

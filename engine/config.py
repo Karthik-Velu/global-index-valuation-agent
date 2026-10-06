@@ -192,5 +192,23 @@ OVERVALUED_QUANTILE = 0.80  # top 20% by richness flagged "overvalued"
 VALUE_TRAP_MOM_12M = -0.15   # 12m total return below -15%
 VALUE_TRAP_DRAWDOWN = -0.20  # >20% below its 52w high
 
+# --- "Strong fundamentals, trading below its 52-week average" screens (strategies.py) ---
+# Note the value-trap flag above is PRICE-only (cheap + down + still falling) and
+# never looks at fundamentals — which is exactly the gap these screens fill:
+# beaten down AND the business is still growing.
+ON_SALE_DISCOUNT = -0.10        # price at least 10% below its 52-week (252-day) average
+DEEP_DISCOUNT = -0.20           # ... at least 20% below, for the deep-value variant
+DEEP_VALUE_MIN_SCORE = 60       # deep variant also needs a value score this high
+TURNING_UP_MIN_RANGE = 0.15     # "turning up": back at least 15% of the way off its 52w low
+STRONG_MIN_GROWTH_SCORE = 50    # fundamental growth at least median vs peers
+STRONG_MIN_COVERAGE = 0.25      # an index's growth figures must cover >=25% of its weight
+                                # (EM Small Cap scored 100/100 on growth from 4% coverage)
+# Plausibility gates. Real data showed P/Es of 0.0003-2 at the TOP of the stock ranking —
+# wrong share counts (CHWY: 100 shares) and foreign filers' local-currency profits against
+# USD prices (KEP, POSCO, KB…). The existing quality checks catch only ~1 in 3 of these.
+SANE_MIN_PE = 3.0
+SANE_MIN_PS = 0.05
+SANE_MIN_MARKET_CAP = 3e8       # stocks only (indices have no market cap here)
+
 # How many headline insights to surface at the very top of the dashboard.
 TOP_INSIGHTS = 6

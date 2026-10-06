@@ -17,6 +17,22 @@ table#table tbody tr { cursor: pointer; }
 table#table tbody tr:hover { background: #1a223580; }
 
 .badge { font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
+
+/* Top picks */
+.pick-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin: 4px 0 8px; }
+.pick-card { background: #1a2235; border: 1px solid #243049; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pick-card[data-mk] { cursor: pointer; }
+.pick-card[data-mk]:hover { border-color: #60a5fa80; }
+.pick-why { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.45; }
+.pick-why li { padding-left: 16px; position: relative; }
+.pick-why li::before { position: absolute; left: 0; }
+.pick-why li.ok { color: #cbd5e1; }
+.pick-why li.ok::before { content: '✓'; color: #34d399; }
+.pick-why li.warn { color: #fbbf24; }
+.pick-why li.warn::before { content: '!'; font-weight: 700; left: 4px; }
+.sale-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 8px; border-radius: 8px; }
+.sale-row:hover { background: #1a2235; }
+.sale-row[data-mk] { cursor: pointer; }
 .pill { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:999px; }
 
 .scorebar { height: 6px; border-radius: 999px; background: #243049; overflow: hidden; min-width: 54px; display:inline-block; vertical-align: middle; }

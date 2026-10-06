@@ -20,6 +20,7 @@ from .config import (
     VALUE_TRAP_DRAWDOWN,
     VALUE_TRAP_MOM_12M,
 )
+from . import strategies
 from .tuning import current_opportunity_weights, current_value_weights
 
 
@@ -114,5 +115,9 @@ def compute(df: pd.DataFrame) -> pd.DataFrame:
 
     # GARP sweet spot: reasonably cheap AND high fundamental growth, not overvalued.
     df["garp"] = (df["value_score"] >= 55) & df["high_growth"] & (~df["overvalued"])
+
+    # "Strong fundamentals, trading below its 52-week average" screens. Added here
+    # rather than downstream so the backtest grades exactly what the dashboard shows.
+    df = strategies.apply(df)
 
     return df.sort_values("opportunity_score", ascending=False).reset_index(drop=True)

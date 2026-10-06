@@ -273,6 +273,14 @@ sector-research lessons decayed unused). See ADR-028.
   the falling tail is the queue emptying, not the job stalling. Deciding them is the part
   that stays open — approving an un-written-up proposal warns first.
 
+- ✅ **"Quality on sale" screens + Top picks (ADR-034, 2026-10-06)** — strong-fundamentals
+  names ≥10%/20% below their 52-week average (markets + stocks), a rule-based Top picks
+  block at the top of the dashboard, `on_sale_score` in the backtest; share-count
+  (issued vs outstanding) and SIC 38xx fixes found on the way.
+- ⬜ **Stock-data integrity follow-ups from that run** — FX-convert non-USD fundamentals
+  (~242 filers); ingest ADR ratios (495 foreign listings excluded from picks); sum
+  multi-class share counts; apply `data_sane` to the drawer's per-market stock breakdown.
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F
