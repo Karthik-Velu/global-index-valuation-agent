@@ -54,6 +54,19 @@ _SHARES_TAG_PRIORITY = {
     "us-gaap:CommonStockSharesOutstanding": 1,
     "us-gaap:CommonStockSharesIssued": 2,
 }
+_SHARES_ISSUED_TAG = "us-gaap:CommonStockSharesIssued"
+# How old an OUTSTANDING count may be and still beat a fresher ISSUED one. Issued
+# includes treasury stock, so it overstates market cap by however much the company
+# has bought back — McDonald's: 1,661M issued vs 710M outstanding (2.3x, P/E 45
+# instead of ~19), because its 10-Q cover-page count is missing and the balance-
+# sheet "issued" line is quarterly. A year-old outstanding count is off by that
+# year's buybacks/issuance (typically a few %); treasury stock can be 50%+.
+SHARES_OUTSTANDING_MAX_AGE_DAYS = 400
+# ...and how SMALL it may be. Treasury stock above ~75% of issued is rare (Travel +
+# Leisure, 72%, is the deepest real case on file); an outstanding count far below
+# issued is more often ONE share class of several (Levi's: 10% — Class A only),
+# where the issued total is the better of two wrong answers.
+SHARES_MIN_OUTSTANDING_TO_ISSUED = 0.25
 
 
 def _resolve_shares_concept(df: pd.DataFrame) -> pd.DataFrame:
@@ -71,7 +84,20 @@ def _resolve_shares_concept(df: pd.DataFrame) -> pd.DataFrame:
     shares = (shares.sort_values(["security_id", "period_end", "_pri"])
                     .drop_duplicates(["security_id", "period_end"], keep="first")
                     .drop(columns="_pri"))
-    return pd.concat([df[~is_shares], shares], ignore_index=True)
+    # Across dates too: an issued count newer than a recent outstanding count is
+    # dropped, so the latest-value pick lands on the outstanding one (see
+    # SHARES_OUTSTANDING_MAX_AGE_DAYS). 307 of 2,885 securities with a share count resolved to
+    # "issued" on 2026-10-05, 157 of them with an outstanding count also on file.
+    issued = shares["raw_tag"] == _SHARES_ISSUED_TAG
+    last_out = (shares.loc[~issued].sort_values("period_end")
+                      .groupby("security_id").tail(1).set_index("security_id"))
+    out_pe = shares["security_id"].map(last_out["period_end"])
+    out_val = shares["security_id"].map(last_out["value"])
+    newest = shares.groupby("security_id")["period_end"].transform("max")
+    shadowed = (issued & out_pe.notna() & (shares["period_end"] > out_pe)
+                & ((newest - out_pe).dt.days <= SHARES_OUTSTANDING_MAX_AGE_DAYS)
+                & (out_val >= SHARES_MIN_OUTSTANDING_TO_ISSUED * shares["value"]))
+    return pd.concat([df[~is_shares], shares[~shadowed]], ignore_index=True)
 
 
 def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
