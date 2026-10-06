@@ -9,6 +9,50 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-034 · "Quality on sale" screens + rule-based Top picks at the top of the dashboard
+- **Context:** user asked (2026-10-06) for strategies around funds and stocks "significantly
+  below the 52-week moving average but fundamentally strong", and for clear guidance on top
+  picks — and why — at the top of the dashboard. The only existing "fallen" signal,
+  `value_trap`, is PRICE-only (cheap + deeply down + still falling): it can't tell a broken
+  business from a good one that's been marked down.
+- **Choice:**
+  1. `engine/strategies.py` — three screens applied at the end of `metrics.compute()`, so
+     the index scoreboard, stock `score_frame()` and the backtest all carry them:
+     **Quality on sale** (fundamentally strong + plausible data + ≥10% below the 52-week
+     average), **Deep discount, fundamentals intact** (≥20% below + value score ≥60),
+     **Turning up** (on sale + 1-month return >0 + ≥15% off the 52-week low). "Strong" =
+     profitable; revenue AND earnings growing, each ≤+150% (larger jumps are usually
+     one-offs — Edison +247% at P/E 4.7) or, for indices, positive forward estimates;
+     growth score ≥50; not in the expensive cohort; ≥25% growth coverage. "52-week
+     average" = 252-trading-day SMA (`ma252_ratio`), falling back to the 200-day.
+  2. `data_sane` gate: P/E ≥3, P/S ≥0.05, market cap ≥$300M, USD income statement.
+     Tested *positively* — a missing input (an index has no market cap) never fails it.
+  3. `engine/picks.py` — 3 markets + 5 stocks + up to 8 "on sale" per side, chosen by rule
+     from the page's own scores, with every "why"/caution line assembled from the numbers
+     (no LLM: a reason can't claim what the data doesn't say). Stocks additionally need
+     ≥$2B market cap, US domicile (ADR ratios not ingested — Rentokil's P/E read 107
+     instead of ~21) and no open valuation-distorting quality issue.
+  4. `on_sale_score` is a backtest SIGNAL, defined only on strong+sane names, so its IC
+     tests exactly "among strong names, do the marked-down ones do better?".
+  5. An evidence line ships with the picks: rule-based, not advice, and the live track
+     record is not yet enough independent history to call it skill.
+- **Why:** the real-data run showed how much the gates matter — before them, 8 of the top-20
+  stock "opportunities" were data errors (P/E <1 from bad share counts, CNY/BRL statements
+  divided by USD prices). A picks block at the top of the page is the most-read surface;
+  it must be the most defended one.
+- **Fixed alongside (same root: a pick's "why" must be true):** (a) share count — a fresher
+  `CommonStockSharesIssued` (includes treasury stock) no longer beats an outstanding count
+  ≤400 days old and ≥25% of issued; 69 securities corrected, e.g. MCD P/E 45→19, IBM 48→20,
+  XOM 44→23, JPM 24.5→16. (b) SIC 3812/3825/3827 no longer map to Healthcare (Northrop
+  showed as "cheap vs Healthcare peers").
+- **Rejected alternatives:** *LLM-written reasons* — unverifiable, and the deterministic
+  path must work with no key. *Rank the on-sale list by depth of discount* — surfaced the
+  most-crashed expensive names first (KRMN at P/E 260); ranked by opportunity score
+  instead. *Fold the screens into `value_trap`* — different question; that flag stays as
+  the price-side caution. *Exclude all foreign filers via `data_sane`* — the discount is
+  price-based and unaffected by ADR ratios, so the backtest keeps them; only picks drop them.
+- **Date:** 2026-10-06
+
 ### ADR-033 · Grading past calls must never block publishing the dashboard
 - **Context:** `refresh.yml` (the weekly production refresh, Mondays 07:00 UTC) failed
   three weeks running — 2026-08-17, 08-24, 08-31 — and the dashboard the user actually

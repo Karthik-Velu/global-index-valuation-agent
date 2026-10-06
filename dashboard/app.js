@@ -103,6 +103,7 @@ function render() {
   $('#briefText').textContent = d.brief;
   $('#meta').textContent = `${d.meta.data_source} · growth: ${d.meta.growth_signal} · ${d.meta.note}`;
   renderTrackRecord(d.accuracy);
+  renderPicks(d.top_picks);
   renderTuning(d.tuning);
   renderCurrencySelector();
   renderAuthUI();
@@ -212,6 +213,82 @@ function renderTrackRecord(acc) {
   const good = ic > 0.05;
   el.innerHTML = `track record: <span class="font-semibold" style="color:${good ? '#34d399' : '#fbbf24'}">
     IC ${fmt(ic, 2)}</span> · hit ${hitPct(hr)} <span class="text-slate-500">(${n} runs)</span>`;
+}
+
+// ---- 0. top picks (engine/picks.py) ----
+// The engine chooses these by rule and writes every reason line from the numbers;
+// this only lays them out. Snapshots older than the feature carry no `top_picks`,
+// so the block stays hidden rather than rendering empty.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const STRAT_COLOR = { 'Quality on sale': '#60a5fa', 'Deep discount, fundamentals intact': '#34d399', 'Quality on sale, turning up': '#2dd4bf' };
+const stratBadges = labels => (labels || []).map(l =>
+  `<span class="pill" style="background:${STRAT_COLOR[l] || '#94a3b8'}22;color:${STRAT_COLOR[l] || '#94a3b8'}">${esc(l)}</span>`).join(' ');
+
+function pickCard(p, isMarket) {
+  const head = isMarket
+    ? `<div class="flex items-center gap-2 min-w-0"><span class="badge shrink-0" style="background:#60a5fa22;color:#60a5fa">${esc(p.symbol)}</span>
+         <span class="text-[11px] text-slate-500 truncate">${esc(p.kind)} · ${esc(p.region)}</span></div>`
+    : `<div class="flex items-center gap-2 min-w-0"><span class="badge shrink-0" style="background:#a78bfa22;color:#a78bfa">${esc(p.ticker)}</span>
+         <span class="text-[11px] text-slate-500 truncate">${esc(p.kind)} · ${money(p.price)} · ${marketCap(p.market_cap)}</span></div>`;
+  const why = [...(p.reasons || []).map(r => `<li class="ok">${esc(r)}</li>`),
+               ...(p.cautions || []).map(c => `<li class="warn">${esc(c)}</li>`)].join('');
+  return `<div class="pick-card" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
+    <div class="flex items-start justify-between gap-2">
+      <div class="min-w-0">${head}
+        <div class="text-[14px] font-medium text-slate-100 mt-1 leading-snug">${esc(p.name)}</div></div>
+      <div class="text-right shrink-0" title="Opportunity score (0–100)">
+        <div class="text-lg font-bold tabular-nums leading-none" style="color:${scoreColor(p.opportunity_score)}">${fmt(p.opportunity_score, 0)}</div>
+        <div class="text-[10px] text-slate-500">score</div></div>
+    </div>
+    <ul class="pick-why">${why}</ul>
+    ${p.strategies?.length ? `<div>${stratBadges(p.strategies)}</div>` : ''}
+  </div>`;
+}
+
+function saleRow(p, isMarket) {
+  const id = isMarket ? p.symbol : p.ticker;
+  return `<div class="sale-row" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
+    <div class="min-w-0 text-[13px] text-slate-100 truncate"><span class="text-slate-400 tabular-nums">${esc(id)}</span> ${esc(p.name)}</div>
+    <div class="text-[13px] font-semibold tabular-nums text-right" style="color:#f87171">${pct(p.discount_52w, 0)}</div>
+    <div class="min-w-0 text-[11px] text-slate-500 truncate">${esc(p.reasons?.find(r => r.startsWith('Business growing')) || p.reasons?.[0] || '')}</div>
+    <div class="text-[10px] text-slate-500 text-right">vs 52w avg</div>
+  </div>`;
+}
+
+function renderPicks(tp) {
+  const sec = $('#picks');
+  if (!tp || !(tp.markets?.length || tp.stocks?.length)) { sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+  $('#picksEvidence').textContent = tp.evidence || '';
+  const grid = (cards, isMarket) => `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">${cards.map(c => pickCard(c, isMarket)).join('')}</div>`;
+  const onSale = tp.on_sale || {};
+  const rule = tp.strategies?.on_sale?.rule || '';
+  const saleList = (rows, isMarket, title) => rows?.length
+    ? `<div class="min-w-0"><div class="pick-sub">${title}</div>${rows.map(r => saleRow(r, isMarket)).join('')}</div>` : '';
+  const sale = saleList(onSale.markets, true, 'Markets &amp; funds') + saleList(onSale.stocks, false, 'Stocks');
+  const strategyDefs = Object.values(tp.strategies || {}).map(s =>
+    `<li><span class="text-slate-300">${esc(s.label)}</span> — ${esc(s.rule)}</li>`).join('');
+  const ex = tp.excluded || {};
+  const exLine = Object.keys(ex).length
+    ? `Left out of the stock picks for data reasons: ${ex.strong_with_data_issues ?? 0} otherwise-strong names with an open data-quality issue, `
+      + `${ex.non_usd_reporters ?? 0} companies that report in a non-USD currency (their ratios aren't comparable yet), `
+      + (ex.foreign_listings != null ? `${ex.foreign_listings} foreign listings (share counts not yet adjusted for ADR ratios), ` : '')
+      + `and ${ex.implausible_valuation ?? 0} with an implausible valuation (e.g. P/E below 3).` : '';
+
+  $('#picksBody').innerHTML = `
+    ${tp.markets?.length ? `<div class="pick-sub">Markets &amp; funds</div>${grid(tp.markets, true)}` : ''}
+    ${tp.stocks?.length ? `<div class="pick-sub">Stocks</div>${grid(tp.stocks, false)}` : ''}
+    ${sale ? `<div class="border-t border-line pt-3">
+      <div class="text-[13px] font-semibold text-slate-200">Quality on sale <span class="font-normal text-slate-500">— strong businesses trading well below their 52-week average</span></div>
+      <div class="text-[11px] text-slate-500 mb-2">${esc(rule)}</div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6">${sale}</div></div>` : ''}
+    <details class="mt-3 text-[11px] text-slate-500 leading-relaxed">
+      <summary class="cursor-pointer text-slate-400 hover:text-slate-200">How these are chosen</summary>
+      <p class="mt-1.5">${esc(tp.method)}</p>
+      <ul class="mt-1.5 list-disc pl-5">${strategyDefs}</ul>
+      ${exLine ? `<p class="mt-1.5">${esc(exLine)}</p>` : ''}
+    </details>`;
+  $$('#picks [data-mk]').forEach(el => el.onclick = () => openDrawer(el.dataset.mk));
 }
 
 // ---- 2. insight cards ----
@@ -358,6 +435,7 @@ function flagPills(m) {
   let s = '';
   if (m.garp) s += `<span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span> `;
   if (m.high_growth && !m.garp) s += `<span class="pill" style="background:#a78bfa22;color:#a78bfa">growth</span> `;
+  if (m.on_sale) s += `<span class="pill" style="background:#60a5fa22;color:#60a5fa" title="Fundamentally strong and ≥10% below its 52-week average">on sale</span> `;
   if (m.value_trap) s += `<span class="pill" style="background:#fbbf2422;color:#fbbf24">trap</span> `;
   if (m.overvalued) s += `<span class="pill" style="background:#f8717122;color:#f87171">rich</span> `;
   if (!s && m.value_band === 'Cheap') s += `<span class="pill" style="background:#34d39922;color:#34d399">cheap</span>`;
@@ -575,7 +653,7 @@ function openDrawer(key) {
       ${row('Holdings data coverage', pct(m.growth_cov, 0))}
       <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">Price (context / momentum)</div>
       ${row('3m / 6m / 12m', pct(m.ret_3m) + ' / ' + pct(m.ret_6m) + ' / ' + pct(m.ret_12m))}
-      ${row('vs 200d MA', pct(m.ma200_ratio))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
+      ${row('vs 200d MA', pct(m.ma200_ratio))}${row('vs 52-week average', pct(m.discount_52w))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
       ${row('Flags', flagPills(m))}
       ${stockBreakdownBlock(key)}
       ${investBlock(m)}

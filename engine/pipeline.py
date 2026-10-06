@@ -36,11 +36,14 @@ COLUMNS = [
     "key", "symbol", "name", "country", "region", "development", "kind", "price",
     "pe", "pb", "ps", "pcf", "dividend_yield",
     "earnings_yield", "ret_1m", "ret_3m", "ret_6m", "ret_12m",
-    "ma200_ratio", "pct_52w_range", "drawdown_52w",
+    "ma200_ratio", "ma252_ratio", "pct_52w_range", "drawdown_52w",
     "rev_growth", "earnings_growth", "fwd_growth", "growth_cov",
     "value_score", "value_band", "momentum_score", "mean_reversion_score",
     "growth_score", "high_growth", "garp",
     "opportunity_score", "overvalued", "value_trap", "tag", "tag_source",
+    # strategies.py screens
+    "discount_52w", "data_sane", "fundamentally_strong", "on_sale",
+    "deep_value_intact", "turning_up", "on_sale_score", "strategies",
 ]
 
 
@@ -160,6 +163,25 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         except Exception as e:
             print(f"   WARNING: stock breakdown failed: {str(e)[:160]}")
 
+    # 5d-bis. Top picks + the "strong fundamentals, below the 52-week average"
+    # screens (strategies.py, picks.py). The stock half scores the WHOLE universe
+    # once (not just index holdings) and needs Postgres + Tier B like the breakdown
+    # above; the market half never does, so picks degrade to markets-only rather
+    # than failing the refresh.
+    stock_scored, quality_flags = None, {}
+    if db.have_db():
+        try:
+            from . import quality, stockvaluation
+            stock_scored = stockvaluation.score_frame(asof)
+            quality_flags = quality.open_flags_by_entity()
+            print(f"   stock screens: {int(stock_scored['on_sale'].sum())} 'quality on sale' "
+                  f"of {len(stock_scored)} scored")
+        except Exception as e:
+            stock_scored = None
+            print(f"   WARNING: stock screens failed, picks will be markets-only: {str(e)[:160]}")
+    from . import picks
+    top_picks = picks.build(df, stock_scored, quality_flags, accuracy)
+
     # 5e. FX reference rates (Phase D, ADR-023) — read-only lookup of whatever
     # engine.datapipeline last ingested; a pure display-currency convenience for
     # the dashboard, never a pipeline dependency. None (dashboard stays
@@ -195,6 +217,7 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
         "universe_size": len(scoreboard),
         "phase": 1,
         "brief": brief,
+        "top_picks": top_picks,
         "insights": insights,
         "scoreboard": scoreboard,
         "accuracy": accuracy,

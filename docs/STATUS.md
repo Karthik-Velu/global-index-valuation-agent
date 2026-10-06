@@ -401,6 +401,12 @@ console read. No operator action outstanding.
 against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
+00. **NEW 2026-10-06 — "Top picks" + "Quality on sale" (ADR-034).** First populated by the
+   Monday 12 Oct refresh. Check then: `dashboard_data.json` has a non-empty `top_picks`
+   (markets AND stocks — stocks-empty means the whole-universe screen failed; the refresh
+   log prints `stock screens: N 'quality on sale' of M scored` or a WARNING), and LHX/NOC
+   show as Industrials (SIC fix lands via daily tagging). Same day the track-record panel
+   reaches 12 evaluations — still awaiting the user's call on it.
 0aa. ✅ **DONE — `refresh.yml` is green again and the dashboard is unfrozen.** It had
    failed three Mondays running (08-17, 08-24, 08-31) on a NaN reaching a `jsonb` column,
    leaving the published dashboard frozen at 2026-08-10 while `data-pipeline.yml` stayed

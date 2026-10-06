@@ -337,3 +337,16 @@ def run() -> dict:
 if __name__ == "__main__":
     import sys
     run()
+
+
+def open_flags_by_entity() -> dict[str, set[str]]:
+    """{entity (ticker / index key): {check_name, ...}} for every OPEN issue — the
+    lookup picks.py uses to keep companies with known data problems out of the
+    top-of-dashboard picks. Read-only."""
+    out: dict[str, set[str]] = {}
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute("select entity, check_name from data_quality_issues "
+                    "where status='open' and entity is not null")
+        for entity, check in cur.fetchall():
+            out.setdefault(entity, set()).add(check)
+    return out

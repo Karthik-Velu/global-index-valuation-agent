@@ -8,6 +8,46 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-06 — "Quality on sale" screens + Top picks; the gates were the real work
+
+**Built (user request):** three 52-week-discount screens on fundamentally strong names
+(markets and stocks), and a "Top picks this week" block at the top of the dashboard —
+3 markets/funds, 5 stocks, and a "Quality on sale" list, each with rule-generated reasons
+and cautions (ADR-034). Populates on the next Monday refresh (needs `ma252_ratio` and the
+whole-universe stock screen, which only `refresh.yml` computes).
+
+**Real-data run (Tier B bundle, asof 2026-10-05):** 3,120 stocks scored in ~45 s; 52-week
+average available for 94%; 404 strong+sane; 108 stocks and 3 markets (TUR, KWEB, TAN)
+"quality on sale", 23 deep-discount, 3 turning up. Picks: XOP, TUR, AFK · KNTK, AMGN, JNJ,
+DKL, HRB · on sale BKE, GPOR, LHX, NOC, PHIN, ARES, MCD, IBM.
+
+**Learned — the stock-level data has more holes than the quality score shows:**
+- **Share counts.** 307 of 2,885 securities resolved to `CommonStockSharesIssued`, which
+  includes treasury stock, because a fresher quarterly balance-sheet "issued" line beat an
+  older cover-page outstanding count. Blue chips with big buybacks were all overstated:
+  MCD 1,661M vs 710M (P/E 45 vs 19), IBM, XOM, JPM, CAT, DE, BNY. Fixed with a guard
+  (outstanding ≤400 days old and ≥25% of issued wins); 69 corrected. The 25% floor exists
+  because multi-class filers (LEVI: Class A only = 10% of issued) make "outstanding" the
+  wrong answer too — that is the still-open `shares_multiclass_unsummed` issue (690 tickers).
+- **Currency.** ~242 filers report in EUR/CNY/GBP/BRL/CAD/JPY… and are divided by USD
+  prices. TME showed P/E 3.4. Gated out of picks; the real fix is FX-converting
+  fundamentals at ingest.
+- **ADRs.** EDGAR share counts are ordinary shares; prices are per ADR (Rentokil 5:1 → P/E
+  107 vs ~21). 495 foreign listings gated out of picks until ADR ratios are ingested.
+- **Implausible valuations.** 104 stocks with 0 < P/E < 3; the quality checks flag only ~32.
+  The existing per-market `stock_breakdown` in the drawer still shows some (SHOP, TGS,
+  CEPU, SPG, CMCSA, ITUB) — it doesn't apply `data_sane` yet.
+- **SIC.** The 3800-3899 range → Healthcare also caught defense (3812: LHX, NOC, DRS, TDY),
+  test equipment (3825) and semi-equipment optics (3827: KLAC). Overridden; 3823/3826/3829
+  left mixed on purpose (DHR/TMO are genuinely healthcare). Takes effect at the next daily
+  tagging run.
+
+**Open:** apply `data_sane` to the drawer's stock breakdown; FX-convert non-USD
+fundamentals; ADR ratios; multi-class share summing; watch `on_sale_score` IC in the next
+backtest before promoting the screen beyond "rule-based".
+
+---
+
 ## 2026-10-02 — one SEC timeout killed a whole run; the log proved the buffering theory
 
 `data-pipeline.yml` run #100 failed — the first red daily run in the series. Read to the
