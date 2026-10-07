@@ -245,13 +245,17 @@ function pickCard(p, isMarket) {
   </div>`;
 }
 
+// The long-run average is 5 years where that much price history is on file, else
+// whatever is (stock prices start 2024-10-04) — so the label states the window.
+const avgLabel = y => (y == null || y >= 4.75) ? 'vs 5y avg' : `vs ${fmt(y, 1)}y avg`;
+
 function saleRow(p, isMarket) {
   const id = isMarket ? p.symbol : p.ticker;
   return `<div class="sale-row" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
     <div class="min-w-0 text-[13px] text-slate-100 truncate"><span class="text-slate-400 tabular-nums">${esc(id)}</span> ${esc(p.name)}</div>
-    <div class="text-[13px] font-semibold tabular-nums text-right" style="color:#f87171">${pct(p.discount_52w, 0)}</div>
+    <div class="text-[13px] font-semibold tabular-nums text-right" style="color:#f87171">${pct(p.discount_long ?? p.discount_52w, 0)}</div>
     <div class="min-w-0 text-[11px] text-slate-500 truncate">${esc(p.reasons?.find(r => r.startsWith('Growth record') || r.startsWith('Business growing')) || p.reasons?.[0] || '')}</div>
-    <div class="text-[10px] text-slate-500 text-right">vs 52w avg</div>
+    <div class="text-[10px] text-slate-500 text-right">${avgLabel(p.long_avg_years)}</div>
   </div>`;
 }
 
@@ -280,7 +284,7 @@ function renderPicks(tp) {
     ${tp.markets?.length ? `<div class="pick-sub">Markets &amp; funds</div>${grid(tp.markets, true)}` : ''}
     ${tp.stocks?.length ? `<div class="pick-sub">Stocks</div>${grid(tp.stocks, false)}` : ''}
     ${sale ? `<div class="border-t border-line pt-3">
-      <div class="text-[13px] font-semibold text-slate-200">Quality on sale <span class="font-normal text-slate-500">— strong businesses trading well below their 52-week average</span></div>
+      <div class="text-[13px] font-semibold text-slate-200">Quality on sale <span class="font-normal text-slate-500">— strong businesses trading well below their long-run (5-year) average price</span></div>
       <div class="text-[11px] text-slate-500 mb-2">${esc(rule)}</div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6">${sale}</div></div>` : ''}
     <details class="mt-3 text-[11px] text-slate-500 leading-relaxed">
@@ -436,7 +440,7 @@ function flagPills(m) {
   let s = '';
   if (m.garp) s += `<span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span> `;
   if (m.high_growth && !m.garp) s += `<span class="pill" style="background:#a78bfa22;color:#a78bfa">growth</span> `;
-  if (m.on_sale) s += `<span class="pill" style="background:#60a5fa22;color:#60a5fa" title="Fundamentally strong and ≥10% below its 52-week average">on sale</span> `;
+  if (m.on_sale) s += `<span class="pill" style="background:#60a5fa22;color:#60a5fa" title="Fundamentally strong and ≥10% below its 5-year average price">on sale</span> `;
   if (m.value_trap) s += `<span class="pill" style="background:#fbbf2422;color:#fbbf24">trap</span> `;
   if (m.overvalued) s += `<span class="pill" style="background:#f8717122;color:#f87171">rich</span> `;
   if (!s && m.value_band === 'Cheap') s += `<span class="pill" style="background:#34d39922;color:#34d399">cheap</span>`;
@@ -654,7 +658,7 @@ function openDrawer(key) {
       ${row('Holdings data coverage', pct(m.growth_cov, 0))}
       <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">Price (context / momentum)</div>
       ${row('3m / 6m / 12m', pct(m.ret_3m) + ' / ' + pct(m.ret_6m) + ' / ' + pct(m.ret_12m))}
-      ${row('vs 200d MA', pct(m.ma200_ratio))}${row('vs 52-week average', pct(m.discount_52w))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
+      ${row('vs 200d MA', pct(m.ma200_ratio))}${row(m.long_avg_years != null && m.long_avg_years < 4.75 ? `vs ${fmt(m.long_avg_years, 1)}-yr average` : 'vs 5-year average', pct(m.discount_long ?? m.discount_52w))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
       ${row('Flags', flagPills(m))}
       ${stockBreakdownBlock(key)}
       ${investBlock(m)}

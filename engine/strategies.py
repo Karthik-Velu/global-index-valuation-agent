@@ -1,9 +1,9 @@
-"""Strategy screens — "fundamentally strong, but trading well below its 52-week average".
+"""Strategy screens — "fundamentally strong, but trading well below its long-run average price".
 
 A deterministic job (no LLM), applied at the end of `metrics.compute()` so the index
 scoreboard, the stock `score_frame()` and the walk-forward backtest all carry the same
 columns. The idea: a business that is still growing, profitable and not expensive, whose
-price has fallen well below its own 52-week average, may be a temporary mispricing
+price has fallen well below its own 5-year average price, may be a temporary mispricing
 rather than a broken company.
 
 Why this needs its own fundamentals test: the existing `value_trap` flag in metrics.py is
@@ -13,8 +13,10 @@ These screens are that second half.
 
 Columns added (all NaN-tolerant; an index row simply has no market cap, a stock row no
 forward estimates):
-  discount_52w        price vs its 52-week average (ma252_ratio, falling back to the
-                      200-day average when a full year of prices isn't available)
+  discount_long       price vs its long-run average (ma_long_ratio): the average close
+                      over the last 5 years (config.LONG_AVG_YEARS), or all the history on
+                      file when shorter but >= 1 year — long_avg_years says which. Was the
+                      52-week average until 2026-10-07 (ADR-036).
   data_sane           valuation inputs are plausible (see config.SANE_*) and, for stocks,
                       the income statement is in USD (prices are USD)
   fundamentally_strong  profitable, growth at least median vs peers, not in the
@@ -25,12 +27,12 @@ forward estimates):
                       AND earnings growing (each <= +150%: bigger jumps are one-offs)
   steady_compounder   revenue and earnings up >= 80% of years, never a loss, low
                       volatility (growthhistory.py)
-  on_sale             strong + sane + >=10% below its 52-week average
+  on_sale             strong + sane + >=10% below its long-run average
   deep_value_intact   on_sale + >=20% below + cheap (value score >= 60)
   turning_up          on_sale + price already recovering (1m return > 0, off its lows)
   steady_on_sale      on_sale + steady_compounder
   on_sale_score       for strong+sane names only (NaN otherwise): percentile, within
-                      peers, of how far below the 52-week average it trades. Defined on
+                      peers, of how far below the long-run average it trades. Defined on
                       that subset ON PURPOSE — the backtest then tests exactly the claim
                       "among fundamentally strong names, the beaten-down ones do better",
                       not "fundamentally strong beats everything" (a different question).
@@ -44,6 +46,7 @@ from .config import (
     DEEP_DISCOUNT,
     DEEP_VALUE_MIN_SCORE,
     GROWTH_WINSOR,
+    LONG_AVG_YEARS,
     ON_SALE_DISCOUNT,
     SANE_MIN_MARKET_CAP,
     SANE_MIN_PE,
@@ -69,11 +72,12 @@ STRATEGIES = {
     "on_sale": {
         "label": "Quality on sale",
         "rule": f"Profitable, revenue and earnings growing, not expensive vs peers — and "
-                f"trading at least {abs(ON_SALE_DISCOUNT):.0%} below its 52-week average.",
+                f"trading at least {abs(ON_SALE_DISCOUNT):.0%} below its {LONG_AVG_YEARS}-year "
+                f"average price (or its average over all the price history on file, if shorter).",
     },
     "deep_value_intact": {
         "label": "Deep discount, fundamentals intact",
-        "rule": f"Quality on sale, at least {abs(DEEP_DISCOUNT):.0%} below its 52-week "
+        "rule": f"Quality on sale, at least {abs(DEEP_DISCOUNT):.0%} below its long-run "
                 f"average, and cheap (value score {DEEP_VALUE_MIN_SCORE}+).",
     },
     "turning_up": {
@@ -101,7 +105,9 @@ def apply(df: pd.DataFrame) -> pd.DataFrame:
     rev, earn, fwd = _col(df, "rev_growth"), _col(df, "earnings_growth"), _col(df, "fwd_growth")
     cov = _col(df, "growth_cov")
 
-    df["discount_52w"] = _col(df, "ma252_ratio").fillna(_col(df, "ma200_ratio"))
+    # No fallback to a short average: under a year of prices there is no long-run
+    # average to be below (a 200-day stand-in would be a different, much easier test).
+    df["discount_long"] = _col(df, "ma_long_ratio")
 
     # "Implausible" is tested positively, so a missing input (an index has no market
     # cap) never fails the gate — only a present-and-absurd value does.
@@ -154,7 +160,7 @@ def apply(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     eligible = df["fundamentally_strong"] & df["data_sane"]
-    disc = df["discount_52w"]
+    disc = df["discount_long"]
     df["on_sale"] = eligible & (disc <= ON_SALE_DISCOUNT)
     df["deep_value_intact"] = df["on_sale"] & (disc <= DEEP_DISCOUNT) \
         & (_col(df, "value_score") >= DEEP_VALUE_MIN_SCORE)
@@ -165,7 +171,7 @@ def apply(df: pd.DataFrame) -> pd.DataFrame:
     score = pd.Series(np.nan, index=df.index)
     sub = df[eligible & disc.notna()]
     if not sub.empty:
-        score.loc[sub.index] = sub.groupby("kind")["discount_52w"].transform(
+        score.loc[sub.index] = sub.groupby("kind")["discount_long"].transform(
             lambda s: (-s).rank(pct=True) * 100.0)
     df["on_sale_score"] = score.round(1)
 

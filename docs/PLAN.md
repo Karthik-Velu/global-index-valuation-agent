@@ -281,6 +281,10 @@ sector-research lessons decayed unused). See ADR-028.
   years profitable and growth volatility (6y); `consistency_score`; record-based
   "fundamentally strong"; steady-compounder screens. Fixed: 10-K quarterly breakdowns
   being read as annual (177 growth figures, 36 valuations).
+- ✅ **"On sale" vs the 5-year average price (ADR-036, 2026-10-07)** — true 5y for funds;
+  stocks use all history on file (~2y, Massive plan) with the window stated per row.
+- ⬜ **5 years of stock prices** — Massive plan upgrade (user decision) or let history accrue
+  (full 5y Oct 2029). Also unblocks survivorship backfill + longer backtest.
 - ⬜ **Stock-data integrity follow-ups from that run** — FX-convert non-USD fundamentals
   (~242 filers); ingest ADR ratios (495 foreign listings excluded from picks); sum
   multi-class share counts; apply `data_sane` to the drawer's per-market stock breakdown.

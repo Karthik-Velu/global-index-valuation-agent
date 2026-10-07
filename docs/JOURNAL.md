@@ -8,6 +8,22 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-07 (later) — "on sale" now vs the 5-year average price
+
+User asked for a 5-year average instead of 52 weeks (ADR-036).
+- **Funds/markets:** fetch 5 years from Yahoo and get a true 5-year average from the next
+  refresh. Yahoo is blocked from cloud sessions, so this was verified by code path only;
+  confirm on the 12 Oct refresh that `long_avg_years` is ~5.0 on scoreboard rows.
+- **Stocks:** Tier B prices start 2024-10-04, so the average covers ~2.0 years for 2,793
+  stocks. 140 have under a year and get no long average.
+- **On 5 Oct data:** on sale 67 → 73, steady compounders on sale 26 → 29. New entrants sit
+  well below their 2-year average but not their 1-year one (HRB, ACN, FDS, PAYX, PGR).
+
+**Open:** whether to move stock prices to a plan with 5 years of history (also unblocks the
+survivorship backfill, ADR-032, and a longer backtest). Asked the user.
+
+---
+
 ## 2026-10-07 — growth consistency over time, and a year-vs-quarter bug under it
 
 **Asked:** judge growth by consistency and volatility over several years, not last year

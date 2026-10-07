@@ -143,7 +143,7 @@ def compute(df: pd.DataFrame) -> pd.DataFrame:
     # GARP sweet spot: reasonably cheap AND high fundamental growth, not overvalued.
     df["garp"] = (df["value_score"] >= 55) & df["high_growth"] & (~df["overvalued"])
 
-    # "Strong fundamentals, trading below its 52-week average" screens. Added here
+    # "Strong fundamentals, trading below its long-run average price" screens. Added here
     # rather than downstream so the backtest grades exactly what the dashboard shows.
     df = strategies.apply(df)
 

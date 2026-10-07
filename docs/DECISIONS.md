@@ -9,6 +9,35 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-036 · "On sale" is measured against the 5-year average price (supersedes ADR-034's 52-week)
+- **Context:** user (2026-10-07): "Do a 5 year average instead of 52 week."
+- **Constraint:** stock prices (Massive, ADR-017) start 2024-10-04, so only 2 years are
+  on file (plan limit). Index/fund prices come from Yahoo, which serves 5 years.
+- **Choice:**
+  - Funds and markets fetch 5 years of history and are measured against a true 5-year
+    average (`ma_long_ratio`).
+  - Stocks are measured against the average of all closes on file, up to 5 years
+    (`config.LONG_AVG_YEARS`), and at least 1 year. Under a year there is no long
+    average, so the stock is not "on sale". There is deliberately no 200-day stand-in,
+    which would be a much easier test.
+  - Every row carries `long_avg_years`. Card text and labels state the window
+    ("2-year average price (5 years of prices not on file yet)"), so a 2-year number is
+    never presented as a 5-year one. The stock window lengthens automatically as
+    history accumulates (full 5 years by Oct 2029), or right away if the price plan
+    covers 5 years.
+  - The −10% / −20% thresholds are unchanged. On 5 Oct, stocks with the ~2-year window
+    showed 73 on sale vs 67 under 52 weeks, and 29 steady compounders on sale vs 26.
+- **Why:** a long-run average says "cheap relative to where this business has traded
+  for years". A 52-week average mostly measures the latest swing.
+- **Rejected alternatives:**
+  - *Yahoo for 5-year stock history:* personal-use licence and a public repo
+    (CLAUDE.md licensing rule).
+  - *Calling the 2-year window "5-year":* dishonest.
+  - *Keeping 52 weeks for stocks until 5 years exist:* not what was asked, and the
+    window grows on its own.
+  - *Upgrading the Massive plan:* that's the user's cost decision; it was offered.
+- **Date:** 2026-10-07
+
 ### ADR-035 · "Fundamentally strong" means a multi-year record, not last year's growth
 - **Context:** user (2026-10-07): "Do not see just earning growth in last year — see
   earning growth and revenue growth consistency and volatility over time." Stock growth
