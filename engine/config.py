@@ -192,11 +192,19 @@ OVERVALUED_QUANTILE = 0.80  # top 20% by richness flagged "overvalued"
 VALUE_TRAP_MOM_12M = -0.15   # 12m total return below -15%
 VALUE_TRAP_DRAWDOWN = -0.20  # >20% below its 52w high
 
-# --- "Strong fundamentals, trading below its 52-week average" screens (strategies.py) ---
+# --- "Strong fundamentals, trading below its long-run average price" screens (strategies.py) ---
+# The reference is the average close over the last LONG_AVG_YEARS (user, 2026-10-07: a
+# 5-year average instead of 52 weeks), or over all the history on file when that is
+# shorter but at least LONG_AVG_MIN_DAYS. Stock prices (Massive plan) start 2024-10-04,
+# so stock averages are ~2 years until history accumulates or the plan covers 5 years;
+# every row carries long_avg_years so the window is always stated, never implied.
+LONG_AVG_YEARS = 5
+LONG_AVG_DAYS = 252 * LONG_AVG_YEARS   # trading days
+LONG_AVG_MIN_DAYS = 252                # under a year of prices: no long average at all
 # Note the value-trap flag above is PRICE-only (cheap + down + still falling) and
 # never looks at fundamentals — which is exactly the gap these screens fill:
 # beaten down AND the business is still growing.
-ON_SALE_DISCOUNT = -0.10        # price at least 10% below its 52-week (252-day) average
+ON_SALE_DISCOUNT = -0.10        # price at least 10% below its long-run (up to 5-year) average
 DEEP_DISCOUNT = -0.20           # ... at least 20% below, for the deep-value variant
 DEEP_VALUE_MIN_SCORE = 60       # deep variant also needs a value score this high
 TURNING_UP_MIN_RANGE = 0.15     # "turning up": back at least 15% of the way off its 52w low

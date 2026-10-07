@@ -23,6 +23,7 @@ import math
 
 import pandas as pd
 
+from .config import LONG_AVG_YEARS
 from .growthhistory import MIN_CHANGES
 from .strategies import STRATEGIES
 
@@ -62,6 +63,17 @@ _PEERS = {"Country": "other countries", "Sector": "other sectors", "Region": "ot
           "Style": "other styles", "Broad": "other broad markets"}
 
 
+def _avg_label(r: dict) -> str:
+    """'5-year average price', or the window actually used when less history is on
+    file ('2-year average price (5 years of prices not on file yet)')."""
+    yrs = _f(r.get("long_avg_years"))
+    if yrs is None or yrs >= LONG_AVG_YEARS - 0.25:
+        return f"{LONG_AVG_YEARS}-year average price"
+    return (f"{yrs:.0f}-year average price ({LONG_AVG_YEARS} years of prices not on file yet)"
+            if abs(yrs - round(yrs)) < 0.15 else
+            f"{yrs:.1f}-year average price ({LONG_AVG_YEARS} years of prices not on file yet)")
+
+
 def _yrs(r: dict, which: str) -> int:
     return int(_f(r.get(f"{which}_changes")) or 0)
 
@@ -96,7 +108,8 @@ def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
     reasons, cautions = [], []
     pe, val = _f(r.get("pe")), _f(r.get("value_score"))
     rev, earn, fwd = _f(r.get("rev_growth")), _f(r.get("earnings_growth")), _f(r.get("fwd_growth"))
-    disc, ret12 = _f(r.get("discount_52w")), _f(r.get("ret_12m"))
+    disc, ret12 = _f(r.get("discount_long")), _f(r.get("ret_12m"))
+    avg = _avg_label(r)
     kind = r.get("kind") or ""
     peers = _PEERS.get(kind, "other markets") if is_market else f"{kind or 'sector'} peers"
 
@@ -130,9 +143,9 @@ def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
             reasons.append(line)
 
     if disc is not None and disc <= -0.10:
-        reasons.append(f"On sale: {_pct(disc, signed=False)} below its 52-week average")
+        reasons.append(f"On sale: {_pct(disc, signed=False)} below its {avg}")
     elif disc is not None and disc >= 0.10:
-        reasons.append(f"Trading {_pct(disc, signed=False)} above its 52-week average")
+        reasons.append(f"Trading {_pct(disc, signed=False)} above its {avg}")
 
     dy = _f(r.get("dividend_yield"))
     if dy is not None and dy >= 0.025:
@@ -169,7 +182,8 @@ def _card(r: dict, is_market: bool) -> dict:
         "name": r.get("name"), "kind": r.get("kind"),
         "opportunity_score": _f(r.get("opportunity_score")),
         "value_score": _f(r.get("value_score")), "growth_score": _f(r.get("growth_score")),
-        "pe": _f(r.get("pe")), "discount_52w": _f(r.get("discount_52w")),
+        "pe": _f(r.get("pe")), "discount_long": _f(r.get("discount_long")),
+        "long_avg_years": _f(r.get("long_avg_years")),
         "ret_12m": _f(r.get("ret_12m")),
         "consistency_score": _f(r.get("consistency_score")),
         "rev_cagr": _f(r.get("rev_cagr")), "ni_cagr": _f(r.get("ni_cagr")),

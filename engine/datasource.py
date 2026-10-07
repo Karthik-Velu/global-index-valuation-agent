@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from .config import DB_PATH
+from .config import DB_PATH, LONG_AVG_DAYS, LONG_AVG_MIN_DAYS, LONG_AVG_YEARS
 from .universe import UNIVERSE, Index
 
 
@@ -44,6 +44,8 @@ class Snapshot:
     ret_12m: float | None = None
     ma200_ratio: float | None = None     # price / 200d MA - 1
     ma252_ratio: float | None = None     # price / 52-week (252d) MA - 1
+    ma_long_ratio: float | None = None   # price / long-run (up to 5y) average - 1
+    long_avg_years: float | None = None  # years of closes that average covers
     pct_52w_range: float | None = None   # 0 (at low) .. 1 (at high)
     drawdown_52w: float | None = None    # price / 52w high - 1  (<= 0)
     # Fundamental growth (weighted from top holdings; set by enrich_growth)
@@ -100,6 +102,12 @@ def _price_signals(close: pd.Series) -> dict:
         ma252 = close.tail(252).mean()
         if ma252:
             out["ma252_ratio"] = round(float(close.iloc[-1]) / float(ma252) - 1.0, 4)
+    n = min(len(close), LONG_AVG_DAYS)
+    if n >= LONG_AVG_MIN_DAYS:
+        ma_long = close.tail(n).mean()
+        if ma_long:
+            out["ma_long_ratio"] = round(float(close.iloc[-1]) / float(ma_long) - 1.0, 4)
+            out["long_avg_years"] = round(n / 252, 1)
     last_year = close.tail(252)
     if len(last_year) > 20:
         hi, lo = float(last_year.max()), float(last_year.min())
@@ -146,7 +154,8 @@ def fetch_one(ix: Index, asof: str) -> Snapshot:
 
     # --- price history -> momentum + mean-reversion signals ---
     try:
-        hist = t.history(period="2y", interval="1d", auto_adjust=True)
+        # 5y (was 2y): the "on sale" screens compare price with its 5-year average.
+        hist = t.history(period=f"{LONG_AVG_YEARS}y", interval="1d", auto_adjust=True)
         if hist is not None and not hist.empty:
             for k, v in _price_signals(hist["Close"]).items():
                 setattr(snap, k, v)

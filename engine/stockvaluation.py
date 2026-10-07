@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from . import growthhistory, metrics, tierb
+from .config import LONG_AVG_DAYS, LONG_AVG_MIN_DAYS, LONG_AVG_YEARS
 
 # Point-in-time FLOW metrics (income-statement / cash-flow — a period total, must
 # stay FY-only or a raw quarterly figure would badly understate a P/E-style ratio).
@@ -187,11 +188,13 @@ def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
     return out.reset_index()
 
 
-def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> pd.DataFrame:
+def _price_features(asof, security_ids: list[int],
+                    lookback_days: int = int(LONG_AVG_YEARS * 365.25) + 10) -> pd.DataFrame:
     """One row per security_id: latest close as of `asof` + momentum/mean-reversion
     inputs from the trailing `lookback_days` of Tier B prices (date <= asof only)."""
     cols = ["security_id", "price", "ret_1m", "ret_3m", "ret_6m", "ret_12m",
-            "ma200_ratio", "ma252_ratio", "pct_52w_range", "drawdown_52w"]
+            "ma200_ratio", "ma252_ratio", "ma_long_ratio", "long_avg_years",
+            "pct_52w_range", "drawdown_52w"]
     if not security_ids or not tierb.have_prices():
         return pd.DataFrame(columns=cols)
     con = tierb.connect()
@@ -218,6 +221,10 @@ def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> 
         # A true 52-week average needs a full year of closes; NaN otherwise (the
         # screens fall back to the 200-day average, not to a shorter window).
         ma252 = g["close"].tail(252).mean() if len(g) >= 252 else np.nan
+        # Long-run average: up to LONG_AVG_YEARS of closes, all that's on file if
+        # less (stock prices start 2024-10-04), never under LONG_AVG_MIN_DAYS.
+        n_long = min(len(g), LONG_AVG_DAYS)
+        ma_long = g["close"].tail(n_long).mean() if n_long >= LONG_AVG_MIN_DAYS else np.nan
         out.append({
             "security_id": sid, "price": price,
             "ret_1m": _ret_at(g, price, last_date, 30),
@@ -226,6 +233,8 @@ def _price_features(asof, security_ids: list[int], lookback_days: int = 400) -> 
             "ret_12m": _ret_at(g, price, last_date, 365),
             "ma200_ratio": (price / ma200 - 1.0) if ma200 else np.nan,
             "ma252_ratio": (price / ma252 - 1.0) if ma252 and not np.isnan(ma252) else np.nan,
+            "ma_long_ratio": (price / ma_long - 1.0) if ma_long and not np.isnan(ma_long) else np.nan,
+            "long_avg_years": round(n_long / 252, 1) if n_long >= LONG_AVG_MIN_DAYS else np.nan,
             "pct_52w_range": (price - lo) / (hi - lo) if hi > lo else 0.5,
             "drawdown_52w": (price / hi - 1.0) if hi else np.nan,
         })
