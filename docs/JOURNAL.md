@@ -8,6 +8,51 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-07 — growth consistency over time, and a year-vs-quarter bug under it
+
+**Asked:** judge growth by consistency and volatility over several years, not last year
+alone, and suggest stocks on that basis. Built ADR-035 (`engine/growthhistory.py`):
+- multi-year CAGR, years up, years profitable and growth volatility (up to 6 years);
+- a `consistency_score`;
+- a stricter, record-based "fundamentally strong";
+- "steady compounder" screens.
+
+**Bug found first:** the "annual" (FY) rows include the quarterly breakdowns 10-Ks carry,
+so last-year growth compared a year with a quarter for 177 companies. 36 companies were
+valued on a quarter as if it were a year. The fiscal year-end now comes from the latest
+annual report, which also handles 52/53-week years (COST, DPZ).
+
+**Real-data effect (asof 2026-10-05):**
+- strong+sane 402 → 281;
+- "quality on sale" 108 → 67;
+- 122 steady compounders, 26 of them on sale.
+
+Drops with reasons:
+- AMGN: earnings flat over 6 yrs despite +89% last year.
+- MCD: earnings up 3 of 6 years.
+- GPOR: earnings swing ~±104%/yr, loss years.
+- ARES: revenue swings ~±26%/yr.
+- BKE: earnings up 3 of 6.
+
+**Data problems logged, not fixed:**
+- SBAC's 10-K "revenue" is a sub-line ($245M vs ~$2.7B).
+- GLPI revenue history is $103M → $0 → $1.5B.
+- ONE Gas has no revenue after 2022.
+- HRB's 2020-21 entries are a quarter and a 2-month stub from its fiscal-year change.
+
+These are concept-mapping gaps (ties into missing_revenue: 299). The history rules now
+contain them: latest unbroken run only, a revenue record of at least 3 years for the
+multi-year test, CAGRs that end recently, and stub/quarter detection. Stock picks now
+also require at least 3 years of history.
+
+**Open:**
+- Vectorise `growthhistory.features` (~3 s per score_frame; the backtest calls it per
+  rebalance).
+- Watch `consistency_score` IC in the next backtest.
+- Fix the revenue concept mapping for the cases above.
+
+---
+
 ## 2026-10-06 — "Quality on sale" screens + Top picks; the gates were the real work
 
 **Built (user request):** three 52-week-discount screens on fundamentally strong names

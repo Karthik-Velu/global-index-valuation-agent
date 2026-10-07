@@ -9,6 +9,63 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-035 · "Fundamentally strong" means a multi-year record, not last year's growth
+- **Context:** user (2026-10-07): "Do not see just earning growth in last year — see
+  earning growth and revenue growth consistency and volatility over time." Stock growth
+  was one fiscal year vs the prior one. That rewards rebounds and one-offs: Amgen read
+  +89% earnings growth, against a six-year earnings trend of roughly zero (up in 3 of 6
+  years).
+- **Found on the way (data):** EDGAR tags every fact in a 10-K "FY", including the
+  quarterly breakdowns, and the store has no period-start column. "Latest two FY rows"
+  compared a year with a quarter for 177 companies (Accenture, Allstate, Dominion…) and
+  used a quarter as the annual figure for 36 (P/E, P/S ~4x off).
+- **Choice:**
+  1. `engine/growthhistory.py` rebuilds each company's annual revenue / net income /
+     operating cash flow. It anchors on the fiscal year-end, which is the newest period
+     in the latest 10-K/20-F/40-F. It then steps back one year at a time, using 350-380
+     days so 52/53-week years work. Size of the figures is only the fallback anchor.
+     Other rules:
+     - A quarter or fiscal-year-change stub sitting in an annual slot is nulled. It is
+       caught by being far below both neighbouring years, or far below both the next
+       year and the typical recent year (H&R Block 2020-21).
+     - Only the latest unbroken run of years is used.
+     - CAGRs must end at a recent year and span at least 2 years.
+  2. Features over up to six yearly changes (7 annual points):
+     - revenue/earnings CAGR;
+     - share of years up;
+     - share of years profitable;
+     - volatility of yearly growth.
+     The window is six years, not five, because five years now starts at the 2020 COVID
+     trough and inflates every CAGR.
+  3. Stock growth score = 2/3 multi-year CAGR + 1/3 last year. A new
+     `consistency_score` measures how often the company grew and stayed profitable, and
+     how smoothly. In the opportunity blend, a stock's growth counts half speed, half
+     steadiness. Index rows are unchanged; this was verified as identical.
+  4. `fundamentally_strong` with at least 3 years of history requires a record:
+     - profitable in at least 80% of years;
+     - revenue and earnings up in at least 60% of years, with positive CAGRs;
+     - revenue volatility of at most 25 points;
+     - not shrinking last year;
+     - no >150% earnings one-off.
+     It also requires growth quality (speed and steadiness) of at least the peer median.
+     The rest keep the one-year test. New `steady_compounder` and "Steady compounder on
+     sale" screens.
+  5. Pick reasons now show the record ("revenue up 6 of 6 years (+11%/yr)…"). Cautions
+     appear when last year ran far ahead of trend or when earnings are volatile.
+  6. `consistency_score` joins the backtest SIGNALS. Whether steadiness predicts
+     returns is tested, not assumed.
+- **Why:** consistency is what separates a durable business from a lucky year. Measuring
+  it needed a clean annual series first. The data fix would have been worth doing on
+  its own, since it corrects valuations.
+- **Rejected alternatives:**
+  - *Quarterly TTM series:* the store can't tell 3-month from 12-month values either.
+  - *Gating on earnings volatility:* earnings are noisy for most companies (median
+    ~65%/yr), so volatility informs the score and the cautions instead.
+  - *Gating on growth speed alone (median+):* this failed steady 8-15% growers like
+    Rollins, S&P Global and Jack Henry against jumpier peers, which is the opposite of
+    the request.
+- **Date:** 2026-10-07
+
 ### ADR-034 · "Quality on sale" screens + rule-based Top picks at the top of the dashboard
 - **Context:** user asked (2026-10-06) for strategies around funds and stocks "significantly
   below the 52-week moving average but fundamentally strong", and for clear guidance on top

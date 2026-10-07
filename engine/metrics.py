@@ -16,6 +16,8 @@ import pandas as pd
 
 from .config import (
     GROWTH_FWD_WEIGHT,
+    GROWTH_WINSOR,
+    MULTI_YEAR_WEIGHT,
     OVERVALUED_QUANTILE,
     VALUE_TRAP_DRAWDOWN,
     VALUE_TRAP_MOM_12M,
@@ -77,10 +79,19 @@ def compute(df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Fundamental growth: real revenue/earnings growth of the top holdings,
     #     blended with forward analyst estimates. NOT price momentum. ---
-    for c in ("rev_growth", "earnings_growth", "fwd_growth"):
+    for c in ("rev_growth", "earnings_growth", "fwd_growth", "rev_cagr", "ni_cagr",
+              "rev_up_ratio", "ni_up_ratio", "ni_pos_ratio", "rev_vol", "ni_vol"):
         if c not in df:
             df[c] = np.nan
     trailing = df[["earnings_growth", "rev_growth"]].mean(axis=1, skipna=True)
+    # Stocks: last year alone is a weak read (a rebound, a one-off gain, a peak), so
+    # the multi-year CAGR carries most of the weight where there is history. Index
+    # rows have no CAGR columns and keep the holdings-weighted trailing figure.
+    lo, hi = GROWTH_WINSOR
+    multi = df[["rev_cagr", "ni_cagr"]].clip(lo, hi).mean(axis=1, skipna=True)
+    last_yr = df[["earnings_growth", "rev_growth"]].clip(lo, hi).mean(axis=1, skipna=True)
+    trailing = trailing.where(multi.isna(), np.where(
+        last_yr.notna(), MULTI_YEAR_WEIGHT * multi + (1 - MULTI_YEAR_WEIGHT) * last_yr, multi))
     fwd = df["fwd_growth"]
     df["growth_raw"] = np.where(
         fwd.notna() & trailing.notna(), GROWTH_FWD_WEIGHT * fwd + (1 - GROWTH_FWD_WEIGHT) * trailing,
@@ -88,8 +99,24 @@ def compute(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["has_growth"] = pd.Series(df["growth_raw"], index=df.index).notna()
     df["growth_score"] = _pct_in_group(df, "growth_raw").round(1)
+
+    # --- Growth consistency (stocks with multi-year history): how often revenue and
+    #     earnings grew, how often it made money, and how volatile yearly growth was.
+    #     Equal-weight z-blend within kind; NaN where there's no history (indices). ---
+    parts = [("rev_up_ratio", 1), ("ni_up_ratio", 1), ("ni_pos_ratio", 1),
+             ("rev_vol", -1), ("ni_vol", -1)]
+    hist = df[["rev_up_ratio", "ni_up_ratio"]].notna().any(axis=1)
+    cons = pd.Series(0.0, index=df.index)
+    for col, sign in parts:
+        cons = cons.add(sign * _z_in_group(df, col).fillna(0.0), fill_value=0.0)
+    df["consistency_raw"] = (cons / len(parts)).where(hist)
+    df["consistency_score"] = _pct_in_group(df, "consistency_raw").round(1)
     # Markets with no constituent growth data sit neutral so they aren't penalised.
+    # For a stock with history, "growth" in the opportunity blend is half how fast
+    # and half how steadily — a jumpy +20% ranks below a steady +12%.
     df["growth_score_eff"] = df["growth_score"].fillna(50.0)
+    df["growth_score_eff"] = df["growth_score_eff"].where(
+        df["consistency_score"].isna(), (df["growth_score_eff"] + df["consistency_score"]) / 2)
     df["high_growth"] = df["growth_score"] >= 75.0
 
     # --- Opportunity (true GARP): cheap + fundamentally growing, gated ---

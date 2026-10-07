@@ -43,7 +43,7 @@ COLUMNS = [
     "opportunity_score", "overvalued", "value_trap", "tag", "tag_source",
     # strategies.py screens
     "discount_52w", "data_sane", "fundamentally_strong", "on_sale",
-    "deep_value_intact", "turning_up", "on_sale_score", "strategies",
+    "deep_value_intact", "turning_up", "steady_on_sale", "on_sale_score", "strategies",
 ]
 
 

@@ -29,7 +29,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from . import metrics, tierb
+from . import growthhistory, metrics, tierb
 
 # Point-in-time FLOW metrics (income-statement / cash-flow — a period total, must
 # stay FY-only or a raw quarterly figure would badly understate a P/E-style ratio).
@@ -116,8 +116,9 @@ def _nth_per_security(df: pd.DataFrame, n: int) -> pd.DataFrame:
 def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
     """One row per security_id: latest pe/pb/ps/pcf inputs + trailing YoY growth,
     all knowable as of `asof` (tierb.metrics_asof — no look-ahead)."""
-    empty_cols = ["security_id"] + list(ALL_CODES) + ["rev_growth", "earnings_growth",
-                                                      "reporting_currency"]
+    empty_cols = (["security_id"] + list(ALL_CODES) + ["rev_growth", "earnings_growth",
+                                                       "reporting_currency"]
+                  + [c for c in growthhistory.FEATURES if c not in ("rev_growth", "earnings_growth")])
     rows = tierb.metrics_asof(asof, metric_codes=list(ALL_CODES),
                               security_ids=security_ids, source="xbrl")
     if not rows:
@@ -147,6 +148,33 @@ def _fundamentals_frame(asof, security_ids: list[int]) -> pd.DataFrame:
 
     out["rev_growth"] = _yoy("total_revenue")
     out["earnings_growth"] = _yoy("net_income")
+
+    # Annual figures and growth from the cleaned fiscal-year series (growthhistory):
+    # "latest two FY rows" above can be a year vs a quarter, since 10-Ks tag their
+    # quarterly breakdowns FY too — 177 companies had that growth on 2026-10-05 and
+    # 36 had a quarter as their "annual" revenue/earnings (P/E, P/S ~4x too high).
+    # Where the clean series exists it replaces both; the old pick stays only for
+    # companies it can't place (no year-spaced history at all).
+    annual = growthhistory.annual_series(flow)
+    if not annual.empty:
+        recent = annual.sort_values("period_end").groupby("security_id").tail(2)
+        clean = recent.groupby("security_id")[list(FLOW_CODES)].last()
+        feats = growthhistory.features(annual).set_index("security_id")
+        have = idx.intersection(clean.index)
+        for c in FLOW_CODES:
+            out.loc[have, c] = clean.loc[have, c]
+        for c in growthhistory.FEATURES:
+            out[c] = feats[c].reindex(idx)
+        # Growth is NaN (not the old, possibly year-vs-quarter value) where the clean
+        # series exists but can't support it.
+        placed = idx.isin(feats.index)
+        out["rev_growth"] = out["rev_growth"].where(~placed, feats["rev_growth"].reindex(idx))
+        out["earnings_growth"] = out["earnings_growth"].where(
+            ~placed, feats["earnings_growth"].reindex(idx))
+    else:
+        for c in growthhistory.FEATURES:
+            if c not in ("rev_growth", "earnings_growth"):
+                out[c] = np.nan
 
     # The currency the income statement is reported in. ~250 filers (EUR, CNY, JPY,
     # KRW, BRL…) report in local currency while our prices are USD, so their P/E,

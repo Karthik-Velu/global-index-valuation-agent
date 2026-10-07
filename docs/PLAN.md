@@ -277,6 +277,10 @@ sector-research lessons decayed unused). See ADR-028.
   names ≥10%/20% below their 52-week average (markets + stocks), a rule-based Top picks
   block at the top of the dashboard, `on_sale_score` in the backtest; share-count
   (issued vs outstanding) and SIC 38xx fixes found on the way.
+- ✅ **Growth consistency over time (ADR-035, 2026-10-07)** — multi-year CAGR, years up,
+  years profitable and growth volatility (6y); `consistency_score`; record-based
+  "fundamentally strong"; steady-compounder screens. Fixed: 10-K quarterly breakdowns
+  being read as annual (177 growth figures, 36 valuations).
 - ⬜ **Stock-data integrity follow-ups from that run** — FX-convert non-USD fundamentals
   (~242 filers); ingest ADR ratios (495 foreign listings excluded from picks); sum
   multi-class share counts; apply `data_sane` to the drawer's per-market stock breakdown.
