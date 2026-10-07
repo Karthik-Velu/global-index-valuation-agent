@@ -220,7 +220,7 @@ function renderTrackRecord(acc) {
 // this only lays them out. Snapshots older than the feature carry no `top_picks`,
 // so the block stays hidden rather than rendering empty.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const STRAT_COLOR = { 'Quality on sale': '#60a5fa', 'Deep discount, fundamentals intact': '#34d399', 'Quality on sale, turning up': '#2dd4bf' };
+const STRAT_COLOR = { 'Quality on sale': '#60a5fa', 'Deep discount, fundamentals intact': '#34d399', 'Quality on sale, turning up': '#2dd4bf', 'Steady compounder on sale': '#a78bfa' };
 const stratBadges = labels => (labels || []).map(l =>
   `<span class="pill" style="background:${STRAT_COLOR[l] || '#94a3b8'}22;color:${STRAT_COLOR[l] || '#94a3b8'}">${esc(l)}</span>`).join(' ');
 
@@ -250,7 +250,7 @@ function saleRow(p, isMarket) {
   return `<div class="sale-row" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
     <div class="min-w-0 text-[13px] text-slate-100 truncate"><span class="text-slate-400 tabular-nums">${esc(id)}</span> ${esc(p.name)}</div>
     <div class="text-[13px] font-semibold tabular-nums text-right" style="color:#f87171">${pct(p.discount_52w, 0)}</div>
-    <div class="min-w-0 text-[11px] text-slate-500 truncate">${esc(p.reasons?.find(r => r.startsWith('Business growing')) || p.reasons?.[0] || '')}</div>
+    <div class="min-w-0 text-[11px] text-slate-500 truncate">${esc(p.reasons?.find(r => r.startsWith('Growth record') || r.startsWith('Business growing')) || p.reasons?.[0] || '')}</div>
     <div class="text-[10px] text-slate-500 text-right">vs 52w avg</div>
   </div>`;
 }
@@ -273,6 +273,7 @@ function renderPicks(tp) {
     ? `Left out of the stock picks for data reasons: ${ex.strong_with_data_issues ?? 0} otherwise-strong names with an open data-quality issue, `
       + `${ex.non_usd_reporters ?? 0} companies that report in a non-USD currency (their ratios aren't comparable yet), `
       + (ex.foreign_listings != null ? `${ex.foreign_listings} foreign listings (share counts not yet adjusted for ADR ratios), ` : '')
+      + (ex.short_history ? `${ex.short_history} strong names with under 3 years of history on file, ` : '')
       + `and ${ex.implausible_valuation ?? 0} with an implausible valuation (e.g. P/E below 3).` : '';
 
   $('#picksBody').innerHTML = `

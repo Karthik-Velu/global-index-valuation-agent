@@ -401,6 +401,7 @@ console read. No operator action outstanding.
 against a client harness; the first real click in the console is the true end-to-end test.
 
 ## Immediate next step
+00. **NEW 2026-10-07 — growth judged on a multi-year record (ADR-035).** Stock growth = 2/3 up-to-6-year CAGR + 1/3 last year, plus a consistency score; "fundamentally strong" needs a record (see ADR). Picks' reasons show it. Lands with the 12 Oct refresh along with item below.
 00. **NEW 2026-10-06 — "Top picks" + "Quality on sale" (ADR-034).** First populated by the
    Monday 12 Oct refresh. Check then: `dashboard_data.json` has a non-empty `top_picks`
    (markets AND stocks — stocks-empty means the whole-universe screen failed; the refresh

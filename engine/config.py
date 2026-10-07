@@ -210,5 +210,21 @@ SANE_MIN_PE = 3.0
 SANE_MIN_PS = 0.05
 SANE_MIN_MARKET_CAP = 3e8       # stocks only (indices have no market cap here)
 
+# --- Multi-year growth history (stocks; engine/growthhistory.py) ---
+# Growth for a stock = MULTI_YEAR_WEIGHT x its up-to-6-year revenue/earnings CAGR
+# + the rest x last year, so one rebound or one-off year can't carry the score.
+MULTI_YEAR_WEIGHT = 2 / 3
+# "Fundamentally strong" with >= growthhistory.MIN_CHANGES years of history:
+STRONG_MIN_PROFITABLE_YEARS = 0.8   # profitable in >= 80% of the years (one loss in seven)
+STRONG_MIN_REV_UP_YEARS = 0.6       # revenue up in >= 60% of years (4 of 6)
+STRONG_MIN_NI_UP_YEARS = 0.6        # earnings up in >= 60% of years (4 of 6)
+STRONG_MAX_REV_VOL = 0.25           # std of yearly revenue growth; above = boom-bust
+STRONG_MIN_LATEST_REV = -0.05       # and not shrinking materially right now
+# "Steady compounder": grew almost every year (5 of 6), never lost money, low volatility.
+STEADY_MIN_UP_YEARS = 0.8
+STEADY_MAX_REV_VOL = 0.12
+STEADY_MAX_NI_VOL = 0.35
+STEADY_MIN_CAGR = 0.03
+
 # How many headline insights to surface at the very top of the dashboard.
 TOP_INSIGHTS = 6

@@ -23,6 +23,7 @@ import math
 
 import pandas as pd
 
+from .growthhistory import MIN_CHANGES
 from .strategies import STRATEGIES
 
 N_MARKETS = 3
@@ -30,6 +31,8 @@ N_STOCKS = 5
 N_ON_SALE = 8
 PICK_MIN_MARKET_CAP = 2e9
 HIGH_PE = 35.0   # above this, "cheap" can't be about earnings
+VOLATILE_NI = 0.6  # avg yearly earnings swing above this gets a caution (median ~0.65
+                   # across all stocks, so this flags the noisier half, not outliers)
 
 # Open quality issues that distort a company's valuation or growth figures. A pick built
 # on one of these would be recommending a data error (690 tickers carry the first alone).
@@ -59,6 +62,35 @@ _PEERS = {"Country": "other countries", "Sector": "other sectors", "Region": "ot
           "Style": "other styles", "Broad": "other broad markets"}
 
 
+def _yrs(r: dict, which: str) -> int:
+    return int(_f(r.get(f"{which}_changes")) or 0)
+
+
+def _history(r: dict) -> str | None:
+    """"Revenue up 6 of 6 years (+7%/yr), earnings up 4 of 6 (+13%/yr), profitable
+    every year; last year +4% / +4%" — the multi-year record, None without one."""
+    n_r, n_e = _yrs(r, "rev"), _yrs(r, "ni")
+    if max(n_r, n_e) < MIN_CHANGES:
+        return None
+    bits = []
+    up, cagr = _f(r.get("rev_up_ratio")), _f(r.get("rev_cagr"))
+    if n_r and up is not None:
+        bits.append(f"revenue up {round(up * n_r)} of {n_r} years"
+                    + (f" ({_pct(cagr)}/yr)" if cagr is not None else ""))
+    up, cagr = _f(r.get("ni_up_ratio")), _f(r.get("ni_cagr"))
+    if n_e and up is not None:
+        bits.append(f"earnings up {round(up * n_e)} of {n_e}"
+                    + (f" ({_pct(cagr)}/yr)" if cagr is not None else ""))
+    pos = _f(r.get("ni_pos_ratio"))
+    if pos is not None and pos >= 1.0:
+        bits.append("profitable every year")
+    line = "Growth record: " + ", ".join(bits)
+    rev, earn = _f(r.get("rev_growth")), _f(r.get("earnings_growth"))
+    if rev is not None or earn is not None:
+        line += f"; last year {_pct(rev)} / {_pct(earn)}"
+    return line
+
+
 def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
     """(reasons, cautions) for one row, each a short plain-English line."""
     reasons, cautions = [], []
@@ -82,16 +114,20 @@ def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
         else:
             reasons.append(f"Not cheap — P/E {pe:.1f} — the case rests on growth")
 
-    growth = []
-    if rev is not None:
-        growth.append(f"revenue {_pct(rev)}")
-    if earn is not None:
-        growth.append(f"earnings {_pct(earn)}")
-    if growth:
-        line = "Business growing: " + ", ".join(growth)
-        if fwd is not None and fwd > 0:
-            line += f"; analysts expect {_pct(fwd)}"
-        reasons.append(line)
+    hist = _history(r)
+    if hist:
+        reasons.append(hist)
+    else:
+        growth = []
+        if rev is not None:
+            growth.append(f"revenue {_pct(rev)}")
+        if earn is not None:
+            growth.append(f"earnings {_pct(earn)}")
+        if growth:
+            line = "Business growing: " + ", ".join(growth)
+            if fwd is not None and fwd > 0:
+                line += f"; analysts expect {_pct(fwd)}"
+            reasons.append(line)
 
     if disc is not None and disc <= -0.10:
         reasons.append(f"On sale: {_pct(disc, signed=False)} below its 52-week average")
@@ -104,8 +140,18 @@ def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
 
     if fwd is not None and fwd < 0:
         cautions.append(f"Analysts expect earnings to fall {_pct(fwd, signed=False)}")
+    ni_cagr, ni_vol = _f(r.get("ni_cagr")), _f(r.get("ni_vol"))
     if earn is not None and earn > 1.5:
         cautions.append(f"Earnings jump of {_pct(earn)} may be one-off — check it repeats")
+    elif earn is not None and ni_cagr is not None and earn > 0.3 and earn - ni_cagr > 0.4:
+        cautions.append(f"Last year's earnings ({_pct(earn)}) ran far ahead of the "
+                        f"{_yrs(r, 'ni')}-year trend ({_pct(ni_cagr)}/yr) — may not repeat")
+    if ni_vol is not None and ni_vol > VOLATILE_NI:
+        cautions.append(f"Earnings are volatile: they move ~{ni_vol:.0%} a year on average")
+    if not is_market and (_f(r.get("hist_years")) or 0) < MIN_CHANGES:
+        cautions.append("Less than 3 years of reported history — growth record unproven")
+    if rev is not None and rev < 0 and hist:
+        cautions.append(f"Revenue dipped last year ({_pct(rev)})")
     if is_market:
         cov = _f(r.get("growth_cov"))
         if cov is not None and cov < 0.5:
@@ -114,7 +160,7 @@ def _reasons(r: dict, is_market: bool) -> tuple[list[str], list[str]]:
         cautions.append(f"Down {_pct(ret12, signed=False)} in a year — know why before buying")
     elif r.get("value_trap"):
         cautions.append(f"Price still falling ({_pct(ret12)} over 12 months)")
-    return reasons[:4], cautions[:2]
+    return reasons[:4], cautions[:3]
 
 
 def _card(r: dict, is_market: bool) -> dict:
@@ -125,6 +171,8 @@ def _card(r: dict, is_market: bool) -> dict:
         "value_score": _f(r.get("value_score")), "growth_score": _f(r.get("growth_score")),
         "pe": _f(r.get("pe")), "discount_52w": _f(r.get("discount_52w")),
         "ret_12m": _f(r.get("ret_12m")),
+        "consistency_score": _f(r.get("consistency_score")),
+        "rev_cagr": _f(r.get("rev_cagr")), "ni_cagr": _f(r.get("ni_cagr")),
         "strategies": [STRATEGIES[k]["label"] for k in (r.get("strategies") or []) if k in STRATEGIES],
         "reasons": reasons, "cautions": cautions,
     }
@@ -169,7 +217,11 @@ def build(markets: pd.DataFrame, stocks: pd.DataFrame | None = None,
 
     if stocks is not None and not stocks.empty and "fundamentally_strong" in stocks:
         bad = {t for t, checks in flagged.items() if checks & EXCLUDE_CHECKS}
-        clean = ~stocks["ticker"].isin(bad) & _domestic(stocks)
+        # A stock pick needs a verifiable record (>= MIN_CHANGES years of history) —
+        # "fundamentally strong" on one year alone is exactly what ADR-035 replaced.
+        record = (stocks["hist_years"].fillna(0) >= MIN_CHANGES) if "hist_years" in stocks \
+            else pd.Series(True, index=stocks.index)
+        clean = ~stocks["ticker"].isin(bad) & _domestic(stocks) & record
         liquid = stocks["market_cap"].fillna(0) >= PICK_MIN_MARKET_CAP
         strong = _eligible(stocks)
         s = stocks[strong & clean & liquid].sort_values("opportunity_score", ascending=False)
@@ -181,6 +233,7 @@ def build(markets: pd.DataFrame, stocks: pd.DataFrame | None = None,
         out["excluded"] = {
             "strong_with_data_issues": int((strong & stocks["ticker"].isin(bad)).sum()),
             "foreign_listings": int((~_domestic(stocks)).sum()),
+            "short_history": int((strong & ~record).sum()),
             "on_sale_with_data_issues": int((on_sale_all & ~clean).sum()),
             "non_usd_reporters": int((stocks.get("reporting_currency", pd.Series(dtype=object))
                                       .fillna("USD").str.upper() != "USD").sum()),
@@ -189,11 +242,15 @@ def build(markets: pd.DataFrame, stocks: pd.DataFrame | None = None,
 
     out["method"] = (
         "Chosen by rule from the scores on this page, not by hand: fundamentally strong "
-        "(profitable, revenue and earnings growing, growth at least median vs peers), "
+        "(for stocks, a multi-year record over up to six years: profitable in at least "
+        "80% of them, revenue and earnings up in at least 60% with positive growth rates and no "
+        "boom-bust swings; growth at least median vs peers, counting how steady it was "
+        "as much as how fast), "
         "plausible data, and not in the most expensive 20% — then ranked by opportunity "
         f"score. Stocks also need a market cap of at least ${PICK_MIN_MARKET_CAP / 1e9:.0f}B, "
         "US-dollar financial statements, a US domicile (foreign listings' share counts "
-        "don't yet account for ADR ratios), and no open data-quality issue.")
+        "don't yet account for ADR ratios), at least 3 years of reported history, and no "
+        "open data-quality issue.")
     acc = accuracy or {}
     n, ic = acc.get("evaluations") or 0, _f(acc.get("avg_rank_ic"))
     out["evidence"] = (

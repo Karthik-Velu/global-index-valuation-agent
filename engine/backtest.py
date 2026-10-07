@@ -53,8 +53,10 @@ HORIZONS = {"1m": 30, "3m": 91, "6m": 182, "12m": 365}
 # on_sale_score is defined only for fundamentally strong names (NaN elsewhere, which
 # _evaluate_period drops), so its IC answers "among strong names, do the beaten-down
 # ones do better?" — the strategies.py hypothesis, not a whole-universe ranking.
+# consistency_score (growthhistory.py) tests whether a steady revenue/earnings record
+# predicts returns on its own, separately from how fast a company grew.
 SIGNALS = ("opportunity_score", "value_score", "growth_score", "momentum_score",
-           "on_sale_score")
+           "on_sale_score", "consistency_score")
 MIN_CROSS_SECTION = 20        # a rebalance date's IC only counts with this many names
 PRICE_MATCH_SLACK_DAYS = 10   # how stale a "price near target date" may be
 # Weekly (not monthly) — see the module docstring's ADR-022 note for why, and the
