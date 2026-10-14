@@ -66,7 +66,7 @@ async function authorize(req: Request): Promise<string | null> {
   // not whenever a session happens to expire.
   // Exact, case-insensitive equality — the same rule as SQL is_admin(). `ilike`
   // made the CALLER's address a pattern: `_` is a wildcard (and legal in an
-  // email), so a sign-up as "first_last@x.com" matched admin "first.last@x.com".
+  // email), so a sign-up as "first_last@example.com" matched admin "first.last@example.com".
   // The table is a handful of rows, so compare in code rather than assume every
   // stored address is lowercase.
   const want = email.toLowerCase();

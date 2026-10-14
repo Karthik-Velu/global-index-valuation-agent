@@ -431,6 +431,8 @@ function renderTrackRecord(acc) {
 // so the block stays hidden rather than rendering empty.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STRAT_COLOR = { 'Quality on sale': '#60a5fa', 'Deep discount, fundamentals intact': '#34d399', 'Quality on sale, turning up': '#2dd4bf', 'Steady compounder on sale': '#a78bfa' };
+// The owner's snapshot rows carry strategy ids (engine/strategies.py); picks carry labels.
+const stratLabel = s => STATE.data?.top_picks?.strategies?.[s]?.label || s;
 const stratBadges = labels => (labels || []).map(l =>
   `<span class="pill" style="background:${STRAT_COLOR[l] || '#94a3b8'}22;color:${STRAT_COLOR[l] || '#94a3b8'}">${esc(l)}</span>`).join(' ');
 
@@ -1014,6 +1016,11 @@ function resolvedStock(t, snapRow) {
     reasons: pub?.reasons, cautions: pub?.cautions };
 }
 
+// Why a snapshot row is hidden from screens (picks.exclusion_reasons codes) — the
+// screener's wording (screenbox.js REASONS).
+const DATA_FLAG_TEXT = { foreign_listing: 'foreign listing', non_usd_reporter: 'non-USD reporter', implausible_pe: 'implausible P/E',
+  implausible_ps: 'implausible P/S', below_min_mcap: 'below the minimum market cap', short_history: 'short filing history' };
+const dataFlagText = c => DATA_FLAG_TEXT[c] || (/^quality:/.test(c) ? `open data check (${c.slice(8).replace(/_/g, ' ')})` : String(c).replace(/_/g, ' '));
 const BOOL_FLAGS = [
   ['on_sale', 'on sale', '#60a5fa'], ['garp', 'GARP', '#2dd4bf'], ['steady_compounder', 'steady compounder', '#a78bfa'],
   ['deep_value_intact', 'deep value, intact', '#34d399'], ['fundamentally_strong', 'fundamentally strong', '#34d399'],
@@ -1051,7 +1058,7 @@ function stockTop(t, s, { loading = false } = {}) {
   const why = [...(s.reasons || []).map(r => `<li class="ok">${esc(r)}</li>`),
                ...(s.cautions || []).map(c => `<li class="warn">${esc(c)}</li>`)].join('');
   return `${why ? `<ul class="pick-why mb-3">${why}</ul>` : ''}
-    ${s.strategies?.length ? `<div class="mb-3">${stratBadges(s.strategies)}</div>` : ''}
+    ${s.strategies?.length ? `<div class="mb-3">${stratBadges(s.strategies.map(stratLabel))}</div>` : ''}
     <div class="grid grid-cols-3 gap-2 mb-4">
       ${scoreTile('Value', s.value_score)}${scoreTile('Growth', s.growth_score)}${scoreTile('Opportunity', s.opportunity_score)}
     </div>`;
@@ -1075,7 +1082,7 @@ function stockBody(t, s) {
   const price = rowsIf([['price', 'Price', x => money(x.price)], ['market_cap', 'Market cap', x => marketCap(x.market_cap)],
     ['discount_long', `${avgLabel(s.long_avg_years)} price`, x => pct(x.discount_long)]]);
   const caveats = s._trusted && s.data_ok === false && s.data_flags?.length
-    ? `<div class="text-[11px] text-warn bg-panel border border-line rounded-lg p-2.5 mt-3">Hidden from screens by default — data caveats: ${esc(s.data_flags.join(', '))}</div>` : '';
+    ? `<div class="text-[11px] text-warn bg-panel border border-line rounded-lg p-2.5 mt-3">Hidden from screens by default — data caveats: ${esc(s.data_flags.map(dataFlagText).join(', '))}</div>` : '';
   const mk = (s._markets || []).map(k => STATE.rows.find(m => m.key === k)).filter(Boolean);
   const inMarkets = mk.length
     ? `${drawerSub('In these markets (bottom-up breakdown)')}<div class="flex flex-wrap gap-1.5">${mk.map(m =>

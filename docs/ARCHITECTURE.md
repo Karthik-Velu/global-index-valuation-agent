@@ -223,7 +223,26 @@ engine's own calls. A watchlist is a saved-list feature today, not yet a learnin
 signal. Revisit once enough signed-in usage exists to make a `user_vector` worth
 building.
 
-### P4 — Actuation, Safety & the Public Path
+**Extended 2026-10-14 (ADR-037, migration 0015).** New per-user tables, all under
+owner-scoped RLS with exact grants and per-user caps: `saved_screens`, named `watchlists`
++ `watchlist_items`, and `screen_alerts`. A trusted gate `is_trusted()` covers stock-level
+price-derived data. That gate requires a confirmed email in `admins`, or in
+`app_allowlist` with `can_view_prices`. A server-side AI quota (`ai_usage`/`ai_config`)
+protects the free LLM tiers. The first serverless API is `api/screen-builder.js`
+(Vercel). It verifies the Supabase JWT, checks trust and quota, and returns a validated
+filter. Still unbuilt, as before: re-rank and `user_predictions`. Saved screens and
+watchlists are tools, not learning signals. See [SCREENER.md](SCREENER.md).
+
+### P4 — Actuation, Safety & the Public Path  ⚠️ PARTIAL: in-app screen alerts only (2026-10-14)
+**Built (ADR-037):** alerts on saved screens. A deterministic job,
+`engine/screenjobs.py`, runs stock screens daily in `datapipeline.py` and market
+screens weekly in `pipeline.py`. Each run diffs the screen's full match set against
+the last one and writes `screen_alerts`. It is transition-based with a baseline-first
+rule and coverage guards, and logs aggregate counts only. Delivery is the in-app
+Alerts tab. **Still unbuilt:** `engine/alerts.py` threshold rules, `engine/notify.py`
+(email/push/webhook), and the paper portfolio. So "acts in the world" (§10) stays
+unchecked: an in-app badge doesn't reach anyone who isn't looking.
+
 The "**act in the world**" layer: `engine/alerts.py` (transition-based threshold
 rules → market enters GARP / a held thesis breaks) dispatched via `engine/notify.py`
 (**Resend** email free tier / Web Push / webhook); and `engine/portfolio.py` — a
@@ -277,6 +296,14 @@ Observability: **Sentry** free. Migration path: SQLite → Supabase Postgres (or
 - **Personalised watchlist + re-rank** (logged-in): pin markets, set a risk lens; the
   board re-ranks for you and your pins become graded predictions.
 - **Alerts** (the first real "action"): "tell me when an EM enters GARP" → email/push.
+  ✅ *In-app half built 2026-10-14:* save a screen with alerts on and the Alerts tab
+  lists what entered or left it. Email/push is not built yet.
+- **Screen in plain English** ✅ *built 2026-10-14 (ADR-037):* the TradingView-style
+  screener with an **AI screen builder**. It turns one sentence into a validated filter
+  over the markets, or for the owner over the stock universe. It also brings price
+  charts (owner) or the TradingView widget (everyone else), and named watchlists. This
+  is a request-time feature, not the "ask the agent" chat above: it never answers
+  questions or writes prose.
 - **The track record is front-and-centre** — every call is public and graded; users
   can see whether the engine (and their own pins) actually worked.
 
@@ -287,6 +314,10 @@ Observability: **Sentry** free. Migration path: SQLite → Supabase Postgres (or
 - [ ] Off scraped Yahoo → EDGAR/free-tier license-clean sources (public gate)
 - [ ] Cloud DB (Supabase) replacing local SQLite; secrets in env, never committed
 - [ ] Auth + rate-limiting on every write/compute endpoint; RLS on user data
+      (2026-10-14: RLS + exact grants + per-user caps on every user table through
+      0015, and `/api/screen-builder`, the only serverless endpoint so far, is
+      JWT-checked and quota-limited. Not checked yet: pin/dismiss feedback is still
+      anonymous localStorage.)
 - [ ] Per-user feedback (kills the global-pool + localStorage dead-end)
 - [ ] Fixed-horizon grading (kills the look-ahead/horizon bias) + significance gates
 - [ ] A real backtest before any "track record" is presented as trustworthy
@@ -386,7 +417,8 @@ measure progress, not vibes:
       eval date + confidence; `reflect.py` grades matured theses against realized
       returns and feeds outcomes into semantic memory for future prompts.
 - [ ] **Acts in the world** — at least one real action (alert / paper-portfolio
-      trade) that affects something beyond the dashboard.
+      trade) that affects something beyond the dashboard. (Screen alerts landed
+      2026-10-14 but are in-app only, so they don't count yet. Email/push would.)
 - [ ] **Learns, validated** — a backtested model (not 4 hand weights) whose skill is
       measured out-of-sample and gated for significance. (The mechanism landed
       2026-07-22 and ran against real data; not re-assessed as part of this pass.)

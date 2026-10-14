@@ -45,6 +45,9 @@ const Screener = (() => {
     "AI couldn't read that sentence; showing the rule-based reading": "rules · AI couldn't read it",
   };
 
+  // Fixed notes the screen-builder may attach to an AI answer (api/screen-builder.js NOTE).
+  const SERVER_NOTES = new Set(['Started a new screen: the current one is not valid for this scope.']);
+
   const S = {
     inited: false, root: null, scope: 'markets',
     data: null, markets: [], marketsAsof: null, dataFailed: false,
@@ -365,10 +368,10 @@ const Screener = (() => {
     if (!D || !turns.length) { el.innerHTML = ''; return; }
     const lastId = turns[turns.length - 1].id;
     el.innerHTML = turns.map(t => {
-      let diff = '';
+      let diff = '', any = 0;
       if (t.filter) {
         const d = D.diff(t.base, t.filter);
-        const any = d.added.length + d.removed.length + d.changed.length;
+        any = d.added.length + d.removed.length + d.changed.length;
         diff = any ? chipList(d.added, 'add', '+') + chipList(d.removed, 'rm', '−') + chipList(d.changed, 'chg', '~')
           : '<span class="scr-muted scr-small">No change to the screen.</span>';
       } else diff = '<span class="scr-muted scr-small">Couldn\'t build a screen from that.</span>';
@@ -379,14 +382,17 @@ const Screener = (() => {
         foot = `<div class="scr-asking"><span class="scr-spin" aria-hidden="true"></span> Asking AI&hellip; <button type="button" class="scr-link" data-scr-act="ai-cancel">cancel</button></div>`;
       }
       if ((t.status === 'ready' || t.status === 'asking') && t.id === lastId && t.filter) {
-        const n = S.box ? S.box.count(t.filter) : null;
-        const cnt = n == null ? '' : `<b>${n.toLocaleString()}</b> ${n === 1 ? 'match' : 'matches'}`;
         const alt = t.status === 'ready' && t.rulesFilter && t.source !== 'rules'
           && JSON.stringify(t.rulesFilter.where) !== JSON.stringify(t.filter.where)
           ? '<button type="button" class="scr-link" data-scr-act="ai-rules">Use the rules reading instead</button>' : '';
-        foot += `<div class="scr-confirm">${cnt}
-          <button type="button" class="scr-btn scr-btn-pri" data-scr-act="ai-apply" data-scr-turn="${t.id}">Apply</button>
-          <button type="button" class="scr-btn" data-scr-act="ai-discard" data-scr-turn="${t.id}">Discard</button> ${alt}</div>`;
+        if (any) {
+          // The live match count for the proposed screen, before the user applies it.
+          const n = S.box ? S.box.count(t.filter) : null;
+          const cnt = n == null ? '' : `<b>${n.toLocaleString()}</b> ${n === 1 ? 'match' : 'matches'}`;
+          foot += `<div class="scr-confirm">${cnt}
+            <button type="button" class="scr-btn scr-btn-pri" data-scr-act="ai-apply" data-scr-turn="${t.id}">Apply</button>
+            <button type="button" class="scr-btn" data-scr-act="ai-discard" data-scr-turn="${t.id}">Discard</button> ${alt}</div>`;
+        } else if (alt) foot += `<div class="scr-confirm">${alt}</div>`;
       } else if (t.status === 'applied') foot += '<div class="scr-small scr-ok">✓ Applied</div>';
       else if (t.status === 'discarded') foot += '<div class="scr-small scr-muted">Discarded</div>';
       return `<div class="scr-turn">
@@ -418,7 +424,7 @@ const Screener = (() => {
     const turn = {
       id: ++S.turnSeq, scope, sentence, base: current, status: 'ready',
       filter: rp.filter ? withColumns(rp.filter) : null, rulesFilter: rp.filter, source: 'rules',
-      unparsed: strArr(rp.unparsed), notes: strArr(rp.notes),
+      unparsed: strArr(rp.unparsed), notes: strArr(rp.notes), rulesNotes: strArr(rp.notes), rulesUnparsed: strArr(rp.unparsed),
       badge: signedIn() ? (S.trusted ? 'rules · preview' : 'rules · AI limited to approved accounts') : (a && a.available() ? 'rules · sign in for AI' : 'rules'),
     };
     turns.push(turn);
@@ -463,8 +469,11 @@ const Screener = (() => {
         turn.filter = withColumns(v.filter);
         turn.source = j.source;
         turn.badge = 'AI · ' + prettySource(j.source);
-        turn.unparsed = strArr(j.unparsed);
-        turn.notes = strArr(j.notes);
+        // The server already keeps only verbatim pieces of the sentence and fixed notes;
+        // checked again so no model text can reach the page.
+        const said = turn.sentence.toLowerCase();
+        turn.unparsed = strArr(j.unparsed).filter(u => u.trim() && said.includes(u.trim().toLowerCase()));
+        turn.notes = strArr(j.notes).filter(n => turn.rulesNotes.includes(n) || SERVER_NOTES.has(n));
       } else {
         turn.badge = NOTE_BADGE[j.note] || (j.note ? 'rules · AI unavailable' : 'rules');
       }
@@ -702,7 +711,10 @@ const Screener = (() => {
       case 'ai-discard': { const t = findTurn(b.dataset.scrTurn); if (t) { if (t.status === 'asking' && S.pending) S.pending.abort(); t.status = 'discarded'; renderThread(); } return; }
       case 'ai-rules': {
         const t = S.threads[S.scope][S.threads[S.scope].length - 1];
-        if (t && t.rulesFilter) { t.filter = withColumns(t.rulesFilter); t.source = 'rules'; t.badge = 'rules (chosen over AI)'; renderThread(); }
+        if (t && t.rulesFilter) {
+          t.filter = withColumns(t.rulesFilter); t.source = 'rules'; t.badge = 'rules (chosen over AI)';
+          t.unparsed = t.rulesUnparsed; t.notes = t.rulesNotes; renderThread();
+        }
         return;
       }
       case 'load': { const x = findSaved(id); if (x) loadScreen(x); return; }

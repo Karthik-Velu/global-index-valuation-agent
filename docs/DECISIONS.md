@@ -9,6 +9,170 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-037 · Screener + AI screen builder + charts + watchlists + alerts (TradingView-style), behind a trusted gate
+- **Context:** user (2026-10-14): "ensure some key features of trader view is available
+  in this software. Ensure filters and screeners can be created by user using ai chat."
+  Chosen v1 scope: screener + AI chat, price charts, watchlists, alerts on saved
+  screens. AI backend: "Vercel function + free models". A login-based "My portfolio"
+  section was also asked for. It is deferred to a second PR (see 10).
+- **Choice:**
+  1. **One filter language, three runtimes.** A filter is plain JSON
+     (`{v, scope, where[], sort, limit, include_flagged, columns?}`, AND only, ≤12
+     conditions). The field registry is `dashboard/screen_fields.json`; the browser
+     and the Vercel function use `dashboard/screen-dsl.js` (UMD) and the alert job uses
+     `engine/screens.py` (stdlib only). Nothing is ever eval'd. Lookups go through a
+     `Map`/dict, so `__proto__` and similar keys are rejected. Enums are static, match
+     the real data, are canonicalised through synonyms, and an unknown value is
+     rejected with the closest valid ones. Shared vectors (`tests/screen_vectors.json`)
+     must give identical results in JS and Python, enforced in CI
+     (`screens-tests.yml`). User guide and field list: [SCREENER.md](SCREENER.md).
+  2. **"Growth" = fundamentals, enforced in code, not only in a prompt.** Registry
+     attributes `growth: true` (revenue/earnings growth, CAGRs, up/profitable-year
+     shares, growth/consistency scores, fwd_growth, garp, steady_compounder,
+     fundamentally_strong) and `price_signal: true` (price, discount_long,
+     opportunity_score, turning_up, value_trap). `ScreenDSL.growthGuard`: a sentence
+     that talks about growth must produce ≥1 growth field and no price-signal field
+     unless that field's own words appear. `ret_*`, `momentum_score` and
+     `mean_reversion_score` are not fields at all. `opportunity_score` is labelled a
+     blend that includes 20% price terms. No preset uses it.
+  3. **AI screen builder** (`api/screen-builder.js`, a request-time *feature*: not an
+     agent, not a job). It turns ONE sentence into a filter:
+     - `ScreenDSL.ruleParse` (deterministic, free) always runs first. It is the answer
+       for signed-out and untrusted callers, when the quota is spent, when no key is
+       set, and when every model tier fails.
+     - Before any network call it rejects a wrong method, a body over 2 KB, a malformed
+       or expired JWT, and anonymous sessions.
+     - The LLM is called only for *trusted* callers, under a server-side quota
+       (`ai_quota_take()`, `ai_config`: 40/user/day, 150/day globally).
+     - Chain: Groq `llama-3.3-70b-versatile` → Ollama Cloud `gpt-oss:120b` → OpenRouter
+       `:free` (optional), all free tiers. Groq goes first for latency on a 24 s budget.
+     - Model output is `{filter, ignored}`, re-validated + growth-guarded (fail → next
+       tier → rules). No model prose is returned or shown. Only validated chips are
+       shown, plus "ignored" phrases that occur verbatim in the user's own sentence.
+     - The keys are separate provider accounts from the GitHub Actions ones (Groq
+       limits are per organisation), and are set in Vercel Production only.
+  4. **Trusted gate for anything price-derived at stock level** (licensing, ADR-017).
+     `public.is_trusted()` (security definer, `search_path ''`) requires all of:
+     - a confirmed email in `auth.users` (not the JWT claim);
+     - a non-anonymous session;
+     - the email in `admins`, or in `app_allowlist` with `can_view_prices`.
+
+     `is_admin()` is hardened the same way. What it gates:
+     - Stock screener rows (`screener_snapshots`) and chart closes (`chart_series`) are
+       readable only under that gate.
+     - A `stocks`-scope saved screen can only be written by a trusted user (RLS
+       `with check`).
+     - The alert job re-checks trust at run time. It runs as table owner, so without
+       this an untrusted user's saved screen would turn alerts into an oracle over the
+       gated universe.
+     - `app_allowlist` carries the table comment: entries must be the owner's own
+       addresses; granting `can_view_prices` to a third party needs a Massive business
+       plan and a non-Yahoo market price source.
+
+     The **markets** screener runs client-side over the already-public scoreboard, so
+     it is open to everyone. Untrusted viewers and every market chart get TradingView's
+     free Advanced Chart widget (their data, their display, attribution kept). It always
+     loads inside a sandboxed `srcdoc` iframe without `allow-same-origin`, so a
+     third-party script can never read the Supabase session.
+  5. **`chart_series` is a display cache: a narrow exception to ADR-016 Choice 1**
+     ("prices live in Tier B, never Postgres"). The conditions:
+     - close-only (no OHLV), aligned to one shared `calendar:us` row (nulls for missing
+       days, which halves the size);
+     - rebuildable from Tier B at any time, and never read by any job, backtest or
+       scoring code (Tier B stays the source of truth);
+     - RLS select for trusted users only;
+     - ≤ 25 MB (`publish_chart_series` projects the size and skips with a warning above
+       it; ~7.5 MB measured on a local Tier B copy);
+     - time-boxed to 10 min.
+
+     Fundamentals bars come from `growthhistory.annual_series()` (≤7 points, nulled
+     years stay null). That is the same series as the screener's growth fields
+     (ADR-035), so the bars can't contradict the filters. The long-run average is
+     drawn as a horizontal line over exactly the window used for "on sale", labelled
+     with its real length (ADR-036).
+  6. **Alerts are a deterministic job** (`engine/screenjobs.py`). Each alerting screen
+     diffs its *full* match set (sort/limit ignored; `data_ok` applied) against the
+     previous run:
+     - The first run stores a baseline and does not alert. Editing the filter or scope
+       resets the baseline (trigger).
+     - A universe under 0.9× the stored one is not diffed, and a screen already done
+       for that date is skipped.
+     - Names that left only because their data turned bad go to `hidden_data_issue`,
+       not "removed".
+     - Lists are capped at 50, with true counts kept.
+     - Only aggregate counts are logged. Exceptions are recorded as class + SQLSTATE,
+       never `str(e)`, because psycopg's DETAIL carries user ids/tickers and the
+       pipeline report is a public artifact.
+
+     Cadence: stock screens run daily in `datapipeline.py` step 7b. That step comes
+     after the agents, is skipped on full-sweep days (the 2026-10-04 sweep took
+     308 of the 360 Actions minutes), and is skipped past `SCREENS_MAX_ELAPSED_MIN`
+     (240). Market screens run weekly in `pipeline.py` over the exact scoreboard rows
+     written to `dashboard_data.json`. A coverage guard (price+market-cap coverage
+     <0.8, row count <0.9× or P/E coverage <0.8× the last snapshot) publishes nothing
+     and alerts nothing. Alerts are in-app only (Alerts tab). No email/push in v1.
+  7. **Hidden rows use the picks rules.** `picks.exclusion_reasons()` was extracted
+     from `picks.build()` with identical output, proven by a golden test. A stock's
+     `data_ok` = no reason, and `data_flags` = its reason codes. The screener says
+     "N hidden" with overlapping reason counts and an include-flagged toggle, so the
+     screener and the dashboard's picks never disagree about which names are excluded.
+  8. **Pre-existing licensing exposure, stated truthfully: NOT fixed here.** The
+     trusted gate covers only the NEW surfaces. Already public before this feature:
+     - the `tierb-store` GitHub release asset, refreshed by `data-pipeline.yml`
+       monthly and by `price-backfill.yml`;
+     - the weekly `tierb-store` Actions artifact (`refresh.yml`, 90 days).
+
+     Both are a tarball of the whole Tier B store, so they include raw Massive daily
+     bars (`prices/`). The public `dashboard_data.json` `stock_breakdown`
+     (305 stocks / 70 markets) and `top_picks` carry Massive-derived price, P/E,
+     market cap and `ret_12m`. Changing any of these breaks Tier B hydration or the
+     public picks, so it needs the owner's decision (STATUS "00."). This PR does not
+     touch the bundle, the release, the artifacts, `stock_breakdown` or `top_picks`.
+  9. **Schema** = migration `0015_screener.sql`: app_allowlist, saved_screens,
+     watchlists, watchlist_items, screen_alerts, screener_snapshots, chart_series,
+     ai_config, ai_usage. It is idempotent. Every table runs `revoke all` from anon and
+     authenticated first and then gets exact grants: Supabase's default privileges
+     grant ALL, so a column grant alone would not stop updates to other columns.
+     Caps: 50 screens/user, 20 lists/user, 500 items/list, 8 KB filters, 280-char
+     notes. Open signup cannot fill the free-tier DB. **Frozen once applied:** fixes
+     go into 0016. Manual RLS assertions: `tests/rls_0015.sql`.
+     The admin Edge Function's `.ilike('email', …)` (where `_` is a wildcard) became an
+     exact case-insensitive match. It must be redeployed by hand.
+  10. **Scope split.** This PR covers screener, AI builder, charts, watchlists and
+      alerts for the `stocks` and `markets` scopes. "My portfolio" (snapshots, a
+      `portfolio` scope, its own page) is PR 2. `portfolio` is a reserved scope that
+      `validate()` rejects today. The screener is a self-contained widget
+      (`ScreenBox`), so PR 2 can mount it.
+- **Why:** the screener is the most direct way to put the existing scores to work. An
+  AI box that only ever emits a validated filter gets "ask in English" at ~$0 without
+  letting a model invent fields, smuggle price momentum in as growth, or show
+  unverifiable prose (the same reason ADR-034 rejected LLM-written pick reasons). Every
+  new stock-level surface is gated, because the open magic-link signup makes
+  "signed in" mean "anyone".
+- **Rejected alternatives:**
+  - *Publish the stock screener rows statically like the scoreboard:* redistributes
+    Massive-derived data before the derived-data clause is reviewed.
+  - *LLM for every signed-in user:* open signup × 40 calls could exhaust the free tiers
+    the pipeline's agents share.
+  - *Reuse the GitHub Actions LLM keys on Vercel:* same starvation risk; Groq limits
+    are per organisation.
+  - *Route through `engine/llm.py`:* Python, CI-only, no request-time host. The
+    function's chain is a hard-coded copy (MODEL_ROUTING.md).
+  - *Show the model's explanation:* unverifiable text (ADR-034).
+  - *Chart storage alternatives:* a private Supabase Storage bucket keeps Postgres
+    thinner but adds a second auth path, so it stays the fallback if the 25 MB budget
+    is exceeded. Serving from Tier B is impossible because it exists only on CI
+    runners. Weekly downsampling throws away the closes the discount is computed on.
+  - *Market price series in `chart_series`:* Yahoo is personal-use only. Markets use
+    the TradingView widget.
+  - *A rolling "N-year average" line:* with ~2 years of stock prices its early points
+    would be short averages under a long-window label (ADR-036).
+  - *Fix the pre-existing exposure in this PR:* destructive to Tier B hydration and
+    the public picks; that is the owner's call.
+  - *Ship My portfolio in the same PR:* different data class (personal holdings),
+    different privacy rules; it gets its own ADR.
+- **Date:** 2026-10-14
+
 ### ADR-036 · "On sale" is measured against the 5-year average price (supersedes ADR-034's 52-week)
 - **Context:** user (2026-10-07): "Do a 5 year average instead of 52 week."
 - **Constraint:** stock prices (Massive, ADR-017) start 2024-10-04, so only 2 years are

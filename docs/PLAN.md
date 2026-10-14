@@ -289,6 +289,59 @@ sector-research lessons decayed unused). See ADR-028.
   (~242 filers); ingest ADR ratios (495 foreign listings excluded from picks); sum
   multi-class share counts; apply `data_sane` to the drawer's per-market stock breakdown.
 
+## Phase F — TradingView-style screener, AI screen builder, charts, watchlists, alerts  ✅ BUILT 2026-10-14 (PR 1)
+User ask (2026-10-14): key TradingView features, and "filters and screeners can be created
+by user using ai chat". See ADR-037 and the user guide [SCREENER.md](SCREENER.md).
+- ✅ **Shared filter language** — `dashboard/screen_fields.json` (registry + presets),
+  `dashboard/screen-dsl.js` (browser + Node), `engine/screens.py` (stdlib Python). Parity
+  vectors run in CI (`screens-tests.yml`). Growth = fundamentals is enforced by
+  `growth`/`price_signal` registry flags + `growthGuard`. `ret_*`/momentum are not fields.
+- ✅ **Schema** — migration `0015_screener.sql`:
+  - `is_trusted()`, plus a hardened `is_admin()`: confirmed email, not anonymous;
+  - `app_allowlist`, `saved_screens`, `watchlists`, `watchlist_items`, `screen_alerts`,
+    `screener_snapshots`, `chart_series`, `ai_config`, `ai_usage`;
+  - revoke-all + exact grants, and per-user caps.
+
+  `tests/rls_0015.sql` holds 70 manual RLS assertions. They passed on Postgres 16 with a
+  Supabase stub, not yet on a real Supabase branch.
+- ✅ **Jobs** — `engine/screenjobs.py`, daily step 7b in `datapipeline.py` + weekly
+  market alerts in `pipeline.py`:
+  - a stock snapshot behind a coverage guard;
+  - a close-only `chart_series` display cache (≤25 MB, 10-min time box);
+  - alerts (baseline-first, full match set, trusted-owner check at run time,
+    class+SQLSTATE-only errors).
+
+  `picks.exclusion_reasons()` was extracted, with golden-tested output identical to
+  before.
+- ✅ **AI screen builder** — `api/screen-builder.js` (Vercel). Rules first; LLM only for
+  trusted callers under a server-side quota. Chain: Groq → Ollama Cloud → optional
+  OpenRouter. Only validated filters are returned. Tests: `scripts/test_screen_builder.js`
+  (stubbed fetch).
+- ✅ **Frontend** — hash router (magic-link safe) with Overview / Screener / Watchlists /
+  Alerts tabs. `ScreenBox` widget (presets, chips, columns, hidden-row reasons, CSV for
+  trusted). AI chat thread with chip diffs. Saved screens + share links. Stock drawer,
+  symbol search, one star control. Charts: Lightweight Charts closes + Growth record for
+  the owner, a sandboxed TradingView widget for everyone else. Watchlists and Alerts
+  views. Exact CDN versions pinned, with SRI on supabase-js and Lightweight Charts
+  (Tailwind's Play CDN can't take one).
+- ✅ **Admin Edge Function** — `.ilike` email match → exact case-insensitive match.
+  ⬜ Needs a manual `supabase functions deploy admin`.
+- ⬜ **Owner actions before/after merge** — Vercel env keys, Supabase Auth settings,
+  admin redeploy, run `tests/rls_0015.sql` on a branch DB. See STATUS "00.".
+- ⬜ **Owner decision: pre-existing Massive exposure.** The public `tierb-store` release
+  asset and Actions artifact contain raw bars. Public `stock_breakdown`/`top_picks` carry
+  price-derived fields. Not touched by this PR (ADR-037 §8).
+- ⬜ **Massive derived-data terms review** — gates whether any stock-level surface can go
+  beyond the owner.
+- ⬜ **PR 2: My portfolio** — login-based portfolio explorer + `portfolio` screener scope
+  (snapshots table, synthetic-only fixtures, its own ADR). `ScreenBox` is built to be
+  reused there.
+- ⬜ **Alert delivery beyond the app** (email/push, ARCHITECTURE P4) — alerts are in-app
+  only today.
+- ⬜ **Parser gaps** — region words for stocks ("european") need a region→countries map.
+  "5-year average P/E" has no historical-multiple field, so it is read as the price
+  window.
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F

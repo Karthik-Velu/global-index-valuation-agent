@@ -45,6 +45,14 @@ const Charts = (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isNum = v => typeof v === 'number' && isFinite(v);
   const isoDay = t => new Date(t * 1000).toISOString().slice(0, 10);
+  // Lightweight Charts formats axis dates with navigator.language and throws on every
+  // frame when that isn't a valid BCP 47 tag (e.g. 'en-US@posix' from a C/POSIX locale).
+  const safeLocale = () => {
+    try {
+      const l = typeof navigator !== 'undefined' && navigator.language ? String(navigator.language) : 'en-US';
+      return Intl.DateTimeFormat.supportedLocalesOf([l]).length ? l : 'en-US';
+    } catch { return 'en-US'; }
+  };
   const fmtPrice = v => isNum(v) ? (Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(2)) : '—';
   const fmtPct = v => isNum(v) ? `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(1)}%` : '—';
   const unavailableHTML = (why = 'chart unavailable') => `<div class="chr-empty">${esc(why)}</div>`;
@@ -120,14 +128,17 @@ const Charts = (() => {
   // The long-run average the "on sale" call used: discount_long = price / mean(last n_long
   // closes) − 1 with n_long = min(bars on file, LONG_AVG_DAYS) (stockvaluation._price_features),
   // so avg = price / (1 + discount_long). The chart re-derives the mean from its own closes
-  // (n ≈ round(long_avg_years × 252) — long_avg_years is rounded to 0.1, hence a tolerance)
-  // and says so when the two disagree, e.g. a chart cache from another day.
+  // with the engine's own n when that agrees with the stated window (long_avg_years =
+  // round(n_long / 252, 1)), else round(long_avg_years × 252), and says so when the two
+  // means disagree by more than 0.5%, e.g. a chart cache from another day.
   function longAverage(points, spec) {
     const vals = points.filter(p => isNum(p.value));
     const yrs = isNum(spec.long_avg_years) && spec.long_avg_years > 0 ? spec.long_avg_years : null;
     const target = isNum(spec.price) && isNum(spec.discount_long) && spec.discount_long > -1
       ? spec.price / (1 + spec.discount_long) : null;
-    const n = Math.min(vals.length, yrs ? Math.round(yrs * TRADING_DAYS) : LONG_AVG_DAYS);
+    const nEngine = Math.min(vals.length, LONG_AVG_DAYS);
+    const n = !yrs || Math.abs(Math.round((nEngine / TRADING_DAYS) * 10) / 10 - yrs) < 0.05
+      ? nEngine : Math.min(vals.length, Math.round(yrs * TRADING_DAYS));
     if (n < LONG_AVG_MIN_DAYS) {
       // Under a year of closes on the chart: no long average (the engine draws none either).
       return target != null && yrs ? { level: target, years: yrs, from: null, to: null, check: null, mean: null } : null;
@@ -250,7 +261,7 @@ setTimeout(na,20000);</script>
     // No allow-same-origin: an opaque origin with no access to our cookies/localStorage.
     f.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
     f.setAttribute('title', `${s} chart (TradingView)`);
-    f.setAttribute('loading', 'lazy');
+    f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
     f.className = 'chr-tv';
     f.style.height = `${height}px`;
     f.srcdoc = tvSrcdoc(s);
@@ -319,12 +330,14 @@ setTimeout(na,20000);</script>
   function showOwner(ctx, res, pts, fund) {
     const { box, ticker } = ctx;
     const growth = fund ? growthSVG(typeof fund === 'string' ? safeJSON(fund) : fund) : '';
+    // The last bar actually on the chart (the row's asof is when the cache was written).
+    const lastBar = pts ? (() => { for (let i = pts.length - 1; i >= 0; i--) if (isNum(pts[i].value)) return isoDay(pts[i].time); return null; })() : null;
     box.innerHTML = `<div class="chr-head">
         <div class="chr-tabs" role="tablist">
           <button type="button" role="tab" class="chr-tab" data-chr-tab="price" aria-selected="true">Price</button>
           <button type="button" role="tab" class="chr-tab" data-chr-tab="tv" aria-selected="false">TradingView</button>
         </div>
-        <span class="chr-dim">${res?.row?.asof ? `closes to ${esc(String(res.row.asof).slice(0, 10))}` : ''}</span></div>
+        <span class="chr-dim">${lastBar ? `closes to ${esc(lastBar)}` : ''}</span></div>
       <div data-chr-pane="price"></div>
       <div data-chr-pane="tv" hidden></div>
       ${growth}`;
@@ -396,6 +409,7 @@ setTimeout(na,20000);</script>
       rightPriceScale: { borderColor: '#243049' },
       timeScale: { borderColor: '#243049', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
       crosshair: { mode: 0 },
+      localization: { locale: safeLocale() },
       // Vertical swipes scroll the drawer, not the chart.
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     });
@@ -505,8 +519,13 @@ setTimeout(na,20000);</script>
           <i style="background:${COLORS.compare}"></i>${esc(S.compareTicker)} ×</button>`);
       }
     };
+    // Compare mode is percentage-scaled, where price-level overlays mean nothing: hide them,
+    // then restore each one as its own checkbox says.
     const setOverlaysVisible = on => {
-      for (const k of ['avg', 'sma50', 'sma200']) if (S[k]) S[k].applyOptions({ visible: on });
+      const box = k => pane.querySelector(`[data-chr-toggle="${k}"]`);
+      for (const k of ['avg', 'sma50', 'sma200']) {
+        if (S[k]) S[k].applyOptions({ visible: on && (!box(k) || box(k).checked) });
+      }
       pane.querySelectorAll('[data-chr-toggle]').forEach(i => { i.disabled = !on; });
     };
     const removeCompare = () => {

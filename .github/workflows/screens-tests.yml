@@ -6,7 +6,8 @@ name: Screen DSL tests
 # "growth" to a price signal, and that dashboard/*.js declare no clashing top-level names.
 #
 # No secrets, no database, no network beyond checkout/setup: engine/screens.py is
-# stdlib-only, so there is no pip install. Safe to run on push to the dev branch.
+# stdlib-only; the jobs test installs only pandas/numpy and uses a fake DB connection.
+# Safe to run on push to the dev branch.
 
 on:
   pull_request:
@@ -14,6 +15,8 @@ on:
       - "dashboard/*.js"
       - "dashboard/screen_fields.json"
       - "engine/screens.py"
+      - "engine/screenjobs.py"
+      - "engine/picks.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -25,6 +28,8 @@ on:
       - "dashboard/*.js"
       - "dashboard/screen_fields.json"
       - "engine/screens.py"
+      - "engine/screenjobs.py"
+      - "engine/picks.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -52,3 +57,7 @@ jobs:
         with: { python-version: "3.12" }
       - name: DSL parity (Python, stdlib only)
         run: python tests/test_screens.py
+      - name: Screen jobs (fake DB connection, no network)
+        run: |
+          pip install --quiet "pandas>=2.2" "numpy>=1.26"
+          python tests/test_screenjobs.py

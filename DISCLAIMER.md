@@ -72,6 +72,48 @@ of service and privacy policy. A saved watchlist is a personal organizational to
 it is **not** a recommendation, disclosed holding, or any form of investment advice, and
 carries no obligation on our part to notify you of anything about the markets you save.
 
+The same applies to **saved screens, watchlists, and screen alerts**. If you save them to
+your account, Supabase stores them alongside your email:
+- the filters and names you give them;
+- the items you add, with any notes;
+- the matches recorded for alerting.
+
+They are deleted when your account is deleted. Screens saved while signed out stay in
+your browser only. An alert is the output of a mechanical rule that re-runs your own
+filter on the latest data, and it can be late, missed, or wrong. A name entering or
+leaving a screen is **not** a signal to buy or sell, and nothing guarantees you will be
+alerted to anything.
+
+## Screener results and charts are filters, not picks
+
+A screen returns whatever rows meet **the conditions you set**, over data with the
+limitations above. Appearing in a result, a preset, or a watchlist is not a
+recommendation. Preset names ("Quality on sale", "Cheap + growing"…) describe the rule,
+not a judgement about any security.
+
+Stock-level screening and price charts are limited to the operator's own account while
+the price-data licence is reviewed. Charts shown to everyone else are TradingView's
+widget, with TradingView's data, displayed under TradingView's terms. We do not host or
+vouch for it.
+
+## The AI screen builder sends your sentence to third parties
+
+The AI screen builder turns a sentence you type into screen filters. For accounts where
+it is enabled, **the sentence you type is sent to third-party AI model providers** to be
+read:
+- Groq, then Ollama Cloud;
+- OpenRouter's free models, only if the operator enables them. Some of those providers
+  may log prompts.
+
+Each provider handles the sentence under its own terms. Nothing else about you is sent:
+not your email, account, watchlists or saved screens. **Do not type personal or
+confidential information into it.**
+
+The model only proposes filters. They are checked and shown to you as editable
+conditions before anything runs, and a built-in rule-based reader (which never leaves
+your browser) is used whenever AI is unavailable. Either reading can misunderstand you,
+so check the conditions before relying on the result.
+
 ## "How to invest" is route information, not advice or a recommendation
 
 Each market on the scoreboard is tracked via a **US-listed ETF proxy**, and the drawer

@@ -125,12 +125,13 @@ const Auth = (() => {
   // redirects back to this page's clean path (never location.href: a routed href
   // like /#/screener would collide with the token fragment, and Supabase matches the
   // whole URL against its redirect allowlist). The current route is kept in
-  // sessionStorage and restored after sign-in (consumeSavedRoute).
+  // localStorage for 30 minutes and restored after sign-in (consumeSavedRoute) —
+  // not sessionStorage, because mail clients usually open the link in a NEW tab.
   async function signInWithEmail(email) {
     if (!client) throw new Error('Sign-in is not configured on this deployment.');
     email = String(email || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new Error('Enter a valid email address.');
-    try { if (/^#\/[a-z]/.test(location.hash)) sessionStorage.setItem('giva_route', location.hash.slice(0, 4000)); } catch { /* storage blocked */ }
+    try { if (/^#\/[a-z]/.test(location.hash)) localStorage.setItem('giva_route', JSON.stringify({ r: location.hash.slice(0, 4000), t: Date.now() })); } catch { /* storage blocked */ }
     const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) throw error;
     authError = null;
@@ -140,7 +141,11 @@ const Auth = (() => {
   // plain app route ever comes back — never a token or error fragment.
   function consumeSavedRoute() {
     let r = null;
-    try { r = sessionStorage.getItem('giva_route'); sessionStorage.removeItem('giva_route'); } catch { return null; }
+    try {
+      const saved = JSON.parse(localStorage.getItem('giva_route') || 'null');
+      localStorage.removeItem('giva_route');
+      if (saved && typeof saved.r === 'string' && Date.now() - saved.t < 30 * 60 * 1000) r = saved.r;
+    } catch { return null; }
     return r && /^#\/(overview|screener|lists|alerts|stock|market)\b/.test(r) ? r : null;
   }
 

@@ -1,0 +1,47 @@
+{
+  "_comment": "Synthetic account for scripts/smoke_dashboard.js (ADR-037). A fictitious user (example.com placeholder) and fictitious tickers FXA..FXN (the rows of tests/fixtures/screen_stocks.json); fundamentals, screens and alerts are made up. Nothing here comes from real holdings, accounts or the owner's data.",
+  "user": { "id": "00000000-0000-4000-8000-00000000a001", "email": "owner@example.com" },
+  "snapshot_asof": "2026-10-13",
+  "calendar": { "start_date": "2024-10-07", "trading_days": 504 },
+  "fundamentals": {
+    "FXA": {
+      "period_end": ["2019-12-31", "2020-12-31", "2021-12-31", "2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31"],
+      "revenue": [1100000000, 1210000000, null, 1480000000, 1620000000, 1810000000, 2030000000],
+      "net_income": [90000000, -20000000, 110000000, 130000000, null, 165000000, 192000000],
+      "currency": "USD"
+    },
+    "FXC": {
+      "period_end": ["2021-12-31", "2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31"],
+      "revenue": [520000000, 560000000, 610000000, 640000000, 700000000],
+      "net_income": [61000000, 66000000, 70000000, 74000000, 81000000],
+      "currency": "USD"
+    }
+  },
+  "saved_screens": [
+    {
+      "id": "00000000-0000-4000-8000-00000000b001",
+      "name": "Cheap tech (fixture)",
+      "scope": "stocks",
+      "filter": { "v": 1, "scope": "stocks", "where": [{ "field": "sector", "op": "in", "value": ["Technology"] }, { "field": "value_score", "op": ">=", "value": 40 }], "sort": { "field": "value_score", "dir": "desc" }, "limit": 100, "include_flagged": false },
+      "alerts_enabled": true,
+      "last_evaluated_asof": "2026-10-12",
+      "created_at": "2026-10-01T08:00:00Z",
+      "updated_at": "2026-10-01T08:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000b002",
+      "name": "Cheap markets (fixture)",
+      "scope": "markets",
+      "filter": { "v": 1, "scope": "markets", "where": [{ "field": "value_score", "op": ">=", "value": 60 }], "sort": { "field": "value_score", "dir": "desc" }, "limit": 100, "include_flagged": false },
+      "alerts_enabled": true,
+      "last_evaluated_asof": "2026-10-12",
+      "created_at": "2026-10-02T08:00:00Z",
+      "updated_at": "2026-10-02T08:00:00Z"
+    }
+  ],
+  "screen_alerts": [
+    { "id": 11, "screen_id": "00000000-0000-4000-8000-00000000b001", "asof": "2026-10-12", "added": ["FXC"], "removed": ["FXH"], "n_added": 1, "n_removed": 1, "hidden_data_issue": ["FXG"], "seen": false, "created_at": "2026-10-12T22:00:00Z" },
+    { "id": 12, "screen_id": "00000000-0000-4000-8000-00000000b002", "asof": "2026-10-12", "added": ["fx_alpha"], "removed": [], "n_added": 1, "n_removed": 0, "hidden_data_issue": [], "seen": false, "created_at": "2026-10-12T09:00:00Z" },
+    { "id": 10, "screen_id": "00000000-0000-4000-8000-00000000b001", "asof": "2026-10-09", "added": ["FXA"], "removed": [], "n_added": 1, "n_removed": 0, "hidden_data_issue": [], "seen": true, "created_at": "2026-10-09T22:00:00Z" }
+  ]
+}

@@ -8,6 +8,72 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-14 — TradingView-style screener, AI screen builder, charts, watchlists, alerts
+
+**Asked:** "ensure some key features of trader view is available… ensure filters and
+screeners can be created by user using ai chat". The user chose: screener + AI chat,
+price charts, watchlists and alerts on saved screens, with a Vercel function on free
+models. A login-based "My portfolio" was also asked for and is split out as PR 2. Built
+PR 1 (ADR-037, user guide [SCREENER.md](SCREENER.md)):
+- one filter language for browser, Vercel function and Python job, with parity vectors
+  in a new CI workflow;
+- migration 0015 (9 tables, trusted gate, quota);
+- the daily/weekly screen jobs;
+- `api/screen-builder.js`;
+- the Screener / Watchlists / Alerts tabs, stock drawer and charts.
+
+**Learned (from an adversarial design review before any code, then the build):**
+- **The licensing premise was false.** The spec assumed raw Massive bars were never
+  public. In fact:
+  - the `tierb-store` release asset and the weekly Actions artifact tar the whole Tier B
+    store, `prices/` included, on a public repo;
+  - `dashboard_data.json` already publishes price/P/E/market cap for 305 stocks.
+
+  ADR-037 says so plainly, gates only the new surfaces, and leaves the fix to the owner
+  (STATUS 00.e). Writing the ADR as originally specced would have recorded a false
+  compliance claim.
+- **"Signed in" means "anyone".** Magic-link signup is open, so an untrusted user's saved
+  stock screen plus the owner-run alert job would have been an oracle over the gated
+  universe. Fixed in two places: RLS `with check` on stocks screens, and a trust re-check
+  at run time.
+- **Supabase default privileges grant ALL on new tables.** A `grant update (seen)`
+  alone doesn't restrict anything. Every new table runs `revoke all` first and then
+  gets exact grants.
+- **Exception text leaks.** psycopg's `DETAIL: Failing row contains (…)` carries user
+  ids and tickers, and the pipeline report is a public artifact. Screen jobs record
+  class + SQLSTATE only, with a test.
+- **The screener's `data_ok` had to be the picks rules exactly.** The spec's version
+  differed on short history, NULL currency/country and overlapping counts.
+  `picks.exclusion_reasons()` was extracted with golden-tested output identical to
+  before.
+- **Chart fundamentals** come from `growthhistory.annual_series()`, not raw FY rows
+  (ADR-035's year-vs-quarter trap). The long-average line is horizontal over its real
+  window, not a rolling line (ADR-036 honesty).
+- **Coverage guard.** A P/E coverage floor of 0.8 would block every healthy day: P/E
+  coverage is only ~0.64 because loss-makers have none. The guard uses price+market-cap
+  coverage (≥0.8, ~0.91 healthy) and compares P/E coverage run-over-run.
+- **Measured on a local Tier B copy:**
+  - snapshot projection: 3,120 rows in 0.9 s, 0.9 MB payload;
+  - chart cache: ~7.5 MB projected (25 MB budget), ~22 s.
+
+**Verified:**
+- Node DSL suite and Python parity suite.
+- `test_screen_builder.js` with a stubbed fetch.
+- `test_screenjobs.py`, including picks before/after equality.
+- 70 RLS assertions on a throwaway Postgres 16 with a Supabase stub.
+
+**Not verified live:** no real Supabase branch, no deployed function, no production run.
+
+**Open:**
+- Owner actions in STATUS 00. (a)–(d): Vercel keys (separate, Production-only), Auth
+  settings, admin function redeploy, the first-run check.
+- Decisions in STATUS 00. (e)–(g): the pre-existing Massive exposure, the derived-data
+  terms review, PR 2 My portfolio.
+- Parser gaps: stock region words; "5-year average P/E".
+- Alert delivery beyond the app.
+
+---
+
 ## 2026-10-07 (later) — "on sale" now vs the 5-year average price
 
 User asked for a 5-year average instead of 52 weeks (ADR-036).
