@@ -64,9 +64,15 @@ async function authorize(req: Request): Promise<string | null> {
   if (error || !email) return null;
   // Re-checked per request, not cached — revoking an admin must take effect now,
   // not whenever a session happens to expire.
-  const { data: row } = await admin
-    .from("admins").select("email").ilike("email", email).maybeSingle();
-  return row ? email : null;
+  // Exact, case-insensitive equality — the same rule as SQL is_admin(). `ilike`
+  // made the CALLER's address a pattern: `_` is a wildcard (and legal in an
+  // email), so a sign-up as "first_last@x.com" matched admin "first.last@x.com".
+  // The table is a handful of rows, so compare in code rather than assume every
+  // stored address is lowercase.
+  const want = email.toLowerCase();
+  const { data: rows } = await admin.from("admins").select("email");
+  const isAdmin = (rows ?? []).some((r) => String(r.email).toLowerCase() === want);
+  return isAdmin ? email : null;
 }
 
 async function logEvent(
