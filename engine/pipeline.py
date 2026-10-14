@@ -249,6 +249,20 @@ def run(asof: str | None = None, use_cache: bool = True, with_llm: bool = True,
     payload = _clean(payload)
     DASHBOARD_JSON.write_text(json.dumps(payload, indent=2))
     print(f"   wrote {DASHBOARD_JSON}  ({len(scoreboard)} markets, {len(insights)} insights)")
+
+    # 6. Alerts on saved MARKET screens (ADR-037, engine/screenjobs.py) — evaluated
+    # over the exact rows just written, so an alert never names a market the
+    # screener (running over this same public scoreboard) wouldn't show. Weekly, as
+    # this refresh is; stock screens are the daily data pipeline's. Best-effort, and
+    # errors are class + SQLSTATE only (str(e) from per-user tables carries user ids;
+    # Actions logs are public).
+    if db.have_db():
+        try:
+            from . import screenjobs
+            print(f"   market screen alerts: "
+                  f"{screenjobs.run_market_alerts(payload['scoreboard'], asof)}")
+        except Exception as e:  # noqa: BLE001
+            print(f"   WARNING: market screen alerts failed: {type(e).__name__}")
     return payload
 
 

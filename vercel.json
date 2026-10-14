@@ -5,11 +5,25 @@
   "installCommand": null,
   "outputDirectory": "dashboard",
   "cleanUrls": true,
+  "functions": {
+    "api/screen-builder.js": {
+      "maxDuration": 30,
+      "includeFiles": "dashboard/screen_fields.json"
+    }
+  },
   "headers": [
     {
       "source": "/dashboard_data.json",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" }
       ]
     }
   ]

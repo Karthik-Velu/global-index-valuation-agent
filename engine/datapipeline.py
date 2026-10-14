@@ -12,6 +12,7 @@ job rather than separate cron jobs:
   4. validate catalog     — check XBRL metric mappings; auto-fix mis-mapped tags
   5. data-quality checks  — raise warnings to data_quality_issues
   6. recalibration check  — is a re-backtest needed given corrections since last one?
+  7b. screener jobs       — stock snapshot, saved-screen alerts, chart cache (ADR-037)
 
 The LLM "agents" (source discovery, sector-KPI research, analyst/strategist) are
 SEPARATE and infrequent — they improve these jobs rather than run inside them. See
@@ -91,6 +92,9 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         full_ingest: bool = False) -> dict:
     print("== Data pipeline (job) ==")
     steps: dict = {}
+    # Run-start clock: the screens step (7b) is skipped once the run is this far in,
+    # so it can never push a slow day into the 360-min Actions limit.
+    t_start = time.monotonic()
 
     # 0. Apply any pending schema migrations before anything below depends on them.
     if db.have_db():
@@ -254,6 +258,24 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         print("   agents: requested but no model configured (Ollama not running / no key)")
     else:
         steps["agents"] = {"active": False, "note": "not requested (run with --agents)"}
+
+    # 7b. Screener jobs (ADR-037, engine/screenjobs.py): stock snapshot for the
+    #     Screener, alerts on saved stock screens, close-only chart cache. AFTER the
+    #     agents so a slow day can never starve them; skipped on full-sweep days, past
+    #     SCREENS_MAX_ELAPSED_MIN, without Tier B prices, or on a low-coverage frame
+    #     (a price outage must not publish a hollow snapshot / mass "removed" alerts).
+    #     Not reached when steps 4-6 raise (they aren't try-wrapped) — acceptable:
+    #     a missed day costs nothing, tomorrow's run catches up. Kill-switch
+    #     SCREENS_DAILY=0. Errors are recorded as class + SQLSTATE ONLY: str(e) from
+    #     saved_screens/screen_alerts carries user ids and tickers, and this report
+    #     is a public Actions artifact.
+    try:
+        from . import screenjobs
+        steps["screens"] = screenjobs.run_daily(date.today().isoformat(),
+                                                full_ingest=full_ingest, t_start=t_start)
+    except Exception as e:  # noqa: BLE001 — never break the pipeline, never log str(e)
+        steps["screens"] = {"error": type(e).__name__, "sqlstate": getattr(e, "sqlstate", None)}
+    print(f"   screens: {steps['screens']}", flush=True)
 
     # 8. Semantic-memory lifecycle (deterministic): consolidate freshly captured
     #    candidates to 'active', then decay/retire stale ones. Runs after the agents
