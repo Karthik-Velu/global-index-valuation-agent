@@ -56,6 +56,7 @@ from . import db, screens
 COVERAGE_MIN = 0.8          # share of rows with a price AND a market cap (~0.91 healthy)
 PE_COVERAGE_KEEP = 0.8      # pe coverage must stay >= this x the previous snapshot's
 SHRINK_MIN = 0.9            # rows (and an alert's universe) vs the previous run
+GUARD_HOLD_DAYS = 4         # a relative drop that persists longer than this is the new level
 MARKET_PE_MIN = 0.8         # weekly market alerts: share of scoreboard rows with a P/E
 ALERT_CAP = 50              # tickers stored per added/removed list (true counts kept)
 ALERT_RETENTION_DAYS = 120
@@ -184,24 +185,41 @@ def coverage(rows: list[dict]) -> dict:
 
 
 def previous_snapshot(conn) -> dict | None:
-    """{'rows': n, 'coverage': {...}|None} of the stored stock snapshot, or None."""
+    """{'rows': n, 'coverage': {...}|None, 'asof': date|None} of the stored stock
+    snapshot, or None."""
     with conn.cursor() as cur:
-        cur.execute("select jsonb_array_length(payload->'rows'), payload->'coverage' "
+        cur.execute("select jsonb_array_length(payload->'rows'), payload->'coverage', asof "
                     "from public.screener_snapshots where scope = 'stocks'")
         r = cur.fetchone()
     if not r:
         return None
-    return {"rows": int(r[0] or 0), "coverage": r[1] if isinstance(r[1], dict) else None}
+    return {"rows": int(r[0] or 0), "coverage": r[1] if isinstance(r[1], dict) else None,
+            "asof": r[2] if len(r) > 2 else None}
 
 
-def coverage_guard(rows: list[dict], prev: dict | None) -> dict | None:
-    """None when it's safe to publish, else the steps['screens'] skip record."""
+def _stale(prev_asof, asof) -> bool:
+    """True when the comparison point is older than GUARD_HOLD_DAYS — i.e. the guard
+    has been holding for days, so the drop is the new level, not an outage."""
+    if prev_asof is None or asof is None:
+        return False
+    return (_as_date(asof) - _as_date(prev_asof)).days > GUARD_HOLD_DAYS
+
+
+def coverage_guard(rows: list[dict], prev: dict | None, asof=None) -> dict | None:
+    """None when it's safe to publish, else the steps['screens'] skip record.
+
+    The absolute price-coverage floor always holds (that is an outage). The relative
+    checks against the previous snapshot expire after GUARD_HOLD_DAYS: a lasting,
+    legitimate change (universe pruned, a concept re-mapped) would otherwise freeze
+    the snapshot, alerts and chart cache at the last good day forever."""
     cov = coverage(rows)
     prev_n = (prev or {}).get("rows") or 0
     prev_pe = ((prev or {}).get("coverage") or {}).get("pe")
+    relative = not _stale((prev or {}).get("asof"), asof)
     bad = (cov["price_mcap"] < COVERAGE_MIN
-           or (prev_n and len(rows) < SHRINK_MIN * prev_n)
-           or (isinstance(prev_pe, (int, float)) and cov["pe"] < PE_COVERAGE_KEEP * prev_pe))
+           or (relative and prev_n and len(rows) < SHRINK_MIN * prev_n)
+           or (relative and isinstance(prev_pe, (int, float))
+               and cov["pe"] < PE_COVERAGE_KEEP * prev_pe))
     if not bad:
         return None
     return {"skipped": "low_coverage", "coverage": cov["price_mcap"], "pe_coverage": cov["pe"],
@@ -414,9 +432,12 @@ def run_alerts(conn, scope: str, rows: list[dict], asof) -> dict:
         if last_asof is not None and _as_date(last_asof) == asof_d:
             st["skipped_same_asof"] += 1
             continue
+        rebaseline = False
         if univ_n and n_univ < SHRINK_MIN * univ_n:
-            st["skipped_shrunk"] += 1
-            continue
+            if not _stale(last_asof, asof_d):
+                st["skipped_shrunk"] += 1
+                continue
+            rebaseline = True       # shrunk for days: accept the new universe, no alert
         try:
             res = screens.validate(flt, scope)
             if not res["ok"]:
@@ -426,7 +447,7 @@ def run_alerts(conn, scope: str, rows: list[dict], asof) -> dict:
             now = set(screens.matching_keys(fl, rows))
             where_only = now if fl.get("include_flagged") else \
                 set(screens.matching_keys(dict(fl, include_flagged=True), rows))
-            baseline = not (isinstance(last, list) and all(isinstance(k, str) for k in last))
+            baseline = rebaseline or not (isinstance(last, list) and all(isinstance(k, str) for k in last))
             with conn.transaction():
                 with conn.cursor() as cur:
                     # Guarded on the filter we evaluated: if the user edited the screen
@@ -556,7 +577,7 @@ def _run_daily(asof, full_ingest: bool, t_start: float | None) -> dict:
     if info["enum_drift"]:
         out["enum_drift"] = info["enum_drift"]
     with db.connect() as conn:
-        guard = coverage_guard(rows, previous_snapshot(conn))
+        guard = coverage_guard(rows, previous_snapshot(conn), asof)
         conn.rollback()     # end the read transaction; each step below commits its own
         if guard:
             out.update(guard)

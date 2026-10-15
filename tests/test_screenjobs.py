@@ -394,9 +394,21 @@ def test_publish_stock_snapshot_payload():
     assert set(payload["coverage"]) == {"price_mcap", "pe"}
 
 
+def test_coverage_guard_expires():
+    # A lasting >10% shrink is held for GUARD_HOLD_DAYS, then accepted as the new level;
+    # the absolute price-coverage floor never expires.
+    prev = {"rows": 120, "coverage": {"pe": 0.64}, "asof": date(2026, 10, 1)}
+    healthy = _cov_rows(100, 92, 0.64)
+    assert screenjobs.coverage_guard(healthy, prev, "2026-10-03") is not None
+    assert screenjobs.coverage_guard(healthy, prev, "2026-10-09") is None
+    assert screenjobs.coverage_guard(_cov_rows(100, 10), prev, "2026-10-30") is not None
+
+
 def test_previous_snapshot():
-    conn = FakeConn([("from public.screener_snapshots", lambda p: ([(3100, {"pe": 0.6})], 1))])
-    assert screenjobs.previous_snapshot(conn) == {"rows": 3100, "coverage": {"pe": 0.6}}
+    conn = FakeConn([("from public.screener_snapshots",
+                      lambda p: ([(3100, {"pe": 0.6}, date(2026, 10, 13))], 1))])
+    assert screenjobs.previous_snapshot(conn) == {"rows": 3100, "coverage": {"pe": 0.6},
+                                                  "asof": date(2026, 10, 13)}
     assert screenjobs.previous_snapshot(FakeConn([("screener_snapshots", lambda p: ([], 0))])) is None
 
 
@@ -466,7 +478,7 @@ def test_run_alerts_skips_and_caps():
     rows = [{"ticker": f"FX{i:03d}", "pe": 5.0, "data_ok": True} for i in range(120)]
     screens_rows = [
         ("s-sameday", "u", _flt(), ["FX000"], date(2026, 10, 14), 120, True),
-        ("s-shrunk", "u", _flt(), ["FX000"], date(2026, 10, 1), 200, True),
+        ("s-shrunk", "u", _flt(), ["FX000"], date(2026, 10, 13), 200, True),
         ("s-invalid", "u", _flt(where=[{"field": "__proto__", "op": "<", "value": 1}]),
          ["FX000"], None, None, True),
         ("s-cap", "u", _flt(), ["GONE%03d" % i for i in range(70)], date(2026, 10, 13), 120, True),
@@ -478,6 +490,16 @@ def test_run_alerts_skips_and_caps():
     assert st["alerts"] == 1 and st["baselines"] == 1     # corrupt last_matches -> new baseline
     (_, _, p), = conn.calls("insert into public.screen_alerts")
     assert len(p[3]) == 50 and p[5] == 120 and len(p[4]) == 50 and p[6] == 70
+
+
+def test_run_alerts_shrunk_for_days_rebaselines():
+    """A universe that stays >10% smaller past GUARD_HOLD_DAYS is the new level: the
+    screen is re-baselined (no alert) instead of being skipped forever."""
+    rows = [{"ticker": f"FX{i:03d}", "pe": 5.0, "data_ok": True} for i in range(120)]
+    conn = _alert_conn([("s-old", "u", _flt(), ["GONE"], date(2026, 10, 1), 200, True)])
+    st = screenjobs.run_alerts(conn, "stocks", rows, ASOF)
+    assert st["skipped_shrunk"] == 0 and st["baselines"] == 1 and st["alerts"] == 0
+    assert not conn.calls("insert into public.screen_alerts")
 
 
 def test_run_alerts_screen_edited_meanwhile():

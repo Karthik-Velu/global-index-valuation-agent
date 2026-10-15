@@ -386,7 +386,8 @@ create policy "chart_series: trusted read" on public.chart_series
 
 -- ---------------------------------------------------------------------------
 -- AI screen builder quota. The Vercel function calls ai_quota_take() with the
--- caller's own token before any LLM call; false (or any error) means it falls
+-- caller's own token before any LLM call; untrusted callers always get false
+-- and never touch a counter. False (or any error) means it falls
 -- back to the deterministic rules parser. Two counters per UTC day: the
 -- caller's, and a global one (the nil uuid) so N throwaway accounts cannot buy
 -- N x the free-tier budget. Limits live here, server-side — never a parameter
@@ -429,6 +430,12 @@ declare
 begin
   if uid is null or uid = nil
      or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+    return false;
+  end if;
+  -- Only trusted accounts may spend the shared budget. Signup is open, so without
+  -- this any signed-in account could call this RPC directly (PostgREST) and drain
+  -- the global counter, switching the AI builder off for the owner.
+  if not public.is_trusted() then
     return false;
   end if;
 

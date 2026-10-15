@@ -322,13 +322,17 @@ update public.ai_config set per_user_daily = 2, global_daily = 3;
 delete from public.ai_usage;
 
 select pg_temp.become('authenticated', '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}');
-select pg_temp.expect(public.ai_quota_take(), 'quota: U call 1 granted');
-select pg_temp.expect(public.ai_quota_take(), 'quota: U call 2 granted');
-select pg_temp.expect(not public.ai_quota_take(), 'quota: U call 3 refused (per-user cap)');
+select pg_temp.expect(not public.ai_quota_take(), 'quota: untrusted U refused (cannot drain the shared budget)');
+select pg_temp.expect(not public.ai_quota_take(), 'quota: untrusted U refused again');
 
 select pg_temp.become('authenticated', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}');
-select pg_temp.expect(public.ai_quota_take(), 'quota: T call 1 granted (global now 3)');
-select pg_temp.expect(not public.ai_quota_take(), 'quota: T call 2 refused (global cap)');
+select pg_temp.expect(public.ai_quota_take(), 'quota: T call 1 granted');
+select pg_temp.expect(public.ai_quota_take(), 'quota: T call 2 granted');
+select pg_temp.expect(not public.ai_quota_take(), 'quota: T call 3 refused (per-user cap)');
+
+select pg_temp.become('authenticated', '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}');
+select pg_temp.expect(public.ai_quota_take(), 'quota: A call 1 granted (global now 3)');
+select pg_temp.expect(not public.ai_quota_take(), 'quota: A call 2 refused (global cap)');
 
 select pg_temp.become('authenticated', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","is_anonymous":true}');
 select pg_temp.expect(not public.ai_quota_take(), 'quota: anonymous session refused');
@@ -337,11 +341,14 @@ select pg_temp.expect(not public.ai_quota_take(), 'quota: no sub claim refused')
 
 select pg_temp.become('postgres', null);
 select pg_temp.expect(
-  (select n from public.ai_usage where user_id = '22222222-2222-4222-8222-222222222222') = 2,
-  'quota: refused calls are not counted (U stays at 2)');
+  not exists (select 1 from public.ai_usage where user_id = '22222222-2222-4222-8222-222222222222'),
+  'quota: untrusted calls never touch a counter');
 select pg_temp.expect(
-  (select n from public.ai_usage where user_id = '11111111-1111-4111-8111-111111111111') = 1,
-  'quota: a global refusal hands the caller''s unit back (T stays at 1)');
+  (select n from public.ai_usage where user_id = '11111111-1111-4111-8111-111111111111') = 2,
+  'quota: refused calls are not counted (T stays at 2)');
+select pg_temp.expect(
+  (select n from public.ai_usage where user_id = '55555555-5555-4555-8555-555555555555') = 1,
+  'quota: a global refusal hands the caller''s unit back (A stays at 1)');
 select pg_temp.expect(
   (select n from public.ai_usage where user_id = '00000000-0000-0000-0000-000000000000') = 3,
   'quota: global counter = granted calls only');
