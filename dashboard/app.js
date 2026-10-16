@@ -105,11 +105,22 @@ async function load() {
 // repeated refreshes don't accumulate duplicate listeners. A token refresh fires
 // this about hourly: it redraws only the header and the drawer's money/star parts,
 // never the chart (which would lose zoom and leak the chart instance).
+let lastAuthUid = null;
 Auth.onChange(() => {
+  const uid = Auth.currentUser()?.id || null;
+  const userChanged = uid !== lastAuthUid;
+  lastAuthUid = uid;
   renderAuthUI(); renderViewTabs(); refreshDrawerParts(); refreshAlertsBadge();
   SYMBOLS.map = new Map(); SYMBOLS.trustedLoaded = false;   // owner tickers follow the user
+  if (userChanged) buildSymbolList();     // drop the previous user's suggestions from the DOM now
+  // A different user (sign-in, sign-out) may not see the same chart: an owner-only price
+  // series must not stay mounted after sign-out. A token refresh (same user) keeps it.
+  if (userChanged && STATE.drawer?.kind === 'stock') mountChart(stockChartSpec(STATE.drawer.key, STATE.drawerRow));
+  // Consume the saved route only when the router can apply it; startRouter() picks it up
+  // otherwise (sign-in callbacks often fire before the router has started).
+  if (!ROUTER.started) return;
   const saved = Auth.currentUser() ? Auth.consumeSavedRoute() : null;
-  if (saved && ROUTER.started && saved !== location.hash) location.hash = saved;
+  if (saved && saved !== location.hash) location.hash = saved;
 });
 
 // ---- module hook + router (ADR-037) ----
@@ -337,9 +348,13 @@ function renderAuthUI() {
 function showSignin(on, { focus = true } = {}) {
   const panel = $('#signinPanel');
   if (!panel) return;
+  // The panel sits top-right, exactly under the drawer and its scrim: close the drawer
+  // first (e.g. "Sign in" from the star picker inside it) so the form is reachable.
+  if (on && STATE.drawer) closeDrawer();
   panel.hidden = !on;
   if (on) {
     $('#signinForm').hidden = false;
+    try { panel.scrollIntoView({ block: 'nearest' }); } catch { /* old browsers */ }
     if (focus) $('#signinEmail').focus();
   }
 }
@@ -1236,9 +1251,10 @@ function resolveSymbol(text) {
     if (SYMBOLS.trustedLoaded || !Auth.available() || !Auth.currentUser()) return;
     SYMBOLS.trustedLoaded = true;
     try {
-      if (!(await Auth.isTrusted())) return;
+      if (!(await Auth.isTrusted())) { if (Auth.trustUnknown?.()) SYMBOLS.trustedLoaded = false; return; }
       const snap = await Auth.stockSnapshot();
       if (snap?.records) buildSymbolList(snap.records.map(r => [r.ticker, r.name]));
+      else SYMBOLS.trustedLoaded = false;      // not published yet / failed: retry on next focus
     } catch { SYMBOLS.trustedLoaded = false; }
   });
 })();
@@ -1257,7 +1273,14 @@ function scoreboardFilter() {
   if (band === 'Cheap') where.push({ field: 'value_score', op: '>', value: 66 });
   if (band === 'Fair') where.push({ field: 'value_score', op: '>', value: 33 }, { field: 'value_score', op: '<=', value: 66 });
   if (band === 'Expensive') where.push({ field: 'value_score', op: '<=', value: 33 });
-  if (q) where.push({ field: 'name', op: 'contains', value: q.slice(0, 80) });
+  if (q) {
+    // The scoreboard search matches name OR country; the DSL has no OR, so when the
+    // country half adds rows, carry the exact set of matching markets instead.
+    const ql = q.toLowerCase();
+    const hits = focusedRows().filter(m => m.name.toLowerCase().includes(ql) || (m.country || '').toLowerCase().includes(ql));
+    if (hits.every(m => m.name.toLowerCase().includes(ql))) where.push({ field: 'name', op: 'contains', value: q.slice(0, 80) });
+    else where.push({ field: 'key', op: 'in', value: hits.map(m => m.key).slice(0, 500) });
+  }
   const { key, dir } = STATE.sort;
   const sortable = typeof ScreenDSL !== 'undefined' && ScreenDSL.isReady?.() ? !!ScreenDSL.field(key) : key !== 'flags';
   return { v: 1, scope: 'markets', where, sort: sortable && key !== 'flags' ? { field: key, dir: dir < 0 ? 'desc' : 'asc' } : null,

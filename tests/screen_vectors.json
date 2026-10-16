@@ -478,7 +478,15 @@
      "filter": {"scope": "stocks", "where": [{"field": "discount_long", "op": "<=", "value": -0.1}, {"field": "rev_cagr", "op": ">", "value": 0}]},
      "current": {"scope": "stocks", "where": [{"field": "discount_long", "op": "<=", "value": -0.1}]}, "ok": true},
     {"name": "compounders count as growth", "sentence": "steady compounders",
-     "filter": {"scope": "stocks", "where": [{"field": "steady_compounder", "op": "is_true"}]}, "ok": true}
+     "filter": {"scope": "stocks", "where": [{"field": "steady_compounder", "op": "is_true"}]}, "ok": true},
+    {"name": "strategy tag turning_up cannot stand in for growth", "sentence": "growing companies",
+     "filter": {"scope": "stocks", "where": [{"field": "rev_cagr", "op": ">", "value": 0}, {"field": "strategies", "op": "contains", "value": "turning_up"}]}, "ok": false},
+    {"name": "negated momentum is not permission for a price signal", "sentence": "stocks growing revenue, ignore momentum",
+     "filter": {"scope": "stocks", "where": [{"field": "rev_cagr", "op": ">", "value": 0}, {"field": "turning_up", "op": "is_true"}]}, "ok": false},
+    {"name": "'not momentum plays' does not license value_trap", "sentence": "growing companies, not momentum plays",
+     "filter": {"scope": "stocks", "where": [{"field": "rev_cagr", "op": ">", "value": 0}, {"field": "value_trap", "op": "is_false"}]}, "ok": false},
+    {"name": "momentum named outright still licenses turning_up", "sentence": "growing stocks with momentum turning up",
+     "filter": {"scope": "stocks", "where": [{"field": "rev_cagr", "op": ">", "value": 0}, {"field": "turning_up", "op": "is_true"}]}, "ok": true}
   ],
 
   "describe": [

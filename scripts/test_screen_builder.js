@@ -367,6 +367,19 @@ async function main() {
   ok(r.json.source.startsWith('groq') && r.json.filter.scope === 'markets', 'markets scope success', JSON.stringify(r.json));
   ok(JSON.parse(r.calls[3].init.body).messages[0].content.includes('markets screen'), 'markets prompt used');
 
+  // --- rules notes survive an AI answer (review fix) -------------------------------------------
+  r = await run({ body: { sentence: 'stocks trading below their 5-year average', scope: 'stocks' } },
+    happy({ groq: modelSays({ filter: { where: [{ field: 'discount_long', op: '<', value: 0 }] } }) }));
+  ok(r.json.source.startsWith('groq') && r.json.filter.where.some(c => c.field === 'long_avg_years'), 'AI filter keeps the 5-year qualifier', JSON.stringify(r.json));
+  ok(r.json.notes.some(n => /5-year averages exist only for markets/.test(n)), 'AI answer carries the rules notes (5-year warning)', JSON.stringify(r.json.notes));
+
+  // --- a screen holding a user-built ticker list never reaches a model (review fix) -------------
+  const listCur = { v: 1, scope: 'stocks', where: [{ field: 'ticker', op: 'in', value: ['FXA', 'FXB', 'FXC'] }] };
+  r = await run({ body: { sentence: 'only the cheap ones', scope: 'stocks', current: listCur } }, happy({ groq: modelSays(goodTech) }));
+  ok(r.json.source === 'rules' && r.json.note === I.NOTE.privateList, 'ticker-list screen -> rules, private-list note', JSON.stringify(r.json));
+  ok(!r.calls.some(c => /rpc\/ai_quota_take|groq|ollama|openrouter/.test(c.url)), 'ticker-list screen spends no quota and calls no provider', r.calls.map(c => c.url).join(' '));
+  ok(r.json.filter.where.some(c => c.field === 'ticker' && c.op === 'in'), 'rules refine keeps the ticker list');
+
   // --- logs: status codes + provider only ------------------------------------------------------
   r = await run({ body: { sentence: `tech stocks ${SECRET_SENTENCE_MARK}`, scope: 'stocks' } }, happy({ groq: chat('bad'), ollamacloud: modelSays(goodTech) }));
   const logText = r.logs.join('\n');

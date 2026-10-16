@@ -460,16 +460,27 @@
     if (!v.ok) return { ok: false, reason: 'The screen is not valid.' };
     const fl = v.filter;
     const used = fl.where.map(c => c.field).concat(fl.sort ? [fl.sort.field] : []);
+    // `strategies contains turning_up` is the turning_up signal by another route: a
+    // strategy tag that names a field counts as using that field.
+    for (const c of fl.where) {
+      if (c.op === 'contains' && FIELDS.get(c.field).list && typeof c.value === 'string') {
+        const tag = c.value.toLowerCase().replace(/[\s-]+/g, '_');
+        if (FIELDS.has(tag)) used.push(tag);
+      }
+    }
     if (!used.some(k => FIELDS.get(k).growth)) {
       return { ok: false, reason: 'The sentence asks for growth but the screen has no fundamental growth field (revenue or earnings record).' };
     }
     const cv = current ? validate(current) : { ok: false };
     const prior = new Set(cv.ok ? cv.filter.where.map(c => c.field).concat(cv.filter.sort ? [cv.filter.sort.field] : []) : []);
+    // A negated price word ("ignore momentum", "not returns") is not permission to use
+    // the price signal it names.
+    const sp = s.replace(/\b(?:remove|drop|delete|clear|without|no|not|ignore|forget|excluding|exclude|never|avoid)\s+(?:the\s+|any\s+)?(?:\w+\s+)?(?:momentum|returns?|gains?|price\w*|rebound\w*|turning\w*|discount\w*|on\s+sale|average|opportunity)/g, ' ');
     for (const k of used) {
       const f = FIELDS.get(k);
       if (!f.price_signal || prior.has(k)) continue;
       const lex = (f.lexemes || []).concat(f.synonyms || []);
-      if (!lex.some(x => s.includes(x.toLowerCase()))) {
+      if (!lex.some(x => sp.includes(x.toLowerCase()))) {
         return { ok: false, reason: `${f.short} moves with the share price, so it can't stand in for growth (growth means revenue and earnings).` };
       }
     }

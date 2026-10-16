@@ -105,9 +105,12 @@ read:
 - OpenRouter's free models, only if the operator enables them. Some of those providers
   may log prompts.
 
-Each provider handles the sentence under its own terms. Nothing else about you is sent:
-not your email, account, watchlists or saved screens. **Do not type personal or
-confidential information into it.**
+Each provider handles the request under its own terms. What is sent is the sentence and,
+when you are refining a screen, that screen's conditions (fields, operators, numbers,
+sector/country names). A screen that holds a ticker list you built (for example a
+watchlist opened in the screener) is never sent: it is refined by the built-in rules
+only. Nothing else about you is sent: not your email, account, other watchlists or other
+saved screens. **Do not type personal or confidential information into it.**
 
 The model only proposes filters. They are checked and shown to you as editable
 conditions before anything runs, and a built-in rule-based reader (which never leaves

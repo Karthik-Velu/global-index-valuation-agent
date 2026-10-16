@@ -124,7 +124,7 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
      Both are a tarball of the whole Tier B store, so they include raw Massive daily
      bars (`prices/`). The public `dashboard_data.json` `stock_breakdown`
-     (305 stocks / 70 markets) and `top_picks` carry Massive-derived price, P/E,
+     (305 rows = 179 distinct stocks, across 70 markets) and `top_picks` carry Massive-derived price, P/E,
      market cap and `ret_12m`. Changing any of these breaks Tier B hydration or the
      public picks, so it needs the owner's decision (STATUS "00."). This PR does not
      touch the bundle, the release, the artifacts, `stock_breakdown` or `top_picks`.

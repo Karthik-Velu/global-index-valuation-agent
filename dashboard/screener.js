@@ -43,7 +43,11 @@ const Screener = (() => {
     'daily AI limit reached': 'rules · daily AI limit reached',
     'AI is not configured on this deployment': 'rules · AI not configured',
     "AI couldn't read that sentence; showing the rule-based reading": "rules · AI couldn't read it",
+    'Screens holding a ticker list are refined by rules, so the list never leaves this site': 'rules · ticker lists stay on this site',
   };
+
+  // Conditions carrying a user-built list (mirrors api/screen-builder.js LIST_FIELDS).
+  const LIST_FIELDS = new Set(['ticker', 'key', 'name', 'symbol']);
 
   // Fixed notes the screen-builder may attach to an AI answer (api/screen-builder.js NOTE).
   const SERVER_NOTES = new Set(['Started a new screen: the current one is not valid for this scope.']);
@@ -119,15 +123,20 @@ const Screener = (() => {
     S.trusted = trusted;
     if (uid !== S.uid) return;
     if (!trusted) {
-      S.stocks = { state: a.lastError && a.lastError.notAvailable ? 'unavailable' : 'untrusted', snap: null, msg: '' };
+      // A failed check (network blip, 5xx, timeout) is "try again", not "not the owner".
+      const state = a.lastError && a.lastError.notAvailable ? 'unavailable'
+        : (a.trustUnknown && a.trustUnknown() ? 'error' : 'untrusted');
+      S.stocks = { state, snap: null, msg: '' };
       renderMain(); return;
     }
     let snap = null;
     try { snap = await a.stockSnapshot(); } catch { snap = null; }
     if (uid !== S.uid) return;
     if (snap && Array.isArray(snap.records)) S.stocks = { state: 'ready', snap, msg: '' };
-    else if (a.lastError && a.lastError.notAvailable) S.stocks = { state: 'unavailable', snap: null, msg: '' };
-    else S.stocks = { state: snap ? 'unavailable' : 'error', snap: null, msg: '' };
+    // No row yet (table there, first daily run not done or skipped) = not available yet;
+    // only a failed request is an error.
+    else if (a.lastError && !a.lastError.notAvailable) S.stocks = { state: 'error', snap: null, msg: '' };
+    else S.stocks = { state: 'unavailable', snap: null, msg: '' };
     renderHead(); renderMain(); renderThread();
   }
 
@@ -313,7 +322,7 @@ const Screener = (() => {
     const el = document.getElementById('scr-ai-note');
     if (!el) return;
     const a = auth();
-    if (signedIn() && S.trusted) el.textContent = "Your sentence is sent to a third-party AI model (Groq/Ollama); don't include personal details. Built-in rules answer instantly while it thinks.";
+    if (signedIn() && S.trusted) el.textContent = "Your sentence (and the current screen's conditions, never a ticker list you built) is sent to a third-party AI model (Groq/Ollama); don't include personal details. Built-in rules answer instantly while it thinks.";
     else if (signedIn()) el.textContent = 'Built-in rules read your sentence in this browser. AI reading is limited to approved accounts.';
     else if (a && a.available()) el.textContent = 'Built-in rules read your sentence in this browser — sign in for AI.';
     else el.textContent = 'Built-in rules read your sentence in this browser.';
@@ -446,11 +455,18 @@ const Screener = (() => {
     try {
       const token = await a.accessToken();
       if (!token) { turn.badge = 'rules · sign in again for AI'; return; }
-      // The server rejects bodies over 2 KB; columns are display-only, so leave them out.
+      // Columns are display-only, so leave them out. A screen holding a list the user
+      // built (e.g. a watchlist opened here) is never sent to a third-party model, and a
+      // request too big for the server's 2 KB limit is not silently stripped of the
+      // current screen (that would replace the screen instead of refining it): both stay
+      // with the rule-based reading.
       let cur = current ? { ...current } : null;
       if (cur) delete cur.columns;
-      let body = JSON.stringify({ sentence: turn.sentence, scope: turn.scope, current: cur });
-      if (body.length > 2000) body = JSON.stringify({ sentence: turn.sentence, scope: turn.scope, current: null });
+      if (cur && (cur.where || []).some(c => LIST_FIELDS.has(c.field) && (c.op === 'in' || c.op === 'not_in'))) {
+        turn.badge = 'rules · ticker lists stay on this site'; return;
+      }
+      const body = JSON.stringify({ sentence: turn.sentence, scope: turn.scope, current: cur });
+      if (new TextEncoder().encode(body).length > 2000) { turn.badge = 'rules · screen too large for AI'; return; }
       const r = await fetch('/api/screen-builder', {
         method: 'POST', signal: ctrl.signal,
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },

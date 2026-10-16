@@ -120,7 +120,9 @@ What that means:
   - Output must be JSON `{filter, ignored}` that passes `ScreenDSL.validate` and
     `ScreenDSL.growthGuard`. Anything else falls through to the next tier.
   - No model prose is returned to the user.
-- **Privacy.** The user's sentence goes to the provider and nothing else does (no email,
-  no user id). Logs carry only status codes and the provider name. The UI and
+- **Privacy.** The user's sentence goes to the provider, with the current screen's
+  conditions when refining (no email, no user id). A current screen holding a
+  user-built list (`ticker`/`key`/`name`/`symbol` with `in`/`not_in`) is never sent: the
+  function answers with the rules (checked before the quota, so nothing is spent). Logs carry only status codes and the provider name. The UI and
   `DISCLAIMER.md` say this. Some OpenRouter `:free` providers log prompts, so leave
   `OPENROUTER_API_KEY` unset unless the disclosure is updated to name them.

@@ -27,7 +27,7 @@ PR 1 (ADR-037, user guide [SCREENER.md](SCREENER.md)):
   public. In fact:
   - the `tierb-store` release asset and the weekly Actions artifact tar the whole Tier B
     store, `prices/` included, on a public repo;
-  - `dashboard_data.json` already publishes price/P/E/market cap for 305 stocks.
+  - `dashboard_data.json` already publishes price/P/E/market cap for 179 distinct stocks (305 breakdown rows).
 
   ADR-037 says so plainly, gates only the new surfaces, and leaves the fix to the owner
   (STATUS 00.e). Writing the ADR as originally specced would have recorded a false

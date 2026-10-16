@@ -110,9 +110,12 @@ It may contain a **price signal** field only if you named it yourself ("on sale"
 average", "turning up", "price"…). Price returns (`ret_*`) and momentum are not fields
 at all.
 
-**Privacy.** For approved accounts the sentence (and nothing else about you) is sent to a
-third-party model provider (Groq, then Ollama Cloud, optionally OpenRouter). Don't type
-personal details into it. The built-in rules never leave your browser.
+**Privacy.** For approved accounts the sentence, plus the conditions of the screen being
+refined, is sent to a third-party model provider (Groq, then Ollama Cloud, optionally
+OpenRouter). A screen holding a ticker list you built (e.g. a watchlist) is never sent:
+it is refined by the rules only, and so is a request too large for the 2 KB limit.
+Nothing else about you (email, user id, other lists) is sent. Don't type personal details
+into it. The built-in rules never leave your browser.
 
 ---
 

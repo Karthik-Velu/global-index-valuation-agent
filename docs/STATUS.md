@@ -464,7 +464,7 @@ watchlists and alerts. "My portfolio" is PR 2. User guide and field list:
      and delete the old artifacts. This is destructive and needs your explicit
      go-ahead. Tier B hydration would then need a Massive re-backfill or a private store.
      Separately, decide whether the public `dashboard_data.json` `stock_breakdown`
-     (305 stocks) and `top_picks` keep `price` / P/E / market cap / `ret_12m` until the
+     (305 rows = 179 distinct stocks) and `top_picks` keep `price` / P/E / market cap / `ret_12m` until the
      terms review.
    - **(f) Review Massive's derived-data terms** (ADR-017). Until then the stock screener,
      charts and stock alerts stay owner-only. `app_allowlist.can_view_prices` must stay

@@ -108,7 +108,14 @@ const Auth = (() => {
       user = session?.user ?? null;
     } catch { client = null; user = null; return false; }
     resetCaches();
-    if (user) { authError = null; try { await refreshWatchlist(); } catch { /* offline */ } }
+    // Capped: a hung Supabase must not hold up the first render of the whole dashboard
+    // (the watchlist stars fill in when it answers; onChange re-renders).
+    if (user) {
+      authError = null;
+      const done = refreshWatchlist().catch(() => { /* offline */ });
+      const capped = await Promise.race([done.then(() => true), new Promise(r => setTimeout(() => r(false), 4000))]);
+      if (!capped) done.then(() => notify());
+    }
     // Deferred with setTimeout: supabase-js runs this callback while it holds its
     // auth lock, and a query awaited inside it (refreshWatchlist) can deadlock.
     client.auth.onAuthStateChange((_event, newSession) => setTimeout(async () => {
@@ -161,18 +168,26 @@ const Auth = (() => {
 
   // RPC is_trusted (0015): admins + allowlisted addresses with can_view_prices.
   // Decides only what to DRAW — RLS enforces it again on every read. Cached per user.
+  // A blip (network error, 5xx, or no answer within 6 s) resolves false but sets
+  // trustUnknown(), so callers show "try again" rather than "not on the owner list".
+  let trustFailed = false;
+  const TRUST_TIMEOUT_MS = 6000;
   function isTrusted() {
     if (!signedIn()) return Promise.resolve(false);
     if (cacheUid !== user.id) resetCaches();
     if (!trusted) {
-      const p = trusted = run(client.rpc('is_trusted')).then(res => {
+      const timeout = new Promise(r => setTimeout(() => r('timeout'), TRUST_TIMEOUT_MS));
+      const p = trusted = Promise.race([run(client.rpc('is_trusted')), timeout]).then(res => {
+        const failed = res === 'timeout' || (!res && !lastError?.notAvailable);
+        trustFailed = failed;
         // Keep a definite answer (or "not deployed yet") for the session; retry a blip.
-        if (!res && !lastError?.notAvailable && trusted === p) trusted = null;
-        return res?.data === true;
+        if (failed && trusted === p) trusted = null;
+        return !failed && res?.data === true;
       });
     }
     return trusted;
   }
+  const trustUnknown = () => trustFailed;
 
   const isWatched = marketKey => watchlistKeys.has(marketKey);
 
@@ -380,7 +395,7 @@ const Auth = (() => {
 
   return {
     init, available, currentUser, onChange, signInWithEmail, signOut, readAuthError, consumeSavedRoute,
-    isTrusted, accessToken, client: () => client, isWatched, toggleWatch,
+    isTrusted, trustUnknown, accessToken, client: () => client, isWatched, toggleWatch,
     listScreens, saveScreen, deleteScreen,
     listWatchlists, createList, renameList, deleteList, addItem, removeItem, ensureList,
     listAlerts, markSeen, unseenCount, stockSnapshot, chartSeries,

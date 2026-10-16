@@ -130,8 +130,10 @@ const Lists = (() => {
       if (trusted) { try { snap = await auth().stockSnapshot(); } catch { snap = null; } }
       if (me !== S.uid) return null;
       S.trusted = !!trusted; S.snap = snap || null; S.stocksDone = true;
-      // A snapshot that failed to load shouldn't stick for the session.
-      if (trusted && !snap) S.stocksP = null;
+      // A snapshot that failed to load, or a trust check that failed (blip, timeout —
+      // not a definite "no"), shouldn't stick for the session: the next visit retries.
+      const a = auth();
+      if ((trusted && !snap) || (!trusted && a.trustUnknown && a.trustUnknown())) S.stocksP = null;
       return S.snap;
     })();
     return p;

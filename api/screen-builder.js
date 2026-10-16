@@ -69,7 +69,15 @@ const NOTE = {
   noKey: 'AI is not configured on this deployment',
   failed: "AI couldn't read that sentence; showing the rule-based reading",
   current: 'Started a new screen: the current one is not valid for this scope.',
+  privateList: 'Screens holding a ticker list are refined by rules, so the list never leaves this site',
 };
+
+// Conditions that carry a list the user built (a watchlist opened in the screener, a
+// pasted set of names). Those never go to a third-party model: such screens are refined
+// by the rule parser only. Also keeps refine requests small enough for max_tokens.
+const LIST_FIELDS = new Set(['ticker', 'key', 'name', 'symbol']);
+const holdsPrivateList = f => !!f && Array.isArray(f.where) &&
+  f.where.some(c => c && LIST_FIELDS.has(c.field) && (c.op === 'in' || c.op === 'not_in'));
 
 const nowMs = () => Date.now();
 const env = k => String(process.env[k] || '').trim();
@@ -433,6 +441,10 @@ async function handler(req, res) {
     for (const p of PROVIDERS) keys[p.name] = env(p.env);
     if (!PROVIDERS.some(p => keys[p.name])) return asRules(NOTE.noKey, 'rules:no-key');
 
+    // A screen built from the user's own list is not sent to a model (privacy + size);
+    // checked before the quota so nothing is spent.
+    if (holdsPrivateList(r.current)) return asRules(NOTE.privateList, 'rules:private-list');
+
     // 4. Server-side daily quota (per user + global). Anything but 200 true -> rules.
     let q;
     try { q = await supa('/rest/v1/rpc/ai_quota_take', token, 'POST'); }
@@ -445,7 +457,9 @@ async function handler(req, res) {
     const ai = await runChain(r, rules.filter, keys, started, log);
     if (!ai) return asRules(NOTE.failed, 'rules');
     logLine('ai', log);
-    return send(res, 200, { filter: ai.filter, source: ai.source, unparsed: ai.ignored, notes: notes0, note: null, rules });
+    // The rule parser's notes still apply to the AI's filter (e.g. "5-year averages
+    // exist only for markets", "price momentum is not a screen field"): never drop them.
+    return send(res, 200, { filter: ai.filter, source: ai.source, unparsed: ai.ignored, notes: rules.notes.slice(), note: null, rules });
   } catch (e) {
     logLine('500', log);
     if (!res.headersSent) return send(res, 500, { error: ERR.internal });
@@ -454,4 +468,4 @@ async function handler(req, res) {
 
 module.exports = handler;
 // Internals for scripts/test_screen_builder.js only (not routes).
-module.exports._internal = { CONFIG, PROVIDERS, GROWTH_RULE, NOTE, ERR, systemPrompt, extractJSON, keepIgnored, checkBearer };
+module.exports._internal = { CONFIG, PROVIDERS, GROWTH_RULE, NOTE, ERR, systemPrompt, extractJSON, keepIgnored, checkBearer, holdsPrivateList };
