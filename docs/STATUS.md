@@ -1,5 +1,9 @@
 # Project status & handoff
 
+🔗 **Live app: <https://global-index-valuation-agent.vercel.app>** · Screener:
+<https://global-index-valuation-agent.vercel.app/#/screener> · Watchlists `#/lists` · Alerts `#/alerts`
+(production = `main`, deployed by Vercel's Git integration on every merge).
+
 > Snapshot of where the build is, so work can resume cleanly — **including from a fresh
 > cloud/mobile session** that has none of the prior chat context. Pairs with
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
