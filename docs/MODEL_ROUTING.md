@@ -1,8 +1,10 @@
 # Model routing — waterfall + shared/model-specific learning
 
 How the project uses LLMs across many providers without lock-in, stays cheap/free,
-and gets better over time. All of this lives in **one place**, `engine/llm.py`
-(`call(role, system, user, …)`); nothing else in the codebase talks to a model.
+and gets better over time. Everything in the engine goes through **one place**,
+`engine/llm.py` (`call(role, system, user, …)`). Two request-time callers outside the
+engine carry their own hard-coded chains instead. They are listed under
+[Out-of-engine callers](#out-of-engine-callers) below.
 
 ## Three layers
 
@@ -85,3 +87,42 @@ trust for what, and how to package the prompt for it* is model-specific (`scorec
 It's already OpenAI-compatible-routed. To add one: give it a `scheme` in
 `engine/llm.py::_conf()` (base URL + key from `config`), then reference
 `scheme:model` in any chain. Anthropic is the one special-cased path (native SDK).
+
+## Out-of-engine callers
+
+Two callers outside `engine/` talk to models directly. They run at request time on hosts
+that can't import Python (a Supabase Edge Function, a Vercel function), so each carries a
+**hard-coded copy** of a chain:
+
+| Caller | What it does | Chain (free tiers) | Keys live in |
+|---|---|---|---|
+| `supabase/functions/admin/index.ts` | answers questions in the proposal review console (ADR-028) | Ollama Cloud `gpt-oss:120b` → `deepseek-v3.1` → Groq `llama-3.3-70b-versatile` | Supabase function secrets |
+| `api/screen-builder.js` (`screen_builder`) | the **AI screen builder**: one sentence → one Screen DSL filter (ADR-037) | Groq `llama-3.3-70b-versatile` → Ollama Cloud `gpt-oss:120b` (`https://ollama.com/v1`) → OpenRouter `meta-llama/llama-3.3-70b-instruct:free` (only if `OPENROUTER_API_KEY` is set) | Vercel env, **Production only** |
+
+What that means:
+- **Not graded.** Their calls never reach `model_invocations` / `model_scorecard`, so
+  `ADAPTIVE_ROUTING` can't reorder them and the Model-Upgrade agent can't see or propose
+  changes to them. Changing a model id or the order means editing that file by hand.
+  Mirror deliberate changes to `engine/config.py` there.
+- **`screen_builder` is Groq-first on purpose.** `config.py` puts Ollama Cloud first for
+  the batch agents, where quality matters more than speed. The screen builder has a 24 s
+  budget for the whole request, with 9 s per tier, and Groq is the fastest 70B.
+- **Separate keys.** The Vercel keys are separate provider accounts from the GitHub
+  Actions secrets. Groq limits are per organisation, so a public endpoint sharing a key
+  could starve the pipeline's agents. They are scoped to Vercel *Production* only, so
+  preview deployments, including fork PRs on this public repo, never receive them.
+- **The screen builder's guardrails.** The rule-based parser (`ScreenDSL.ruleParse`)
+  always runs first and is the answer on any failure.
+  - The model is called only for trusted callers, under a server-side quota
+    (`ai_quota_take()`; `public.ai_config`: 40 per user per day, 150 per day globally).
+  - The system prompt quotes the growth rule verbatim from `context/house_rules.md`, and
+    a test fails if the two drift apart.
+  - Output must be JSON `{filter, ignored}` that passes `ScreenDSL.validate` and
+    `ScreenDSL.growthGuard`. Anything else falls through to the next tier.
+  - No model prose is returned to the user.
+- **Privacy.** The user's sentence goes to the provider, with the current screen's
+  conditions when refining (no email, no user id). A current screen holding a
+  user-built list (`ticker`/`key`/`name`/`symbol` with `in`/`not_in`) is never sent: the
+  function answers with the rules (checked before the quota, so nothing is spent). Logs carry only status codes and the provider name. The UI and
+  `DISCLAIMER.md` say this. Some OpenRouter `:free` providers log prompts, so leave
+  `OPENROUTER_API_KEY` unset unless the disclosure is updated to name them.

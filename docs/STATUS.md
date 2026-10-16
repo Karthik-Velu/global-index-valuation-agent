@@ -5,7 +5,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-09-28.
+> Last updated: 2026-10-14.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -42,7 +42,9 @@ pasted into chat during setup).
 
 
 **Product (Phase 1, index level)** — public dashboard on Vercel (~90 indices, value +
-fundamental growth + GARP). Repo (private, MIT): `Karthik-Velu/global-index-valuation-agent`.
+fundamental growth + GARP). Repo (**public**, MIT): `Karthik-Velu/global-index-valuation-agent`. It
+was made public in July for free Actions minutes, so Actions logs, artifacts and release
+assets are public too.
 
 **Data foundation (Phase 1) — COMPLETE**
 - **Tier A: Supabase Postgres** — single source of truth. Schema `engine/migrations/0001..0008`.
@@ -400,7 +402,76 @@ console read. No operator action outstanding.
 (network policy blocks the Supabase host). Handlers are verified by construction and
 against a client harness; the first real click in the console is the true end-to-end test.
 
+## Phase F: TradingView-style screener + AI screen builder (2026-10-14, ADR-037)
+User ask: key TradingView features, and "filters and screeners can be created by user
+using ai chat". PR 1 is built and covers the screener, the AI screen builder, charts,
+watchlists and alerts. "My portfolio" is PR 2. User guide and field list:
+[SCREENER.md](SCREENER.md). Checklist: PLAN.md "Phase F".
+- **Tabs:** Overview (unchanged) · Screener · Watchlists · Alerts. Deep links
+  `#/stock/<T>` and `#/market/<key>`, and a header symbol search.
+- **Who sees what:**
+  - The markets screener is public: it runs client-side over the public scoreboard.
+  - The stocks screener (~3,120 names), the owner's close-price charts, stock CSV and
+    stock-screen alerts need `is_trusted()`: a confirmed email in `admins`, or in
+    `app_allowlist` with `can_view_prices`.
+  - Everyone else gets the TradingView widget for charts.
+- **AI screen builder:** `api/screen-builder.js` on Vercel. Built-in rules always answer
+  first. The LLM (Groq → Ollama Cloud) is used only for trusted callers, within 40 calls
+  per user and 150 globally per day. Only validated filters come back.
+- **Jobs:** daily step 7b in `datapipeline.py` (`steps['screens']`) publishes the stock
+  snapshot, runs stock alerts and refreshes the chart cache. It is skipped on full-sweep
+  days. Weekly market alerts run in `pipeline.py`.
+- **Not verified live yet:**
+  - nothing has run against the production DB or a deployed function;
+  - migration 0015 applies on the first daily run after merge;
+  - the stock screener and saved screens light up only after that run (the UI says "not
+    available yet" until then).
+
 ## Immediate next step
+00. **NEW 2026-10-14 — Screener / AI screen builder (ADR-037): owner actions.** Items
+   (a)–(d) are for around merge; (e)–(g) are decisions.
+   - **(a) Vercel env:** create **separate** Groq and Ollama Cloud keys. Don't reuse the
+     GitHub Actions ones: Groq limits are per organisation. Add them as `GROQ_API_KEY` /
+     `OLLAMA_API_KEY`, plus `SUPABASE_URL` / `SUPABASE_ANON_KEY` (public values), in
+     Vercel → Settings → Environment Variables, scoped to **Production only**. Keep Git
+     Fork Protection on. Leave `OPENROUTER_API_KEY` unset unless the AI disclosure is
+     updated. Without keys the builder still works, rules-only.
+   - **(b) Supabase Auth settings check:** Confirm email **ON**, Secure email change
+     **ON**, Anonymous sign-ins **OFF**, and a Site URL / redirect allowlist with **no
+     wildcards**. `is_trusted()` already requires a confirmed address and a
+     non-anonymous session; these settings close the remaining gaps.
+   - **(c) Redeploy the admin Edge Function:** `supabase functions deploy admin`. Its
+     email check changed from `.ilike` (where `_` is a wildcard) to an exact
+     case-insensitive match. Deploys don't happen on merge.
+   - **(d) After the first daily run post-merge:**
+     - the run log shows `applied migrations: ['0015_screener.sql']` and a
+       `screens: {...}` step with `snapshot.rows` ≈ 3,100;
+     - the Screener's Stocks tab loads when you're signed in as admin;
+     - a chart opens on a stock;
+     - optionally, run `tests/rls_0015.sql` once against a Supabase **branch** DB (never
+       prod) with
+       `psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f tests/rls_0015.sql`. It ends with
+       `ALL 0015 RLS CHECKS PASSED`.
+
+     0015 is frozen once applied: any fix goes in 0016.
+   - **(e) Decide on the pre-existing Massive exposure.** This PR does not change it
+     (ADR-037 §8). Raw Massive daily bars are public today in two places:
+     - the `tierb-store` **release asset** (`data-pipeline.yml` monthly,
+       `price-backfill.yml`);
+     - the weekly `tierb-store` **Actions artifact** (`refresh.yml`, 90 days).
+
+     Options: change `tierbsync.bundle()` to exclude `prices/`, re-upload the release,
+     and delete the old artifacts. This is destructive and needs your explicit
+     go-ahead. Tier B hydration would then need a Massive re-backfill or a private store.
+     Separately, decide whether the public `dashboard_data.json` `stock_breakdown`
+     (305 rows = 179 distinct stocks) and `top_picks` keep `price` / P/E / market cap / `ret_12m` until the
+     terms review.
+   - **(f) Review Massive's derived-data terms** (ADR-017). Until then the stock screener,
+     charts and stock alerts stay owner-only. `app_allowlist.can_view_prices` must stay
+     false for anyone else.
+   - **(g) PR 2 — My portfolio:** a login-based portfolio explorer plus a `portfolio`
+     screener scope (reusing `ScreenBox`). It needs its own privacy design (snapshots,
+     synthetic-only fixtures, ADR).
 00. **NEW 2026-10-07 — "on sale" vs the 5-year average price (ADR-036).** Funds: true 5y (Yahoo 5y fetch). Stocks: all history on file, ~2y until more accrues or the price plan covers 5y; `long_avg_years` states the window. Check on 12 Oct: scoreboard `long_avg_years` ≈ 5.0.
 00. **NEW 2026-10-07 — growth judged on a multi-year record (ADR-035).** Stock growth = 2/3 up-to-6-year CAGR + 1/3 last year, plus a consistency score; "fundamentally strong" needs a record (see ADR). Picks' reasons show it. Lands with the 12 Oct refresh along with item below.
 00. **NEW 2026-10-06 — "Top picks" + "Quality on sale" (ADR-034).** First populated by the

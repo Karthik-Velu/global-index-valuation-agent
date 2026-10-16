@@ -1,0 +1,63 @@
+name: Screen DSL tests
+
+# Parity + safety tests for the shared screen DSL (ADR-037): the same filter must give
+# the same rows in the browser / AI screen builder (dashboard/screen-dsl.js, Node) and
+# in the alert jobs (engine/screens.py, Python). Also asserts the parser never maps
+# "growth" to a price signal, and that dashboard/*.js declare no clashing top-level names.
+#
+# No secrets, no database, no network beyond checkout/setup: engine/screens.py is
+# stdlib-only; the jobs test installs only pandas/numpy and uses a fake DB connection.
+# Safe to run on push to the dev branch.
+
+on:
+  pull_request:
+    paths:
+      - "dashboard/*.js"
+      - "dashboard/screen_fields.json"
+      - "engine/screens.py"
+      - "engine/screenjobs.py"
+      - "engine/picks.py"
+      - "tests/**"
+      - "scripts/test_screens.js"
+      - "scripts/test_screen_builder.js"
+      - "api/**"
+      - ".github/workflows/screens-tests.yml"
+  push:
+    branches: ["claude/beautiful-brahmagupta-m0uxps"]
+    paths:
+      - "dashboard/*.js"
+      - "dashboard/screen_fields.json"
+      - "engine/screens.py"
+      - "engine/screenjobs.py"
+      - "engine/picks.py"
+      - "tests/**"
+      - "scripts/test_screens.js"
+      - "scripts/test_screen_builder.js"
+      - "api/**"
+      - ".github/workflows/screens-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: DSL parity, parser and global-name checks (Node)
+        run: node scripts/test_screens.js
+      - name: AI screen builder (stubbed fetch, no network)
+        run: |
+          if [ -f scripts/test_screen_builder.js ]; then node scripts/test_screen_builder.js
+          else echo "scripts/test_screen_builder.js not present — skipped"; fi
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: DSL parity (Python, stdlib only)
+        run: python tests/test_screens.py
+      - name: Screen jobs (fake DB connection, no network)
+        run: |
+          pip install --quiet "pandas>=2.2" "numpy>=1.26"
+          python tests/test_screenjobs.py

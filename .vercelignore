@@ -1,8 +1,14 @@
-# The Vercel deployment is the STATIC dashboard only. Keep the Python engine,
-# data, and tooling out of the upload so Vercel never tries to build Python.
+# The Vercel deployment is the STATIC dashboard (outputDirectory: dashboard) plus the
+# Node functions in api/ (today: api/screen-builder.js, the AI screen builder). Keep the
+# Python engine, data, and tooling out of the upload so Vercel never tries to build
+# Python. Do NOT add api/ or dashboard/ here: api/screen-builder.js requires
+# dashboard/screen-dsl.js and dashboard/screen_fields.json at runtime
+# (scripts/test_screen_builder.js checks this file).
 engine/
 scripts/
 data/
+tests/
+supabase/
 .github/
 .venv/
 __pycache__/

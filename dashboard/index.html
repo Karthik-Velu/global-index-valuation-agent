@@ -4,18 +4,27 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Global Index Valuation Agent</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Exact pins (ADR-037). The Tailwind Play CDN serves a runtime compiler that
+       cannot carry SRI (its build is generated per request), so it stays pinned by
+       version only; supabase-js is pinned AND integrity-checked (sha384 of
+       dist/umd/supabase.js from the npm tarball @supabase/supabase-js@2.45.4). -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
-    tailwind.config = { darkMode: 'class', theme: { extend: { colors: {
+    // Guarded: with the CDN blocked `tailwind` is undefined and this must not throw.
+    if (window.tailwind) tailwind.config = { darkMode: 'class', theme: { extend: { colors: {
       ink: '#0b0f17', panel: '#121826', panel2: '#1a2235', line: '#243049',
       cheap: '#34d399', rich: '#f87171', warn: '#fbbf24', accent: '#60a5fa' } } } }
   </script>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="screener.css" />
+  <link rel="stylesheet" href="lists.css" />
   <!-- Supabase Auth + watchlist (Phase D) — no-build, UMD build exposes window.supabase.
        Loaded synchronously (like the Tailwind CDN script above) so it's defined
        before auth.js runs at the bottom of body; auth.js degrades gracefully
        (checks typeof window.supabase) if this CDN is blocked. -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+          integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+          crossorigin="anonymous"></script>
 </head>
 <body class="bg-ink text-slate-200 antialiased">
   <div id="app" class="max-w-[1400px] mx-auto px-5 py-6">
@@ -26,7 +35,13 @@
         <h1 class="text-xl font-semibold tracking-tight text-white">Global Index Valuation Agent</h1>
         <p class="text-sm text-slate-400">Where is the world's equity value &mdash; and where's the opportunity?</p>
       </div>
-      <div class="flex items-center gap-2 text-sm flex-wrap">
+      <div class="flex items-center gap-2 text-sm flex-wrap min-w-0">
+        <!-- Symbol search (TradingView-style): markets + public stock tickers, plus the
+             owner's stock universe when trusted. Enter routes to #/market/… or #/stock/…. -->
+        <input id="symbolSearch" type="search" list="scr-symbol-list" class="ctrl w-48 max-w-full"
+               placeholder="Search symbol or market&hellip;" autocomplete="off" spellcheck="false"
+               aria-label="Search symbol or market" maxlength="60" />
+        <datalist id="scr-symbol-list"></datalist>
         <div id="tuning" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
         <div id="trackrecord" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-300"></div>
         <div id="asof" class="px-3 py-1.5 rounded-lg bg-panel border border-line text-slate-400"></div>
@@ -35,6 +50,32 @@
         <button id="refreshBtn" class="px-3 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition">Refresh</button>
       </div>
     </header>
+
+    <!-- Inline magic-link sign-in (replaces the old prompt()/alert()). Kept outside
+         #authBox so the hourly token-refresh re-render never wipes what's typed. -->
+    <div id="signinPanel" hidden class="rounded-xl bg-panel border border-line p-4 mb-4 max-w-lg ml-auto">
+      <div id="signinMsg" class="text-sm text-slate-400">Sign in to save screens, watchlists and alerts.</div>
+      <form id="signinForm" class="mt-3" novalidate>
+        <label for="signinEmail" class="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">Email</label>
+        <div class="flex gap-2">
+          <input id="signinEmail" type="email" placeholder="you@example.com" class="ctrl flex-1 min-w-0" autocomplete="email" maxlength="254" />
+          <button id="signinSend" type="submit" class="px-3 py-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition text-sm">Send link</button>
+          <button id="signinCancel" type="button" class="ctrl">Cancel</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">A one-time sign-in link. No password is stored anywhere.</p>
+      </form>
+    </div>
+
+    <!-- Views (hash router in app.js: #/overview, #/screener, #/lists, #/alerts,
+         #/stock/<TICKER>, #/market/<key>). Watchlists/Alerts only when sign-in is configured. -->
+    <nav class="view-tabs mb-4" aria-label="Views">
+      <a href="#/overview" data-view="overview" class="view-tab active">Overview</a>
+      <a href="#/screener" data-view="screener" class="view-tab">Screener</a>
+      <a href="#/lists" data-view="lists" class="view-tab" hidden>Watchlists</a>
+      <a href="#/alerts" data-view="alerts" class="view-tab" hidden>Alerts <span id="alr-badge" class="tab-badge" hidden></span></a>
+    </nav>
+
+    <div id="view-overview">
 
     <!-- Focus: one lens for the whole view -->
     <div class="flex items-center gap-2 mb-4 flex-wrap">
@@ -106,6 +147,8 @@
           <input type="checkbox" id="fHideRich" class="accent-accent" /> hide overvalued
         </label>
         <span id="rowcount" class="text-xs text-slate-500 ml-auto"></span>
+        <a id="scr-open-scoreboard" href="#/screener" class="text-xs text-accent hover:underline"
+           title="Open these markets in the Screener with the same filters">Open in Screener &rarr;</a>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm" id="table">
@@ -114,6 +157,11 @@
         </table>
       </div>
     </section>
+    </div><!-- /#view-overview -->
+
+    <div id="view-screener" hidden></div>
+    <div id="view-lists" hidden></div>
+    <div id="view-alerts" hidden></div>
 
     <footer class="text-xs text-slate-600 mt-6 space-y-1">
       <div class="text-slate-500"><strong class="text-slate-400">Not investment advice.</strong>
@@ -131,5 +179,15 @@
 
   <script src="auth.js"></script>
   <script src="app.js"></script>
+  <!-- Screener / charts / watchlists (ADR-037). Each declares exactly one global and
+       none may throw when supabase-js, the chart library or the network is missing;
+       app.js only calls them through typeof guards, so the Overview never depends on
+       them. lightweight-charts is NOT loaded here — Charts.ensureLib() injects it on
+       first chart open. -->
+  <script src="screen-dsl.js"></script>
+  <script src="screenbox.js"></script>
+  <script src="screener.js"></script>
+  <script src="charts.js"></script>
+  <script src="lists.js"></script>
 </body>
 </html>

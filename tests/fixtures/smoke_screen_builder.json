@@ -1,0 +1,17 @@
+{
+  "_comment": "Canned model replies for scripts/smoke_dashboard.js, which runs the REAL api/screen-builder.js in-process with fetch stubbed (no network, no keys). Keyed by the sentence (lower case). 'growing companies' is deliberately a bad answer (a price field for a growth sentence): growthGuard must reject it so the reply falls back to the rules reading. Synthetic only.",
+  "model_replies": {
+    "cheap profitable tech stocks": {
+      "filter": { "v": 1, "scope": "stocks", "where": [{ "field": "sector", "op": "in", "value": ["Technology"] }, { "field": "value_score", "op": ">=", "value": 40 }, { "field": "ni_pos_ratio", "op": ">=", "value": 0.8 }], "sort": { "field": "value_score", "dir": "desc" }, "limit": 100, "include_flagged": false },
+      "ignored": []
+    },
+    "growing companies": {
+      "filter": { "v": 1, "scope": "stocks", "where": [{ "field": "price", "op": ">", "value": 10 }], "sort": null, "limit": 100, "include_flagged": false },
+      "ignored": []
+    },
+    "cheap asian markets": {
+      "filter": { "v": 1, "scope": "markets", "where": [{ "field": "region", "op": "in", "value": ["Asia-Pacific"] }, { "field": "value_score", "op": ">=", "value": 60 }], "sort": { "field": "value_score", "dir": "desc" }, "limit": 100, "include_flagged": false },
+      "ignored": []
+    }
+  }
+}

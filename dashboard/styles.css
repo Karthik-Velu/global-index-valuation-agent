@@ -1,4 +1,7 @@
 /* Small custom layer on top of Tailwind CDN */
+/* The `hidden` ATTRIBUTE (used by the router/view code) must win over any display
+   utility, and must work with the Tailwind CDN blocked. */
+[hidden] { display: none !important; }
 .section-title { font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px; }
 .ctrl {
   background: #0b0f17; border: 1px solid #243049; color: #cbd5e1;
@@ -6,23 +9,25 @@
 }
 .ctrl:focus { border-color: #60a5fa; }
 
-table#table th {
+/* table.grid-table: the same look for the screener / watchlist tables (ADR-037). */
+table#table th, table.grid-table th {
   text-align: right; font-weight: 600; color: #94a3b8; font-size: 11px;
   text-transform: uppercase; letter-spacing: .03em; padding: 6px 8px;
   border-bottom: 1px solid #243049; cursor: pointer; white-space: nowrap; user-select: none;
 }
-table#table th:first-child, table#table td:first-child { text-align: left; }
-table#table td { padding: 7px 8px; border-bottom: 1px solid #16203212; text-align: right; white-space: nowrap; }
-table#table tbody tr { cursor: pointer; }
-table#table tbody tr:hover { background: #1a223580; }
+table#table th:first-child, table#table td:first-child,
+table.grid-table th:first-child, table.grid-table td:first-child { text-align: left; }
+table#table td, table.grid-table td { padding: 7px 8px; border-bottom: 1px solid #16203212; text-align: right; white-space: nowrap; }
+table#table tbody tr, table.grid-table tbody tr { cursor: pointer; }
+table#table tbody tr:hover, table.grid-table tbody tr:hover { background: #1a223580; }
 
 .badge { font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
 
 /* Top picks */
 .pick-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin: 4px 0 8px; }
 .pick-card { background: #1a2235; border: 1px solid #243049; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.pick-card[data-mk] { cursor: pointer; }
-.pick-card[data-mk]:hover { border-color: #60a5fa80; }
+.pick-card[data-mk], .pick-card[data-tk] { cursor: pointer; }
+.pick-card[data-mk]:hover, .pick-card[data-tk]:hover { border-color: #60a5fa80; }
 .pick-why { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.45; }
 .pick-why li { padding-left: 16px; position: relative; }
 .pick-why li::before { position: absolute; left: 0; }
@@ -32,7 +37,7 @@ table#table tbody tr:hover { background: #1a223580; }
 .pick-why li.warn::before { content: '!'; font-weight: 700; left: 4px; }
 .sale-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 8px; border-radius: 8px; }
 .sale-row:hover { background: #1a2235; }
-.sale-row[data-mk] { cursor: pointer; }
+.sale-row[data-mk], .sale-row[data-tk] { cursor: pointer; }
 .pill { display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:999px; }
 
 .scorebar { height: 6px; border-radius: 999px; background: #243049; overflow: hidden; min-width: 54px; display:inline-block; vertical-align: middle; }
@@ -45,3 +50,40 @@ table#table tbody tr:hover { background: #1a223580; }
 #scatter svg text { fill: #64748b; font-size: 10px; }
 .dot { cursor: pointer; transition: opacity .15s; }
 .dot:hover { opacity: 1 !important; }
+
+/* ---- views + tabs (ADR-037) ---- */
+/* Tabs scroll sideways on a phone instead of wrapping or widening the page. */
+.view-tabs {
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid #243049; -webkit-overflow-scrolling: touch;
+}
+.view-tabs::-webkit-scrollbar { display: none; }
+.view-tab {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  padding: 7px 12px; font-size: 13px; color: #94a3b8; text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.view-tab:hover { color: #e2e8f0; }
+.view-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+.view-tab:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; border-radius: 6px; }
+.tab-badge {
+  min-width: 18px; padding: 0 5px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  line-height: 16px; text-align: center; background: #f87171; color: #0b0f17;
+}
+
+/* Clickable stock rows inside the market drawer. */
+.stock-link { cursor: pointer; border-radius: 6px; }
+.stock-link:hover { background: #12182680; }
+
+/* Chart block in the drawer (filled by charts.js). */
+.chr-slot { min-height: 0; }
+
+/* Drawer: full width on a phone (the 380px panel is wider than a 390px screen
+   once the scrollbar is in). */
+@media (max-width: 420px) {
+  #drawer { width: 100vw; }
+  #symbolSearch { width: 100%; }
+}
+/* No page-level horizontal scroll on narrow screens; wide tables scroll in their box.
+   `clip` (not `hidden`) so body doesn't become a scroll container — sticky still works. */
+body { overflow-x: clip; }

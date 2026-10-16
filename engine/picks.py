@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pandas as pd
 
 from .config import LONG_AVG_YEARS
@@ -207,6 +208,52 @@ def _domestic(df: pd.DataFrame) -> pd.Series:
         else pd.Series(True, index=df.index)
 
 
+QUALITY_PREFIX = "quality:"
+
+
+def exclusion_reasons(stocks: pd.DataFrame,
+                      flagged: dict[str, set[str]] | None = None) -> pd.DataFrame:
+    """Why each stock row is kept out of the picks — one boolean column per reason,
+    same index as `stocks`. A row can carry several (every non-USD reporter is also
+    "implausible" in data_sane terms, so the counts are NOT a partition).
+
+      implausible_pe     0 < P/E < SANE_MIN_PE          } the three plausibility tests
+      implausible_ps     P/S < SANE_MIN_PS              } inside strategies.data_sane,
+      below_min_mcap     market cap < SANE_MIN_MARKET_CAP } tested positively (NaN passes)
+      non_usd_reporter   reporting currency present and not USD (NULL passes)
+      foreign_listing    not _domestic (a NULL country counts as US)
+      short_history      hist_years < MIN_CHANGES (NaN counts as short)
+      quality:<check>    an open data-quality issue in EXCLUDE_CHECKS for the ticker
+
+    The ONE definition the picks and the screener's data_ok (engine/screenjobs.py)
+    share, so a name the on-sale list hides is hidden by the screener too."""
+    from .config import SANE_MIN_MARKET_CAP, SANE_MIN_PE, SANE_MIN_PS
+
+    flagged = flagged or {}
+    idx = stocks.index
+
+    def num(c):
+        return pd.to_numeric(stocks[c], errors="coerce") if c in stocks \
+            else pd.Series(np.nan, index=idx, dtype=float)
+
+    pe, ps, mcap = num("pe"), num("ps"), num("market_cap")
+    ccy = stocks["reporting_currency"] if "reporting_currency" in stocks \
+        else pd.Series(None, index=idx, dtype=object)
+    out = pd.DataFrame(index=idx)
+    out["implausible_pe"] = (pe > 0) & (pe < SANE_MIN_PE)
+    out["implausible_ps"] = ps < SANE_MIN_PS
+    out["below_min_mcap"] = mcap < SANE_MIN_MARKET_CAP
+    out["non_usd_reporter"] = ccy.notna() & (ccy.astype(str).str.upper() != "USD")
+    out["foreign_listing"] = ~_domestic(stocks)
+    out["short_history"] = (num("hist_years").fillna(0) < MIN_CHANGES) if "hist_years" in stocks \
+        else pd.Series(False, index=idx)
+    tickers = stocks["ticker"] if "ticker" in stocks else pd.Series(None, index=idx, dtype=object)
+    open_checks = tickers.map(lambda t: flagged.get(t) or set())
+    for check in sorted(EXCLUDE_CHECKS):
+        out[QUALITY_PREFIX + check] = open_checks.map(lambda s, c=check: c in s).astype(bool)
+    return out.astype(bool)
+
+
 def _eligible(df: pd.DataFrame) -> pd.Series:
     def col(c, default):
         return df[c].fillna(default).astype(bool) if c in df else pd.Series(default, index=df.index)
@@ -230,12 +277,12 @@ def build(markets: pd.DataFrame, stocks: pd.DataFrame | None = None,
         out["on_sale"]["markets"] = [_card(r, True) for r in sale.head(N_ON_SALE).to_dict("records")]
 
     if stocks is not None and not stocks.empty and "fundamentally_strong" in stocks:
-        bad = {t for t, checks in flagged.items() if checks & EXCLUDE_CHECKS}
+        why = exclusion_reasons(stocks, flagged)
+        bad = why[[c for c in why.columns if c.startswith(QUALITY_PREFIX)]].any(axis=1)
         # A stock pick needs a verifiable record (>= MIN_CHANGES years of history) —
         # "fundamentally strong" on one year alone is exactly what ADR-035 replaced.
-        record = (stocks["hist_years"].fillna(0) >= MIN_CHANGES) if "hist_years" in stocks \
-            else pd.Series(True, index=stocks.index)
-        clean = ~stocks["ticker"].isin(bad) & _domestic(stocks) & record
+        record = ~why["short_history"]
+        clean = ~bad & ~why["foreign_listing"] & record
         liquid = stocks["market_cap"].fillna(0) >= PICK_MIN_MARKET_CAP
         strong = _eligible(stocks)
         s = stocks[strong & clean & liquid].sort_values("opportunity_score", ascending=False)
@@ -245,12 +292,11 @@ def build(markets: pd.DataFrame, stocks: pd.DataFrame | None = None,
         out["on_sale"]["stocks"] = [_card(r, False) for r in sale.head(N_ON_SALE).to_dict("records")]
         on_sale_all = stocks["on_sale"].fillna(False).astype(bool)
         out["excluded"] = {
-            "strong_with_data_issues": int((strong & stocks["ticker"].isin(bad)).sum()),
-            "foreign_listings": int((~_domestic(stocks)).sum()),
+            "strong_with_data_issues": int((strong & bad).sum()),
+            "foreign_listings": int(why["foreign_listing"].sum()),
             "short_history": int((strong & ~record).sum()),
             "on_sale_with_data_issues": int((on_sale_all & ~clean).sum()),
-            "non_usd_reporters": int((stocks.get("reporting_currency", pd.Series(dtype=object))
-                                      .fillna("USD").str.upper() != "USD").sum()),
+            "non_usd_reporters": int(why["non_usd_reporter"].sum()),
             "implausible_valuation": int((~stocks["data_sane"].fillna(True).astype(bool)).sum()),
         }
 

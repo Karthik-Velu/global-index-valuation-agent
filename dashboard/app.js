@@ -5,7 +5,13 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const api = (p, opts) => fetch(p, opts).then(r => r.json());
 
-let STATE = { data: null, rows: [], focus: 'Country', hasApi: false, sort: { key: 'opportunity_score', dir: -1 }, currency: 'USD', openDrawerKey: null };
+let STATE = { data: null, rows: [], focus: 'Country', hasApi: false, sort: { key: 'opportunity_score', dir: -1 }, currency: 'USD', drawer: null, view: 'overview' };
+// STATE.drawer = {kind: 'market'|'stock', key} names what the drawer shows (ADR-037).
+// openDrawerKey survives as an alias for the market case, for older callers.
+Object.defineProperty(STATE, 'openDrawerKey', {
+  get: () => (STATE.drawer?.kind === 'market' ? STATE.drawer.key : null),
+  set: v => { STATE.drawer = v ? { kind: 'market', key: v } : null; },
+});
 
 // Feedback persistence: writes to the engine API when present, and always mirrors
 // to localStorage so pins/dismissals survive on the static (Vercel) deployment.
@@ -79,6 +85,9 @@ async function load() {
     try { d = await fetch('dashboard_data.json', { cache: 'no-store' }).then(r => r.json()); }
     catch (e) {
       $('#briefText').textContent = 'No data found. Run `python -m engine.cli refresh` to generate it.';
+      // Modules waiting on data (screener, lists) must hear about the failure too,
+      // or a deep link to #/screener waits forever.
+      await announceData(false, null);
       return;
     }
   }
@@ -90,10 +99,186 @@ async function load() {
   // re-creates the client and re-checks the session.
   try { await Auth.init(d.meta?.supabase); } catch { /* auth UI just stays hidden */ }
   render();
+  await announceData(true, d);
 }
 // Registered once (not inside load(), which re-runs on manual refresh) so
-// repeated refreshes don't accumulate duplicate listeners.
-Auth.onChange(() => { renderAuthUI(); if (STATE.openDrawerKey) openDrawer(STATE.openDrawerKey); });
+// repeated refreshes don't accumulate duplicate listeners. A token refresh fires
+// this about hourly: it redraws only the header and the drawer's money/star parts,
+// never the chart (which would lose zoom and leak the chart instance).
+let lastAuthUid = null;
+Auth.onChange(() => {
+  const uid = Auth.currentUser()?.id || null;
+  const userChanged = uid !== lastAuthUid;
+  lastAuthUid = uid;
+  renderAuthUI(); renderViewTabs(); refreshDrawerParts(); refreshAlertsBadge();
+  SYMBOLS.map = new Map(); SYMBOLS.trustedLoaded = false;   // owner tickers follow the user
+  if (userChanged) buildSymbolList();     // drop the previous user's suggestions from the DOM now
+  // A different user (sign-in, sign-out) may not see the same chart: an owner-only price
+  // series must not stay mounted after sign-out. A token refresh (same user) keeps it.
+  if (userChanged && STATE.drawer?.kind === 'stock') mountChart(stockChartSpec(STATE.drawer.key, STATE.drawerRow));
+  // Consume the saved route only when the router can apply it; startRouter() picks it up
+  // otherwise (sign-in callbacks often fire before the router has started).
+  if (!ROUTER.started) return;
+  const saved = Auth.currentUser() ? Auth.consumeSavedRoute() : null;
+  if (saved && saved !== location.hash) location.hash = saved;
+});
+
+// ---- module hook + router (ADR-037) ----
+// The screener/charts/lists scripts load after this one. They learn about data via
+// `dashboard:data` — dispatched after Auth.init, once the DOM (and so every module
+// script) is in, and with ok:false when loading failed. load() re-runs on manual
+// refresh, so modules must render idempotently.
+const domReady = () => document.readyState !== 'loading' ? Promise.resolve()
+  : new Promise(res => document.addEventListener('DOMContentLoaded', res, { once: true }));
+const withTimeout = (p, ms) => Promise.race([p, new Promise(res => setTimeout(res, ms))]);
+
+async function announceData(ok, data) {
+  await domReady();
+  // The screen registry (screen_fields.json) — modules validate against it. Capped so a
+  // stalled fetch can't hold the event (or the router) hostage.
+  if (typeof ScreenDSL !== 'undefined' && ScreenDSL.load) {
+    try { await withTimeout(ScreenDSL.load().catch(() => null), 5000); } catch { /* registry optional */ }
+  }
+  renderViewTabs();
+  SYMBOLS.map = new Map(); SYMBOLS.trustedLoaded = false;
+  try { document.dispatchEvent(new CustomEvent('dashboard:data', { detail: { ok, data, hasApi: STATE.hasApi } })); }
+  catch { /* a listener's problem */ }
+  startRouter();
+  refreshAlertsBadge();
+}
+
+// Routes: #/overview · #/screener[?s=<base64url filter>|?id=<saved screen id>] · #/lists ·
+// #/alerts · #/stock/<TICKER> · #/market/<key>. Rules (design review, magic-link safety):
+//  - the router does not touch location.hash until Auth.init has resolved (startRouter is
+//    called from announceData, after it);
+//  - a hash carrying access_token / refresh_token / error_code / error_description is
+//    supabase-js's to consume: render Overview, never rewrite it;
+//  - unknown routes render Overview WITHOUT rewriting the URL;
+//  - the hash never carries free text and never triggers the AI screen builder.
+const ROUTER = { started: false, base: 'overview' };
+const VIEWS = ['overview', 'screener', 'lists', 'alerts'];
+const AUTH_HASH_RE = /(^|[#&?])(access_token|refresh_token|error_code|error_description)=/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ROUTE_TICKER_RE = /^[A-Z0-9][A-Z0-9.\-]{0,15}$/;
+const ROUTE_KEY_RE = /^[A-Za-z0-9_.\-]{1,64}$/;
+
+function parseRoute(hash) {
+  const h = String(hash || '');
+  if (!h || h === '#' || h === '#/') return { view: 'overview' };
+  if (AUTH_HASH_RE.test(h)) return { view: 'overview', auth: true };
+  const m = h.match(/^#\/([a-z]+)(?:\/([^?]*))?(?:\?(.*))?$/);
+  if (!m) return { view: 'overview', unknown: true };
+  const [, name, arg, query] = m;
+  if (name === 'stock' || name === 'market') {
+    let a = '';
+    try { a = decodeURIComponent(arg || ''); } catch { return { view: 'overview', unknown: true }; }
+    if (name === 'stock') {
+      a = a.toUpperCase();
+      return ROUTE_TICKER_RE.test(a) ? { view: null, drawer: { kind: 'stock', key: a } } : { view: 'overview', unknown: true };
+    }
+    return ROUTE_KEY_RE.test(a) ? { view: null, drawer: { kind: 'market', key: a } } : { view: 'overview', unknown: true };
+  }
+  if (!VIEWS.includes(name) || arg) return { view: 'overview', unknown: true };
+  const params = {};
+  if (name === 'screener' && query) {
+    const q = new URLSearchParams(query);
+    const sv = q.get('s'), id = q.get('id');
+    if (sv && sv.length <= 12000 && /^[A-Za-z0-9_-]+$/.test(sv)) params.s = sv;
+    if (id && UUID_RE.test(id)) params.id = id;
+  }
+  return { view: name, params };
+}
+
+function startRouter() {
+  if (ROUTER.started) { route(); return; }
+  ROUTER.started = true;
+  window.addEventListener('hashchange', route);
+  route();
+  const saved = Auth.currentUser() ? Auth.consumeSavedRoute() : null;
+  if (saved && saved !== location.hash) location.hash = saved;
+}
+
+function route() {
+  if (!ROUTER.started) return;
+  const r = parseRoute(location.hash);
+  if (r.drawer) {
+    // A symbol route opens the drawer over whatever view is showing (Overview on a
+    // fresh load), so closing it returns there.
+    showView(ROUTER.base, null, { skipModule: STATE.view === ROUTER.base });
+    if (r.drawer.kind === 'stock') openStockDrawer(r.drawer.key, { fromRoute: true });
+    else openDrawer(r.drawer.key, { fromRoute: true });
+    return;
+  }
+  if (STATE.drawer) closeDrawer({ keepHash: true });
+  ROUTER.baseHash = r.unknown || r.auth ? '' : location.hash;
+  showView(r.view, r.params || {});
+}
+
+function showView(view, params, { skipModule = false } = {}) {
+  if (!VIEWS.includes(view)) view = 'overview';
+  const changed = STATE.view !== view;
+  STATE.view = view; ROUTER.base = view;
+  VIEWS.forEach(v => { const el = document.getElementById(`view-${v}`); if (el) el.hidden = v !== view; });
+  $$('.view-tabs [data-view]').forEach(a => {
+    const on = a.dataset.view === view;
+    a.classList.toggle('active', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  if (changed) window.scrollTo(0, 0);
+  if (skipModule) return;
+  if (view === 'screener') {
+    if (typeof Screener !== 'undefined' && Screener.show) { try { Screener.show(params || {}); } catch (e) { moduleMissing(view, true); } }
+    else moduleMissing(view);
+  } else if (view === 'lists' || view === 'alerts') {
+    // Tabs are hidden without sign-in configured; a typed/bookmarked link still gets a reason.
+    if (!Auth.available()) {
+      document.getElementById(`view-${view}`).innerHTML = `<div class="rounded-xl bg-panel border border-line p-6 text-sm text-slate-400">
+        ${view === 'lists' ? 'Watchlists' : 'Alerts'} need sign-in, which isn't available on this deployment right now.
+        The Overview and the markets Screener work without it.</div>`;
+      return;
+    }
+    if (typeof Lists !== 'undefined' && Lists.show) { try { Lists.show(view); } catch (e) { moduleMissing(view, true); } }
+    else moduleMissing(view);
+  }
+}
+
+// A module script that failed to load (blocked, 404, offline) leaves its view empty;
+// say so instead of showing a blank page.
+function moduleMissing(view, crashed) {
+  const el = document.getElementById(`view-${view}`);
+  if (!el || el.childElementCount) return;
+  const what = { screener: 'The screener', lists: 'Watchlists', alerts: 'Alerts' }[view] || 'This view';
+  el.innerHTML = `<div class="rounded-xl bg-panel border border-line p-6 text-sm text-slate-400">
+    ${what} ${crashed ? 'hit an error' : "couldn't load"} &mdash; try reloading the page. The Overview works without it.</div>`;
+}
+
+// Watchlists/Alerts need sign-in, which needs Supabase configured.
+function renderViewTabs() {
+  const on = Auth.available();
+  $$('.view-tabs [data-view="lists"], .view-tabs [data-view="alerts"]').forEach(a => { a.hidden = !on; });
+}
+
+// Unseen-alert badge on the Alerts tab. Lists owns the count when it's loaded
+// (Lists.refreshBadge may be async and may call setAlertsBadge itself).
+async function refreshAlertsBadge() {
+  if (!Auth.available() || !Auth.currentUser()) { setAlertsBadge(0); return; }
+  try {
+    if (typeof Lists !== 'undefined' && Lists.refreshBadge) {
+      const n = await Lists.refreshBadge();
+      if (typeof n === 'number') setAlertsBadge(n);
+      return;
+    }
+    setAlertsBadge(typeof Lists !== 'undefined' && Lists.unseenCount ? await Lists.unseenCount() : await Auth.unseenCount());
+  } catch { setAlertsBadge(0); }
+}
+function setAlertsBadge(n) {
+  const b = document.getElementById('alr-badge');
+  if (!b) return;
+  n = Number(n) || 0;
+  b.textContent = n > 99 ? '99+' : String(n);
+  b.hidden = n <= 0;
+  b.title = n > 0 ? `${n} unseen alert${n === 1 ? '' : 's'}` : '';
+}
 
 function render() {
   const d = STATE.data;
@@ -135,28 +320,68 @@ function renderCurrencySelector() {
     : 'Display currency (USD only — no FX rates in this snapshot)';
   el.onchange = () => {
     STATE.currency = el.value;
-    if (STATE.openDrawerKey) openDrawer(STATE.openDrawerKey);
+    refreshDrawerParts();   // money fields only — the chart is left alone
   };
 }
 
 // ---- auth (Phase D, ADR-026) ----
+// Inline magic-link form (admin.html's pattern) instead of prompt()/alert(): the
+// panel lives outside #authBox, so this re-render (every auth event, incl. the
+// hourly token refresh) never wipes a half-typed address or a "link sent" message.
 function renderAuthUI() {
   const el = $('#authBox');
-  if (!Auth.available()) { el.innerHTML = ''; return; }
+  if (!Auth.available()) { el.innerHTML = ''; showSignin(false); return; }
   const u = Auth.currentUser();
   el.innerHTML = u
-    ? `<span class="text-xs text-slate-400 truncate max-w-[160px]" title="${u.email}">${u.email}</span>
+    ? `<span class="text-xs text-slate-400 truncate max-w-[160px]" title="${esc(u.email)}">${esc(u.email)}</span>
        <button id="signOutBtn" class="ctrl">Sign out</button>`
-    : `<button id="signInBtn" class="ctrl">Sign in</button>`;
+    : `<button id="signInBtn" class="ctrl" aria-controls="signinPanel">Sign in</button>`;
   const inBtn = $('#signInBtn'), outBtn = $('#signOutBtn');
-  if (inBtn) inBtn.onclick = async () => {
-    const email = prompt('Email for a magic sign-in link:');
-    if (!email) return;
-    try { await Auth.signInWithEmail(email); alert(`Check ${email} for a sign-in link.`); }
-    catch (e) { alert(`Sign-in failed: ${e.message || e}`); }
-  };
+  if (inBtn) inBtn.onclick = () => showSignin($('#signinPanel').hidden);
   if (outBtn) outBtn.onclick = async () => { await Auth.signOut(); };
+  if (u) { showSignin(false); return; }
+  // A failed magic link (expired / already spent by a mail scanner) lands here with
+  // error params; say so next to the form rather than bouncing back silently.
+  const err = Auth.readAuthError();
+  if (err) { setSigninMsg(err, true); showSignin(true, { focus: false }); }
 }
+function showSignin(on, { focus = true } = {}) {
+  const panel = $('#signinPanel');
+  if (!panel) return;
+  // The panel sits top-right, exactly under the drawer and its scrim: close the drawer
+  // first (e.g. "Sign in" from the star picker inside it) so the form is reachable.
+  if (on && STATE.drawer) closeDrawer();
+  panel.hidden = !on;
+  if (on) {
+    $('#signinForm').hidden = false;
+    try { panel.scrollIntoView({ block: 'nearest' }); } catch { /* old browsers */ }
+    if (focus) $('#signinEmail').focus();
+  }
+}
+function setSigninMsg(text, isError) {
+  const m = $('#signinMsg');
+  m.textContent = text;
+  m.className = `text-sm ${isError ? 'text-rich' : 'text-slate-400'}`;
+}
+$('#signinForm').onsubmit = async e => {
+  e.preventDefault();
+  const email = $('#signinEmail').value.trim();
+  if (!email) { $('#signinEmail').focus(); return; }
+  if (!Auth.available()) { setSigninMsg('Still starting up — try again in a moment.'); return; }
+  const btn = $('#signinSend');
+  btn.disabled = true;
+  try {
+    await Auth.signInWithEmail(email);
+    const m = $('#signinMsg');
+    m.className = 'text-sm text-slate-300';
+    m.innerHTML = `Link sent to <b>${esc(email)}</b>. Open it on this device, and soon — each link works once, `
+      + `and some mail providers use it up by scanning it. If it doesn't work, just request another.`;
+    $('#signinForm').hidden = true;
+  } catch (err) {
+    setSigninMsg(err?.message ? `Sign-in failed: ${String(err.message).slice(0, 200)}` : 'Sign-in failed.', true);
+  } finally { btn.disabled = false; }
+};
+$('#signinCancel').onclick = () => showSignin(false);
 
 const KIND_LABEL = { Country: 'Countries', Sector: 'Sectors', Style: 'Styles', Region: 'Regions', Broad: 'Broad' };
 function renderFocus(kinds) {
@@ -221,6 +446,8 @@ function renderTrackRecord(acc) {
 // so the block stays hidden rather than rendering empty.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STRAT_COLOR = { 'Quality on sale': '#60a5fa', 'Deep discount, fundamentals intact': '#34d399', 'Quality on sale, turning up': '#2dd4bf', 'Steady compounder on sale': '#a78bfa' };
+// The owner's snapshot rows carry strategy ids (engine/strategies.py); picks carry labels.
+const stratLabel = s => STATE.data?.top_picks?.strategies?.[s]?.label || s;
 const stratBadges = labels => (labels || []).map(l =>
   `<span class="pill" style="background:${STRAT_COLOR[l] || '#94a3b8'}22;color:${STRAT_COLOR[l] || '#94a3b8'}">${esc(l)}</span>`).join(' ');
 
@@ -232,7 +459,7 @@ function pickCard(p, isMarket) {
          <span class="text-[11px] text-slate-500 truncate">${esc(p.kind)} · ${money(p.price)} · ${marketCap(p.market_cap)}</span></div>`;
   const why = [...(p.reasons || []).map(r => `<li class="ok">${esc(r)}</li>`),
                ...(p.cautions || []).map(c => `<li class="warn">${esc(c)}</li>`)].join('');
-  return `<div class="pick-card" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
+  return `<div class="pick-card" ${isMarket ? `data-mk="${esc(p.key)}"` : `data-tk="${esc(p.ticker)}"`}>
     <div class="flex items-start justify-between gap-2">
       <div class="min-w-0">${head}
         <div class="text-[14px] font-medium text-slate-100 mt-1 leading-snug">${esc(p.name)}</div></div>
@@ -251,7 +478,7 @@ const avgLabel = y => (y == null || y >= 4.75) ? 'vs 5y avg' : `vs ${fmt(y, 1)}y
 
 function saleRow(p, isMarket) {
   const id = isMarket ? p.symbol : p.ticker;
-  return `<div class="sale-row" ${isMarket ? `data-mk="${esc(p.key)}"` : ''}>
+  return `<div class="sale-row" ${isMarket ? `data-mk="${esc(p.key)}"` : `data-tk="${esc(p.ticker)}"`}>
     <div class="min-w-0 text-[13px] text-slate-100 truncate"><span class="text-slate-400 tabular-nums">${esc(id)}</span> ${esc(p.name)}</div>
     <div class="text-[13px] font-semibold tabular-nums text-right" style="color:#f87171">${pct(p.discount_long ?? p.discount_52w, 0)}</div>
     <div class="min-w-0 text-[11px] text-slate-500 truncate">${esc(p.reasons?.find(r => r.startsWith('Growth record') || r.startsWith('Business growing')) || p.reasons?.[0] || '')}</div>
@@ -294,6 +521,7 @@ function renderPicks(tp) {
       ${exLine ? `<p class="mt-1.5">${esc(exLine)}</p>` : ''}
     </details>`;
   $$('#picks [data-mk]').forEach(el => el.onclick = () => openDrawer(el.dataset.mk));
+  $$('#picks [data-tk]').forEach(el => el.onclick = () => openStockDrawer(el.dataset.tk));
 }
 
 // ---- 2. insight cards ----
@@ -551,10 +779,10 @@ function investability(s) {
     <span class="text-slate-600">· US-listed (${s.currency || 'USD'} native)</span></div>`;
 }
 function stockRow(s) {
-  return `<div class="flex items-center justify-between gap-2 py-1.5 border-b border-line/50">
+  return `<div class="stock-link flex items-center justify-between gap-2 py-1.5 border-b border-line/50" data-tk="${esc(s.ticker)}" title="Open ${esc(s.ticker)}">
     <div class="min-w-0">
-      <div class="text-[13px] text-slate-100">${s.ticker}${s.garp ? ' <span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span>' : ''}</div>
-      <div class="text-[10px] text-slate-500 truncate">${s.name || ''}${s.sector ? ' · ' + s.sector : ''}</div>
+      <div class="text-[13px] text-slate-100">${esc(s.ticker)}${s.garp ? ' <span class="pill" style="background:#2dd4bf22;color:#2dd4bf">GARP</span>' : ''}</div>
+      <div class="text-[10px] text-slate-500 truncate">${esc(s.name || '')}${s.sector ? ' · ' + esc(s.sector) : ''}</div>
       ${investability(s)}
     </div>
     <div class="text-right shrink-0">
@@ -621,6 +849,70 @@ function tagProvenance(m) {
 }
 
 // ---- drill-down drawer ----
+// One drawer, two kinds (STATE.drawer = {kind: 'market'|'stock', key}). It is built in
+// four parts — head (name, star), top (tag, score tiles), chart, body (numbers, money) —
+// so an auth event or a currency change can redraw head/top/body WITHOUT touching the
+// chart: rebuilding it would lose zoom and leak the chart instance (ADR-037).
+let chartDispose = null;
+let drawerSeq = 0;            // bumps on every open; a late async result for an older drawer is dropped
+const drawerPart = name => $(`#drawer [data-drw="${name}"]`);
+
+function disposeChart() {
+  const d = chartDispose;
+  chartDispose = null;
+  if (typeof d === 'function') { try { d(); } catch { /* chart already gone */ } }
+}
+// Charts.mount(el, spec) -> dispose(), when charts.js loaded. Without it the block stays
+// hidden, so the drawer reads exactly as it did before charts existed.
+function mountChart(spec) {
+  disposeChart();
+  const el = drawerPart('chart');
+  if (!el) return;
+  el.innerHTML = '';
+  if (typeof Charts === 'undefined' || !Charts.mount) { el.hidden = true; return; }
+  el.hidden = false;
+  try {
+    const d = Charts.mount(el, spec);
+    chartDispose = typeof d === 'function' ? d : null;
+  } catch {
+    el.innerHTML = '<div class="text-xs text-slate-500 py-6 text-center">chart unavailable</div>';
+  }
+}
+
+function drawerShell() {
+  $('#drawer').innerHTML = `
+    <div data-drw="head"></div>
+    <div data-drw="top"></div>
+    <div data-drw="chart" class="chr-slot mb-4" hidden></div>
+    <div data-drw="body" class="text-sm"></div>`;
+}
+function showDrawer() {
+  $('#drawer').classList.remove('translate-x-full');
+  $('#scrim').classList.remove('hidden');
+}
+
+// The one star control (Lists.starHTML: list picker; markets' built-in "Starred" list
+// is user_watchlist). Until lists.js is in, markets keep the old single star.
+function starControl(kind, key) {
+  if (typeof Lists !== 'undefined' && Lists.starHTML) {
+    try { return Lists.starHTML(kind, key) || ''; } catch { return ''; }
+  }
+  return kind === 'market' ? watchStarBtn(key) : '';
+}
+function bindStar(kind, key) {
+  if (typeof Lists !== 'undefined' && Lists.starHTML) {
+    if (Lists.bindStars) { try { Lists.bindStars(drawerPart('head')); } catch { /* lists' problem */ } }
+    return;
+  }
+  const b = $('#watchStarBtn');
+  if (!b || kind !== 'market') return;
+  b.onclick = async () => {
+    if (!Auth.available()) return;
+    if (!Auth.currentUser()) { showSignin(true); return; }
+    try { await Auth.toggleWatch(key); refreshDrawerParts(); }
+    catch (e) { b.title = `Watchlist update failed: ${e.message || e}`; b.style.color = '#f87171'; }
+  };
+}
 function watchStarBtn(key) {
   const signedIn = Auth.available() && Auth.currentUser();
   const on = signedIn && Auth.isWatched(key);
@@ -630,24 +922,32 @@ function watchStarBtn(key) {
   return `<button id="watchStarBtn" class="text-xl leading-none ${signedIn ? '' : 'opacity-40 cursor-not-allowed'}"
     style="color:${on ? '#fbbf24' : '#64748b'}" title="${title}">${on ? '★' : '☆'}</button>`;
 }
-function openDrawer(key) {
-  const m = STATE.rows.find(x => x.key === key); if (!m) return;
-  STATE.openDrawerKey = key;
-  const row = (l, v) => `<div class="flex justify-between py-1.5 border-b border-line/50"><span class="text-slate-400">${l}</span><span class="text-slate-100 tabular-nums">${v}</span></div>`;
-  $('#drawer').innerHTML = `
+const drawerRow = (l, v) => `<div class="flex justify-between gap-3 py-1.5 border-b border-line/50"><span class="text-slate-400">${l}</span><span class="text-slate-100 tabular-nums text-right">${v}</span></div>`;
+const drawerSub = t => `<div class="text-[11px] uppercase tracking-wider text-slate-500 mt-3 mb-1">${t}</div>`;
+const closeBtn = () => `<button id="closeDrawer" class="text-slate-400 hover:text-white text-xl leading-none" title="Close (Esc)" aria-label="Close">×</button>`;
+
+// -- market drawer --
+function marketHead(m) {
+  return `
     <div class="flex items-start justify-between mb-3">
-      <div><div class="text-lg font-semibold text-white">${m.name}</div>
+      <div class="min-w-0"><div class="text-lg font-semibold text-white">${m.name}</div>
         <div class="text-xs text-slate-500">${m.kind} · ${m.country} · ${m.region} · ${m.development} · proxy ${m.symbol}</div></div>
-      <div class="flex items-center gap-2">
-        ${watchStarBtn(key)}
-        <button id="closeDrawer" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+      <div class="flex items-center gap-2 shrink-0">
+        ${starControl('market', m.key)}
+        ${closeBtn()}
       </div>
-    </div>
+    </div>`;
+}
+function marketTop(m) {
+  return `
     <div class="text-[13px] text-slate-300 italic mb-3">${m.tag || ''}${tagProvenance(m)}</div>
     <div class="grid grid-cols-3 gap-2 mb-4">
       ${scoreTile('Value', m.value_score)}${scoreTile('Growth', m.growth_score)}${scoreTile('Opportunity', m.opportunity_score)}
-    </div>
-    <div class="text-sm">
+    </div>`;
+}
+function marketBody(m) {
+  const row = drawerRow;
+  return `
       <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1 mb-1">Valuation</div>
       ${row('P/E', fmt(m.pe))}${row('P/B', fmt(m.pb))}${row('P/S', fmt(m.ps))}${row('P/CF', fmt(m.pcf))}
       ${row('Dividend yield', pct(m.dividend_yield))}${row('Earnings yield', pct(m.earnings_yield))}
@@ -660,9 +960,8 @@ function openDrawer(key) {
       ${row('3m / 6m / 12m', pct(m.ret_3m) + ' / ' + pct(m.ret_6m) + ' / ' + pct(m.ret_12m))}
       ${row('vs 200d MA', pct(m.ma200_ratio))}${row(m.long_avg_years != null && m.long_avg_years < 4.75 ? `vs ${fmt(m.long_avg_years, 1)}-yr average` : 'vs 5-year average', pct(m.discount_long ?? m.discount_52w))}${row('52w range pos', fmt((m.pct_52w_range ?? 0) * 100, 0) + '%')}
       ${row('Flags', flagPills(m))}
-      ${stockBreakdownBlock(key)}
+      ${stockBreakdownBlock(m.key)}
       ${investBlock(m)}
-    </div>
     <div class="mt-4">
       <div class="text-xs text-slate-400 mb-1.5">Does this call look right to you?</div>
       <div class="flex gap-2">
@@ -671,24 +970,348 @@ function openDrawer(key) {
         <button class="fb-btn flex-1" data-fb="down">👎 Off</button>
       </div>
     </div>`;
-  $('#closeDrawer').onclick = closeDrawer;
-  $('#watchStarBtn').onclick = async () => {
-    if (!Auth.available()) return;
-    if (!Auth.currentUser()) { alert('Sign in (top right) to save a personal watchlist.'); return; }
-    try { await Auth.toggleWatch(key); openDrawer(key); }
-    catch (e) { alert(`Watchlist update failed: ${e.message || e}`); }
-  };
-  $$('#drawer [data-fb]').forEach(b => b.onclick = () => { sendFeedback('market', key, b.dataset.fb); b.classList.add('active'); });
-  $('#drawer').classList.remove('translate-x-full');
-  $('#scrim').classList.remove('hidden');
 }
+function fillMarketDrawer(m) {
+  drawerPart('head').innerHTML = marketHead(m);
+  drawerPart('top').innerHTML = marketTop(m);
+  drawerPart('body').innerHTML = marketBody(m);
+  $('#closeDrawer').onclick = () => closeDrawer();
+  bindStar('market', m.key);
+  $$('#drawer [data-drw="body"] [data-fb]').forEach(b => b.onclick = () => { sendFeedback('market', m.key, b.dataset.fb); b.classList.add('active'); });
+  $$('#drawer [data-drw="body"] [data-tk]').forEach(r => r.onclick = () => {
+    STATE.drawerBack = { kind: 'market', key: m.key, name: m.name };
+    openStockDrawer(r.dataset.tk, { keepBack: true });
+  });
+}
+function openDrawer(key, { fromRoute = false } = {}) {
+  const m = STATE.rows.find(x => x.key === key); if (!m) return;
+  drawerSeq++;
+  STATE.drawer = { kind: 'market', key };
+  STATE.drawerBack = null;
+  STATE.drawerFromRoute = fromRoute;
+  disposeChart();
+  drawerShell();
+  fillMarketDrawer(m);
+  showDrawer();
+  // Markets chart via the TradingView widget on the ETF proxy (charts.js decides).
+  mountChart({ kind: 'market', key: m.key, symbol: m.symbol });
+}
+
+// -- stock drawer --
+// Resolution order: the trusted snapshot (owner only, RLS) when it's loaded, else the
+// public rows already in dashboard_data.json (top picks, on-sale list, per-market
+// breakdowns) — public fields only, nothing new is exposed.
+function publicStockRow(t) {
+  const d = STATE.data || {};
+  const tp = d.top_picks || {};
+  const parts = [], markets = [];
+  for (const [mk, rows] of Object.entries(d.stock_breakdown || {})) {
+    const r = (rows || []).find(x => String(x.ticker).toUpperCase() === t);
+    if (r) { parts.push(r); markets.push(mk); }
+  }
+  for (const r of [...(tp.on_sale?.stocks || []), ...(tp.stocks || [])]) {
+    if (String(r.ticker).toUpperCase() === t) parts.push(r);
+  }
+  if (!parts.length) return null;
+  const row = Object.assign({}, ...parts);
+  row.sector = row.sector || row.kind;   // picks carry the sector as `kind`
+  row._markets = markets;
+  return row;
+}
+async function trustedStockRow(t) {
+  if (!Auth.available() || !Auth.currentUser()) return null;
+  try { const snap = await Auth.stockSnapshot(); return snap?.byTicker?.get(t) || null; }
+  catch { return null; }
+}
+function resolvedStock(t, snapRow) {
+  const pub = publicStockRow(t);
+  if (!snapRow) return pub;
+  // Snapshot numbers win; the public row only adds the picks' reasons and market links.
+  return { ...(pub || {}), ...snapRow, _markets: pub?._markets || [], _trusted: true,
+    reasons: pub?.reasons, cautions: pub?.cautions };
+}
+
+// Why a snapshot row is hidden from screens (picks.exclusion_reasons codes) — the
+// screener's wording (screenbox.js REASONS).
+const DATA_FLAG_TEXT = { foreign_listing: 'foreign listing', non_usd_reporter: 'non-USD reporter', implausible_pe: 'implausible P/E',
+  implausible_ps: 'implausible P/S', below_min_mcap: 'below the minimum market cap', short_history: 'short filing history' };
+const dataFlagText = c => DATA_FLAG_TEXT[c] || (/^quality:/.test(c) ? `open data check (${c.slice(8).replace(/_/g, ' ')})` : String(c).replace(/_/g, ' '));
+const BOOL_FLAGS = [
+  ['on_sale', 'on sale', '#60a5fa'], ['garp', 'GARP', '#2dd4bf'], ['steady_compounder', 'steady compounder', '#a78bfa'],
+  ['deep_value_intact', 'deep value, intact', '#34d399'], ['fundamentally_strong', 'fundamentally strong', '#34d399'],
+  ['turning_up', 'turning up', '#2dd4bf'], ['value_trap', 'trap', '#fbbf24'], ['overvalued', 'rich', '#f87171'],
+];
+function stockFlags(s) {
+  const pills = BOOL_FLAGS.filter(([k]) => s[k] === true)
+    .map(([, l, c]) => `<span class="pill" style="background:${c}22;color:${c}">${l}</span>`).join(' ');
+  return pills || '—';
+}
+function stockHead(t, s) {
+  const back = STATE.drawerBack?.kind === 'market'
+    ? `<button id="drawerBack" class="text-[11px] text-accent hover:underline mb-1">&larr; ${esc(STATE.drawerBack.name || STATE.drawerBack.key)}</button>` : '';
+  const sub = s ? [s.sector, s.country].filter(Boolean).map(esc).join(' · ') : '';
+  return `${back}
+    <div class="flex items-start justify-between mb-3">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2"><span class="badge" style="background:#a78bfa22;color:#a78bfa">${esc(t)}</span>
+          <span class="text-[11px] text-slate-500">stock${sub ? ' · ' + sub : ''}</span></div>
+        <div class="text-lg font-semibold text-white mt-1">${esc(s?.name || t)}</div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        ${starControl('stock', t)}
+        ${closeBtn()}
+      </div>
+    </div>`;
+}
+function stockTop(t, s, { loading = false } = {}) {
+  if (!s) {
+    return `<div class="text-[12px] text-slate-400 leading-relaxed bg-panel border border-line rounded-lg p-3 mb-4">
+      ${loading ? 'Loading&hellip;' : `No figures for ${esc(t)} are published here. Stock-level data on this page covers the
+      top picks and the per-market breakdowns; the full stock universe is limited to the owner while the
+      price-data licence is reviewed.`}</div>`;
+  }
+  const why = [...(s.reasons || []).map(r => `<li class="ok">${esc(r)}</li>`),
+               ...(s.cautions || []).map(c => `<li class="warn">${esc(c)}</li>`)].join('');
+  return `${why ? `<ul class="pick-why mb-3">${why}</ul>` : ''}
+    ${s.strategies?.length ? `<div class="mb-3">${stratBadges(s.strategies.map(stratLabel))}</div>` : ''}
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      ${scoreTile('Value', s.value_score)}${scoreTile('Growth', s.growth_score)}${scoreTile('Opportunity', s.opportunity_score)}
+    </div>`;
+}
+function stockBody(t, s) {
+  if (!s) return '';
+  const row = drawerRow;
+  const has = k => s[k] != null;
+  const rowsIf = list => list.filter(([k]) => has(k)).map(([, l, f]) => row(l, f(s))).join('');
+  const val = rowsIf([['pe', 'P/E', x => fmt(x.pe)], ['pb', 'P/B', x => fmt(x.pb)], ['ps', 'P/S', x => fmt(x.ps)],
+    ['pcf', 'P/CF', x => fmt(x.pcf)], ['dividend_yield', 'Dividend yield', x => pct(x.dividend_yield)]]);
+  // "Growth" is the business's own record (EDGAR revenue / earnings) — never price.
+  const share = v => v == null ? '—' : `${Math.round(v * 100)}% of years`;
+  const growth = rowsIf([['rev_growth', 'Revenue growth (last year)', x => pct(x.rev_growth)],
+    ['earnings_growth', 'Earnings growth (last year)', x => pct(x.earnings_growth)],
+    ['rev_cagr', 'Revenue growth per year (CAGR)', x => pct(x.rev_cagr)],
+    ['ni_cagr', 'Earnings growth per year (CAGR)', x => pct(x.ni_cagr)],
+    ['rev_up_ratio', 'Revenue up', x => share(x.rev_up_ratio)], ['ni_up_ratio', 'Earnings up', x => share(x.ni_up_ratio)],
+    ['ni_pos_ratio', 'Profitable', x => share(x.ni_pos_ratio)], ['hist_years', 'Years on file', x => fmt(x.hist_years, 0)],
+    ['consistency_score', 'Consistency score', x => fmt(x.consistency_score, 0)]]);
+  const price = rowsIf([['price', 'Price', x => money(x.price)], ['market_cap', 'Market cap', x => marketCap(x.market_cap)],
+    ['discount_long', `${avgLabel(s.long_avg_years)} price`, x => pct(x.discount_long)]]);
+  const caveats = s._trusted && s.data_ok === false && s.data_flags?.length
+    ? `<div class="text-[11px] text-warn bg-panel border border-line rounded-lg p-2.5 mt-3">Hidden from screens by default — data caveats: ${esc(s.data_flags.map(dataFlagText).join(', '))}</div>` : '';
+  const mk = (s._markets || []).map(k => STATE.rows.find(m => m.key === k)).filter(Boolean);
+  const inMarkets = mk.length
+    ? `${drawerSub('In these markets (bottom-up breakdown)')}<div class="flex flex-wrap gap-1.5">${mk.map(m =>
+        `<button class="pill stock-mk" style="background:#60a5fa22;color:#60a5fa" data-mk="${esc(m.key)}">${esc(m.name)}</button>`).join('')}</div>` : '';
+  return `
+    ${val ? `${drawerSub('Valuation')}${val}` : ''}
+    ${growth ? `${drawerSub('Fundamental growth record (EDGAR)')}${growth}` : ''}
+    ${price ? `${drawerSub('Price (context)')}${price}` : ''}
+    ${row('Flags', stockFlags(s))}
+    ${caveats}${inMarkets}
+    <div class="text-[10px] text-slate-500 mt-3">${s._trusted ? 'Owner view: daily stock snapshot.' : 'Figures from this week\'s published snapshot.'}
+      US-listed${s.currency ? ` (${esc(s.currency)} native)` : ''}. Not investment advice.</div>`;
+}
+function fillStockDrawer(t, s, opts = {}) {
+  drawerPart('head').innerHTML = stockHead(t, s);
+  drawerPart('top').innerHTML = stockTop(t, s, opts);
+  drawerPart('body').innerHTML = stockBody(t, s);
+  $('#closeDrawer').onclick = () => closeDrawer();
+  const back = $('#drawerBack');
+  if (back) back.onclick = () => openDrawer(STATE.drawerBack.key);
+  bindStar('stock', t);
+  $$('#drawer [data-drw="body"] [data-mk]').forEach(b => b.onclick = () => openDrawer(b.dataset.mk));
+}
+const stockChartSpec = (t, s) => ({ kind: 'stock', ticker: t, symbol: t, price: s?.price ?? null,
+  discount_long: s?.discount_long ?? null, long_avg_years: s?.long_avg_years ?? null });
+
+async function openStockDrawer(ticker, { fromRoute = false, keepBack = false } = {}) {
+  const t = String(ticker ?? '').trim().toUpperCase();
+  if (!ROUTE_TICKER_RE.test(t)) return;
+  const seq = ++drawerSeq;
+  STATE.drawer = { kind: 'stock', key: t };
+  if (!keepBack) STATE.drawerBack = null;
+  STATE.drawerFromRoute = fromRoute;
+  disposeChart();
+  drawerShell();
+  const signedIn = Auth.available() && !!Auth.currentUser();
+  const pub = publicStockRow(t);
+  fillStockDrawer(t, pub, { loading: signedIn && !pub });
+  showDrawer();
+  // The owner's snapshot may still be downloading on first open — wait a little for it so
+  // the chart gets the snapshot's price/average, then carry on with what we have.
+  let snapRow = null;
+  if (signedIn) {
+    const pending = trustedStockRow(t);
+    snapRow = await withTimeout(pending, 4000) || null;
+    if (!snapRow) pending.then(r => {  // arrived late: refresh the numbers, keep the chart
+      if (r && seq === drawerSeq) { STATE.drawerRow = resolvedStock(t, r); fillStockDrawer(t, STATE.drawerRow); }
+    });
+  }
+  if (seq !== drawerSeq) return;
+  STATE.drawerRow = resolvedStock(t, snapRow);
+  fillStockDrawer(t, STATE.drawerRow);
+  mountChart(stockChartSpec(t, STATE.drawerRow));
+}
+
+// Redraw the parts that depend on sign-in state or display currency — never the chart.
+function refreshDrawerParts() {
+  const dr = STATE.drawer;
+  if (!dr || !$('#drawer [data-drw="head"]')) return;
+  if (dr.kind === 'market') {
+    const m = STATE.rows.find(x => x.key === dr.key);
+    if (m) fillMarketDrawer(m);
+    return;
+  }
+  const seq = drawerSeq;
+  fillStockDrawer(dr.key, STATE.drawerRow || publicStockRow(dr.key));
+  // Signing in (or out) can change what the owner may see; re-resolve, chart untouched.
+  trustedStockRow(dr.key).then(r => {
+    if (seq !== drawerSeq || STATE.drawer?.key !== dr.key) return;
+    const next = resolvedStock(dr.key, r);
+    if (!!next?._trusted !== !!STATE.drawerRow?._trusted) { STATE.drawerRow = next; fillStockDrawer(dr.key, next); }
+  });
+}
+
 function scoreTile(label, s) {
   return `<div class="rounded-lg bg-panel border border-line p-2 text-center">
     <div class="text-[10px] text-slate-500 uppercase">${label}</div>
     <div class="text-xl font-bold" style="color:${scoreColor(s)}">${fmt(s, 0)}</div></div>`;
 }
-function closeDrawer() { STATE.openDrawerKey = null; $('#drawer').classList.add('translate-x-full'); $('#scrim').classList.add('hidden'); }
-$('#scrim').onclick = closeDrawer;
+function closeDrawer({ keepHash = false } = {}) {
+  drawerSeq++;
+  disposeChart();
+  STATE.drawer = null; STATE.drawerRow = null; STATE.drawerBack = null;
+  $('#drawer').classList.add('translate-x-full'); $('#scrim').classList.add('hidden');
+  // Closing a drawer that a #/stock/… or #/market/… link opened returns the URL to the
+  // view underneath (replaceState: no hashchange, no history entry).
+  if (!keepHash && /^#\/(stock|market)\//.test(location.hash)) {
+    try { history.replaceState(null, '', ROUTER.baseHash || (location.pathname + location.search)); } catch { /* sandboxed */ }
+  }
+}
+$('#scrim').onclick = () => closeDrawer();
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (STATE.drawer) closeDrawer();
+  else if (!$('#signinPanel').hidden) showSignin(false);
+});
+
+// ---- header symbol search (TradingView-style) ----
+// Markets (key / name / ETF symbol), public stock tickers, and — for the owner only —
+// the snapshot's tickers, loaded when the box is first focused. Enter routes.
+const SYMBOLS = { map: new Map(), trustedLoaded: false };
+function buildSymbolList(extraStocks) {
+  const d = STATE.data;
+  if (!d) return;
+  const map = new Map(), opts = [];
+  const add = (value, label, hash) => {
+    if (map.has(value.toLowerCase())) return;
+    map.set(value.toLowerCase(), hash);
+    opts.push(`<option value="${esc(value)}" label="${esc(label)}"></option>`);
+  };
+  for (const m of STATE.rows) add(`${m.symbol} · ${m.name}`, `${m.kind} · ${m.region}`, `#/market/${encodeURIComponent(m.key)}`);
+  const stocks = new Map();
+  for (const rows of Object.values(d.stock_breakdown || {})) for (const r of rows || []) stocks.set(r.ticker, r.name);
+  for (const r of [...(d.top_picks?.stocks || []), ...(d.top_picks?.on_sale?.stocks || [])]) stocks.set(r.ticker, r.name);
+  for (const [t, n] of extraStocks || []) if (!stocks.has(t)) stocks.set(t, n);
+  for (const [t, n] of stocks) if (t && ROUTE_TICKER_RE.test(String(t).toUpperCase())) add(`${t} · ${n || ''}`.trim(), 'stock', `#/stock/${encodeURIComponent(String(t).toUpperCase())}`);
+  SYMBOLS.map = map;
+  $('#scr-symbol-list').innerHTML = opts.join('');
+}
+function resolveSymbol(text) {
+  const q = String(text || '').trim();
+  if (!q) return null;
+  const hit = SYMBOLS.map.get(q.toLowerCase());
+  if (hit) return hit;
+  const lq = q.toLowerCase();
+  const m = STATE.rows.find(x => x.key.toLowerCase() === lq || String(x.symbol).toLowerCase() === lq || x.name.toLowerCase() === lq);
+  if (m) return `#/market/${encodeURIComponent(m.key)}`;
+  for (const [label, hash] of SYMBOLS.map) if (label.split(' · ')[0] === lq) return hash;
+  // Any well-formed ticker opens a stock drawer (it says when nothing is published for it).
+  const t = q.toUpperCase();
+  return ROUTE_TICKER_RE.test(t) ? `#/stock/${encodeURIComponent(t)}` : null;
+}
+(() => {
+  const box = $('#symbolSearch');
+  const go = () => {
+    const hash = resolveSymbol(box.value);
+    if (!hash) { box.style.borderColor = '#f87171'; return; }
+    box.style.borderColor = '';
+    box.value = '';
+    box.blur();
+    if (location.hash === hash) route(); else location.hash = hash;
+  };
+  box.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  // Picking a datalist suggestion fires `input` with the full option value.
+  box.addEventListener('input', e => {
+    box.style.borderColor = '';
+    if (e.inputType === 'insertReplacementText' || (e.inputType == null && SYMBOLS.map.has(box.value.toLowerCase()))) go();
+  });
+  box.addEventListener('focus', async () => {
+    if (!SYMBOLS.map.size) buildSymbolList();
+    if (SYMBOLS.trustedLoaded || !Auth.available() || !Auth.currentUser()) return;
+    SYMBOLS.trustedLoaded = true;
+    try {
+      if (!(await Auth.isTrusted())) { if (Auth.trustUnknown?.()) SYMBOLS.trustedLoaded = false; return; }
+      const snap = await Auth.stockSnapshot();
+      if (snap?.records) buildSymbolList(snap.records.map(r => [r.ticker, r.name]));
+      else SYMBOLS.trustedLoaded = false;      // not published yet / failed: retry on next focus
+    } catch { SYMBOLS.trustedLoaded = false; }
+  });
+})();
+
+// ---- Overview scoreboard -> Screener (markets scope) ----
+// Converts the scoreboard's current lens + filters into the same screen, so the user can
+// keep refining there. Value bands use metrics.py's cut points (Expensive ≤ 33 < Fair ≤
+// 66 < Cheap). "hide overvalued" has no screener field (richness is internal), so it is
+// left out and the link says so. include_flagged: the scoreboard shows every market.
+function scoreboardFilter() {
+  const where = [];
+  if (STATE.focus && STATE.focus !== 'All') where.push({ field: 'kind', op: 'in', value: [STATE.focus] });
+  const reg = $('#fRegion').value, dev = $('#fDev').value, band = $('#fBand').value, q = $('#search').value.trim();
+  if (reg) where.push({ field: 'region', op: 'in', value: [reg] });
+  if (dev) where.push({ field: 'development', op: 'in', value: [dev] });
+  if (band === 'Cheap') where.push({ field: 'value_score', op: '>', value: 66 });
+  if (band === 'Fair') where.push({ field: 'value_score', op: '>', value: 33 }, { field: 'value_score', op: '<=', value: 66 });
+  if (band === 'Expensive') where.push({ field: 'value_score', op: '<=', value: 33 });
+  if (q) {
+    // The scoreboard search matches name OR country; the DSL has no OR, so when the
+    // country half adds rows, carry the exact set of matching markets instead.
+    const ql = q.toLowerCase();
+    const hits = focusedRows().filter(m => m.name.toLowerCase().includes(ql) || (m.country || '').toLowerCase().includes(ql));
+    if (hits.every(m => m.name.toLowerCase().includes(ql))) where.push({ field: 'name', op: 'contains', value: q.slice(0, 80) });
+    else where.push({ field: 'key', op: 'in', value: hits.map(m => m.key).slice(0, 500) });
+  }
+  const { key, dir } = STATE.sort;
+  const sortable = typeof ScreenDSL !== 'undefined' && ScreenDSL.isReady?.() ? !!ScreenDSL.field(key) : key !== 'flags';
+  return { v: 1, scope: 'markets', where, sort: sortable && key !== 'flags' ? { field: key, dir: dir < 0 ? 'desc' : 'asc' } : null,
+    limit: 500, include_flagged: true };
+}
+$('#scr-open-scoreboard').onclick = e => {
+  e.preventDefault();
+  let filter = scoreboardFilter();
+  if (typeof ScreenDSL !== 'undefined' && ScreenDSL.isReady?.()) {
+    const v = ScreenDSL.validate(filter, 'markets');
+    if (v.ok) filter = v.filter;
+    else filter = { v: 1, scope: 'markets', where: [], sort: filter.sort, limit: 500, include_flagged: true };
+  }
+  if (typeof Screener !== 'undefined' && Screener.openWithFilter) {
+    // Show the view without Screener.show() (which would apply its own state), then hand
+    // over the filter. pushState: Back returns to the Overview.
+    try { history.pushState(null, '', '#/screener'); } catch { /* sandboxed */ }
+    if (STATE.drawer) closeDrawer({ keepHash: true });
+    ROUTER.baseHash = '#/screener';
+    showView('screener', null, { skipModule: true });
+    try { Screener.openWithFilter(filter); } catch { moduleMissing('screener', true); }
+    return;
+  }
+  const s = typeof ScreenDSL !== 'undefined' && ScreenDSL.encodeFilter ? ScreenDSL.encodeFilter(filter) : null;
+  location.hash = s ? `#/screener?s=${s}` : '#/screener';
+};
+$('#fHideRich').addEventListener('change', () => {
+  $('#scr-open-scoreboard').title = $('#fHideRich').checked
+    ? 'Open in the Screener (the "hide overvalued" toggle has no screener equivalent and is not carried over)'
+    : 'Open these markets in the Screener with the same filters';
+});
 
 // ---- feedback + refresh ----
 function sendFeedback(kind, target, signal) {
