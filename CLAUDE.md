@@ -1,5 +1,10 @@
 # Global Index Valuation Agent — session orientation
 
+🔗 **Live app: <https://global-index-valuation-agent.vercel.app>** — Screener:
+<https://global-index-valuation-agent.vercel.app/#/screener>. The owner asked (2026-10-16) to
+always have this link at hand: **end every report to the user (task summaries, PR merges,
+health checks) with the live-app link.**
+
 **This file auto-loads at the start of every Claude Code session (local or cloud).**
 It exists so a fresh session — with none of the prior chat — starts fully oriented.
 
