@@ -33,7 +33,8 @@
   const SERIES_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#2dd4bf'];
   const STANCE_TONE = { Positive: 'pos', Neutral: 'neu', Cautious: 'cau' };
   const RISK_TONE = { Low: 'pos', Medium: 'neu', High: 'cau', 'Very high': 'neg' };
-  const SCENARIOS = ['Bear', 'Base', 'Bull'];
+  // Bear / Base / Bull are required; a Restructuring (equity ≈ 0) tail case is optional.
+  const SCENARIOS = ['Restructuring', 'Bear', 'Base', 'Bull'];
   const CALLOUT_TONES = new Set(['info', 'positive', 'risk']);
 
   // seq: bumps on every render/unmount, so a late fetch for a page that was left is dropped.
@@ -81,11 +82,12 @@
   function safeUrl(u) {
     try { const x = new URL(str(u)); return x.protocol === 'https:' ? x.href : null; } catch { return null; }
   }
-  // 'YYYY-MM-DD' -> '17 Oct 2026' (no Date parsing: no timezone shift).
+  // 'YYYY-MM-DD' -> '17 Oct 2026'; 'YYYY-MM' (a source page that gives no day) -> 'Oct 2026'.
+  // No Date parsing: no timezone shift.
   function fmtDate(d) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str(d));
+    const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(str(d));
     if (!m || +m[2] < 1 || +m[2] > 12) return str(d);
-    return `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}`;
+    return m[3] ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : `${MONTHS[+m[2] - 1]} ${m[1]}`;
   }
   const minus = s => s.replace(/^-/, '−');
   function fmtCell(v) {
@@ -180,7 +182,17 @@
   }
 
   // Grouped bars as inline SVG (the scatter's hand-built idiom): a zero baseline, negative
-  // bars hang below it, a null is a gap marked n/a — never drawn as zero.
+  // bars hang below it, a null is a gap marked n/a — never drawn as zero. The SVG carries its
+  // own width, so CSS only ever shrinks it (narrow screens), never scales it past 1:1 — and
+  // never below BARS_MIN_SCALE either (--rpt-bars-minw): a 1000-unit chart squeezed into a
+  // phone's 440 px would set its 10px labels at ~4px, so past that point the chart keeps a
+  // legible size and scrolls sideways in its own box instead.
+  // Value labels never overprint: a label that would collide with one already placed in its
+  // group is nudged one line further from the bar, and dropped if it still collides or would
+  // leave the plot (its value stays in the bar's tooltip and the chart's <desc>).
+  const LABEL_CHAR_W = 6.2, LABEL_H = 11, BARS_MIN_SCALE = 0.9;
+  const labelBox = (cx, y, t) => { const w = t.length * LABEL_CHAR_W; return { x0: cx - w / 2, x1: cx + w / 2, y0: y - 9, y1: y + 2 }; };
+  const overlaps = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
   function barsBlock(b, ctx) {
     const labels = (Array.isArray(b.labels) ? b.labels : []).map(str);
     const series = (Array.isArray(b.series) ? b.series : []).slice(0, SERIES_COLORS.length)
@@ -198,7 +210,8 @@
     const id = `rpt-bars-${ctx.slug}-${++ctx.bars}`;
     const valText = v => fmtVal(v) + (pctUnit ? '%' : '');
     const desc = labels.map((l, j) => `${l}: ${series.map(s => `${s.name} ${s.values[j] == null ? 'n/a' : valText(s.values[j])}`).join(', ')}`).join('; ');
-    const svg = sv('svg', { class: 'rpt-bars', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-labelledby': `${id}-t ${id}-d`, preserveAspectRatio: 'xMidYMid meet' },
+    const svg = sv('svg', { class: 'rpt-bars', viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-labelledby': `${id}-t ${id}-d`, preserveAspectRatio: 'xMidYMid meet',
+        style: `--rpt-bars-minw:${Math.ceil(W * BARS_MIN_SCALE)}px` },
       sv('title', { id: `${id}-t` }, `${str(b.title)}${unit ? ` (${unit})` : ''}`),
       sv('desc', { id: `${id}-d` }, desc));
     for (const t of sc.ticks) {
@@ -208,14 +221,20 @@
     }
     labels.forEach((l, j) => {
       const gx = padL + j * groupW, x0 = gx + (groupW - barW * nS) / 2;
+      const placed = [];
       series.forEach((s, i) => {
         const v = s.values[j], bx = x0 + i * barW, cx = (bx + barW / 2).toFixed(1);
         if (v == null) { svg.appendChild(sv('text', { x: cx, y: (y0 - 4).toFixed(1), 'text-anchor': 'middle', class: 'rpt-na' }, 'n/a')); return; }
         const top = Math.min(y(v), y0), hgt = Math.max(Math.abs(y(v) - y0), v === 0 ? 0 : 0.8);
         svg.appendChild(sv('rect', { x: (bx + 1).toFixed(1), y: top.toFixed(1), width: Math.max(1, barW - 2).toFixed(1), height: hgt.toFixed(1), fill: s.color, rx: 1.5 },
           sv('title', null, `${l} · ${s.name}: ${valText(v)}${unit && !pctUnit ? ` ${unit}` : ''}`)));
-        const ly = v >= 0 ? top - 4 : top + hgt + 11;
-        svg.appendChild(sv('text', { x: cx, y: ly.toFixed(1), 'text-anchor': 'middle', class: 'rpt-val' }, valText(v)));
+        const t = valText(v), dir = v >= 0 ? -1 : 1;
+        let ly = v >= 0 ? top - 4 : top + hgt + 11;
+        for (let k = 0; k < 2 && placed.some(b => overlaps(b, labelBox(+cx, ly, t))); k++) ly += dir * LABEL_H;
+        const box = labelBox(+cx, ly, t);
+        if (placed.some(b => overlaps(b, box)) || box.y0 < 0 || box.y1 > H) return;
+        placed.push(box);
+        svg.appendChild(sv('text', { x: cx, y: ly.toFixed(1), 'text-anchor': 'middle', class: 'rpt-val' }, t));
       });
       svg.appendChild(sv('text', { x: (gx + groupW / 2).toFixed(1), y: H - 10, 'text-anchor': 'middle', class: 'rpt-xl' }, l));
     });
@@ -229,7 +248,7 @@
   function scenariosBlock(b, ctx) {
     const rows = (Array.isArray(b.rows) ? b.rows : []).filter(r => r && SCENARIOS.includes(r.name))
       .sort((a, c) => SCENARIOS.indexOf(a.name) - SCENARIOS.indexOf(c.name));
-    return h('div', { class: 'rpt-scen' }, rows.map(r => h('div', { class: `rpt-scen-card ${r.name.toLowerCase()}` },
+    return h('div', { class: `rpt-scen${rows.length > 3 ? ' n4' : ''}` }, rows.map(r => h('div', { class: `rpt-scen-card ${r.name.toLowerCase()}` },
       h('div', { class: 'rpt-scen-name' }, `${r.name} case`),
       h('div', { class: 'rpt-scen-val' }, str(r.value)),
       r.prob ? h('div', { class: 'rpt-scen-prob' }, `Probability: ${str(r.prob)}`) : null,
@@ -467,8 +486,13 @@
   }
   function renderReport(el, slug) {
     if (!el) return Promise.resolve();
+    const s = str(slug);
+    // The router re-runs for the page already on screen (Back from a stock drawer opened over
+    // the report, a data refresh): keep the reader's place, the live chart and the fetched JSON.
+    const cur = el.firstChild;
+    if (S.shown === `report:${s}` && cur && cur.getAttribute && cur.getAttribute('data-rpt-slug') === s) return Promise.resolve();
     unmount();
-    const seq = S.seq, s = str(slug);
+    const seq = S.seq;
     shown(`report:${s}`);
     clear(el);
     if (!SLUG_RE.test(s)) { el.appendChild(notFound()); return Promise.resolve(); }

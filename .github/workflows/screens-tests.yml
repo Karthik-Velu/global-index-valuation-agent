@@ -21,23 +21,32 @@ on:
       - "engine/screens.py"
       - "engine/screenjobs.py"
       - "engine/picks.py"
+      - "engine/reports.py"
+      - "engine/tierb.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
       - "api/**"
+      - ".vercelignore"
       - ".github/workflows/screens-tests.yml"
   push:
     branches: ["claude/beautiful-brahmagupta-m0uxps"]
     paths:
       - "dashboard/*.js"
       - "dashboard/screen_fields.json"
+      - "dashboard/index.html"
+      - "dashboard/reports/**"
+      - "scripts/test_reports.js"
       - "engine/screens.py"
       - "engine/screenjobs.py"
       - "engine/picks.py"
+      - "engine/reports.py"
+      - "engine/tierb.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
       - "api/**"
+      - ".vercelignore"
       - ".github/workflows/screens-tests.yml"
 
 permissions:
@@ -63,6 +72,8 @@ jobs:
         with: { python-version: "3.12" }
       - name: DSL parity (Python, stdlib only)
         run: python tests/test_screens.py
+      - name: Key-report financials job (de-cumulation, vintages, rounding bounds; stdlib only)
+        run: python tests/test_reports_engine.py
       - name: Screen jobs (fake DB connection, no network)
         run: |
           pip install --quiet "pandas>=2.2" "numpy>=1.26"

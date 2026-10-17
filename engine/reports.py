@@ -44,6 +44,19 @@ Why this needs care — three traps in the raw store, each handled explicitly:
    are used only to corroborate the derived discrete quarters. Balance-sheet
    (instant) rows have no duration, so their label is irrelevant.
 
+4. Mixed reporting precision. Keeping the precise vintage (§1) only helps when a
+   precise vintage EXISTS. When a period's only filing is rounded (e.g. FY2024
+   and FY2025 appear only in CoreWeave's millions-rounded FY2025 10-K, and its
+   depreciation is tagged to the nearest US$0.1bn from the Q3 2025 10-Q on), a
+   derived quarter such as Q4 = FY − YTD9 carries the coarse input's rounding
+   error even though the subtraction prints to the dollar. Every flow value
+   therefore carries its exact linear dependence on the filed facts it was
+   derived from, and `uncertainty[field]` is the worst-case rounding bound
+   (sum of |coefficient| × half the filing's reporting unit, shared YTD facts
+   cancelling across a TTM sum). Bounds of US$0.5m or more are published per
+   period, YoY growth gets a `<field>_yoy_range` when the bound is material,
+   and `checks.precision` lists every value whose bound is at least 1% of it.
+
 Per-share flows (EPS, DPS) are not additive across quarters (the share count
 moves), so they are reported as filed (YTD) and never de-cumulated; Q1 is the
 only quarter where the YTD EPS is also the discrete EPS.
@@ -241,6 +254,41 @@ def _scale(v: float) -> float:
     return 1.0
 
 
+def _unit(v: float) -> float:
+    """Coarsest reporting unit consistent with a filed value.
+
+    Unlike _scale (capped at millions, because it judges vintages), this also
+    sees the "US$1.6 billion" style rounding to US$0.1bn that some filers use
+    for a line item (CoreWeave's depreciation from its Q3 2025 10-Q on:
+    1,600,000,000, 2,400,000,000, 2,500,000,000). Only billion-plus values are
+    read that way: a millions-filed value is a multiple of 1e7 one time in ten,
+    which would flood the checks, but a multiple of 1e8 only one time in a
+    hundred. A genuinely precise round number then reads as coarse, so the
+    bound is an upper bound, never an understatement.
+    """
+    if abs(v) >= 1e9 and abs(v - round(v / 1e8) * 1e8) < 1e-6:
+        return 1e8
+    return _scale(v)
+
+
+# Rounding bounds below this are dollar-level noise for a statement shown in US$ m.
+MATERIAL_BOUND = 5e5
+
+
+def _bound(terms: dict) -> float:
+    """Worst-case rounding error of a value = sum(|coef| × half its fact's unit)."""
+    return sum(abs(c) * _unit(v) / 2 for (_, v), c in terms.items() if c)
+
+
+def _comb(*parts) -> dict:
+    """Linear combination of fact-term dicts: _comb((1, a), (-1, b))."""
+    out: dict = {}
+    for k, t in parts:
+        for fact, c in t.items():
+            out[fact] = out.get(fact, 0) + k * c
+    return {f: c for f, c in out.items() if c}
+
+
 def pick_vintage(cands: list[dict], kind: str) -> tuple[dict, dict | None]:
     """Choose one row among a period's vintages -> (chosen, restatement|None).
 
@@ -341,6 +389,10 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
         for pe, row in chosen.get(f, {}).items():
             ytd[f][(fiscal_year(pe, fye), ytd_months(pe, fye))] = {**row, "_pe": pe}
 
+    def _fact(row):
+        # identity of one filed fact: (concept · period · filing, value)
+        return (f"{row['raw_tag']}|{row['_pe']}|{_d(row['filed_date'])}", row["value"])
+
     def src(row, n):
         return (f"{row['raw_tag']} · {'FY' if n == 12 else f'YTD{n}'} {row['_pe']} · "
                 f"{row['report_type']} filed {_d(row['filed_date'])}")
@@ -349,13 +401,16 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
     years = sorted({fy for f in flows + per_share for (fy, n) in ytd[f] if n == 12})
     annual = []
     for fy in years:
-        p = {"fiscal_year": fy, "label": f"FY{fy}", "period_end": None, "values": {}, "sources": {}}
+        p = {"fiscal_year": fy, "label": f"FY{fy}", "period_end": None, "values": {}, "sources": {},
+             "_terms": {}}
         for f in flows + per_share:
             row = ytd[f].get((fy, 12))
             if row:
                 p["period_end"] = str(row["_pe"])
                 p["values"][f] = row["value"]
                 p["sources"][f] = src(row, 12)
+                if f in flows:
+                    p["_terms"][f] = {_fact(row): 1}
         annual.append(p)
 
     # ---- discrete quarters
@@ -366,16 +421,19 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
             q = n // 3
             key = (fy, q)
             p = qs.setdefault(key, {"fiscal_year": fy, "quarter": q, "label": f"Q{q} FY{fy}",
-                                    "period_end": str(row["_pe"]), "values": {}, "sources": {}})
+                                    "period_end": str(row["_pe"]), "values": {}, "sources": {},
+                                    "_terms": {}})
             if n == 3:
                 p["values"][f] = row["value"]
                 p["sources"][f] = src(row, 3)
+                p["_terms"][f] = {_fact(row): 1}
             else:
                 prev = ytd[f].get((fy, n - 3))
                 if prev is None:
                     continue
                 p["values"][f] = row["value"] - prev["value"]
                 p["sources"][f] = f"{src(row, n)} − {src(prev, n - 3)}"
+                p["_terms"][f] = _comb((1, {_fact(row): 1}), (-1, {_fact(prev): 1}))
         if f == "revenue":
             for key, p in qs.items():
                 v = p["values"].get("revenue")
@@ -427,7 +485,8 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
             vals = {f: sum(q["values"][f] for q in last4)
                     for f in flows if all(f in q["values"] for q in last4)}
             ttm = {"label": f"TTM to {last4[-1]['period_end']}",
-                   "quarters": [q["label"] for q in last4], "values": vals, "sources": {}}
+                   "quarters": [q["label"] for q in last4], "values": vals, "sources": {},
+                   "_terms": {f: _comb(*((1, q["_terms"].get(f, {})) for q in last4)) for f in vals}}
             _derive(ttm)
 
     # ---- balance sheet
@@ -451,6 +510,12 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
             p["sources"]["debt_to_equity"] = "long_term_debt ÷ total_equity"
         balance.append(p)
 
+    precision = []
+    for p in annual + shown + ([ttm] if ttm else []):
+        _finish_precision(p, precision)
+    for p in annual + quarterly + ([ttm] if ttm else []):   # internals never leave the job
+        p.pop("_terms", None)
+
     present = set(kinds)
     gaps = [f for f in EXPECTED_FIELDS if f not in present]
     for f in ("long_term_debt",):
@@ -469,7 +534,8 @@ def build_financials(rows: list[dict], quarters: int = 8) -> dict:
         "restatements": sorted(restatements, key=lambda x: (x["field"], x["period_end"])),
         "checks": {"misaligned_rows_corroborated": corroborated,
                    "misaligned_rows_uncorroborated": uncorroborated,
-                   "warnings": checks},
+                   "warnings": checks,
+                   "precision": precision},
         "ignored_forms": dict(ignored_forms),
         "unmapped_concepts": dict(unmapped),
         "gaps": gaps,
@@ -480,6 +546,17 @@ def _ratio(a, b):
     return None if a is None or not b else a / b
 
 
+def _finish_precision(p: dict, out: list) -> None:
+    """Publish material rounding bounds; list the ones that are >= 1% of the value."""
+    unc = p.get("uncertainty", {})
+    p["uncertainty"] = {f: b for f, b in sorted(unc.items()) if b >= MATERIAL_BOUND}
+    for f, b in p["uncertainty"].items():
+        v = p["values"].get(f)
+        if v and b >= abs(v) * 0.01:
+            out.append({"period": p["label"], "field": f, "value": v, "bound": b,
+                        "note": f"±{b / 1e6:,.1f}m from rounded filed inputs ({b / abs(v):.0%} of the value)"})
+
+
 def _derive(p: dict) -> None:
     """Margins and GAAP-built subtotals. Gross profit is revenue − cost of revenue
     AS TAGGED (CoreWeave's cost of revenue excludes D&A, so this overstates a
@@ -487,16 +564,20 @@ def _derive(p: dict) -> None:
     a GAAP-built proxy, NOT the company's non-GAAP adjusted EBITDA (which also adds
     back SBC and other items and is not in XBRL)."""
     v, s = p["values"], p["sources"]
+    t = p.setdefault("_terms", {})
     rev = v.get("revenue")
     if rev is not None and "cost_of_revenue" in v:
         v["gross_profit"] = rev - v["cost_of_revenue"]
         s["gross_profit"] = "revenue − cost_of_revenue (as tagged)"
+        t["gross_profit"] = _comb((1, t.get("revenue", {})), (-1, t.get("cost_of_revenue", {})))
     if "operating_income" in v and "depreciation" in v:
         v["ebitda_derived"] = v["operating_income"] + v["depreciation"]
         s["ebitda_derived"] = "operating_income + depreciation (GAAP proxy, not adj. EBITDA)"
+        t["ebitda_derived"] = _comb((1, t.get("operating_income", {})), (1, t.get("depreciation", {})))
         if "sbc" in v:
             v["ebitda_plus_sbc_derived"] = v["ebitda_derived"] + v["sbc"]
             s["ebitda_plus_sbc_derived"] = "operating_income + depreciation + sbc"
+            t["ebitda_plus_sbc_derived"] = _comb((1, t["ebitda_derived"]), (1, t.get("sbc", {})))
     if v.get("net_income") is not None and v.get("eps_basic"):
         # weighted-average basic shares implied by the filed EPS — a cross-check on
         # share count when the weighted-share concept itself is not in the store
@@ -505,6 +586,8 @@ def _derive(p: dict) -> None:
     if "operating_cash_flow" in v and "capex" in v:
         v["free_cash_flow"] = v["operating_cash_flow"] - v["capex"]
         s["free_cash_flow"] = "operating_cash_flow − capex (PP&E purchases only)"
+        t["free_cash_flow"] = _comb((1, t.get("operating_cash_flow", {})), (-1, t.get("capex", {})))
+    p["uncertainty"] = {f: _bound(t[f]) for f in v if f in t}
     m = {}
     for name, num in (("gross_margin", "gross_profit"), ("operating_margin", "operating_income"),
                       ("net_margin", "net_income"), ("ebitda_margin", "ebitda_derived"),
@@ -534,6 +617,12 @@ def _growth(periods: list[dict], prior_key, key) -> None:
                     continue
                 g[f + "_yoy"] = (a / b - 1) if b > 0 and a >= 0 else None
                 g[f + "_yoy_change"] = a - b
+                ea = p.get("uncertainty", {}).get(f, 0)
+                eb = prev.get("uncertainty", {}).get(f, 0)
+                # a growth rate built on a materially rounded input gets its range
+                if g[f + "_yoy"] is not None and (ea >= abs(a) * 0.01 or eb >= abs(b) * 0.01) \
+                        and b - eb > 0:
+                    g[f + "_yoy_range"] = [max(a - ea, 0) / (b + eb) - 1, (a + ea) / (b - eb) - 1]
         p["growth"] = g
 
 
@@ -563,6 +652,8 @@ def financials(ticker_or_id: str, security_id: int | None = None, store=None,
             "gross_profit = revenue − cost_of_revenue as tagged; ebitda_derived = operating "
             "income + depreciation (GAAP proxy, not company adjusted EBITDA).",
             "EPS is reported as filed (YTD) — only Q1 EPS is a discrete quarter.",
+            "uncertainty = worst-case rounding bound (USD) from the filed inputs' reporting "
+            "units; shown only when >= US$0.5m. checks.precision lists bounds >= 1% of the value.",
         ],
     }
     return {"meta": meta, **out}

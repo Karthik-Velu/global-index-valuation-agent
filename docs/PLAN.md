@@ -342,6 +342,52 @@ by user using ai chat". See ADR-037 and the user guide [SCREENER.md](SCREENER.md
   "5-year average P/E" has no historical-multiple field, so it is read as the price
   window.
 
+## Phase G — Key reports (fund-house research) + the CoreWeave miss  ✅ BUILT 2026-10-17
+Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key reports" section, and
+"was this [the slide] thrown up as insights by any of our product modules?" See ADR-038 and
+[REPORTS.md](REPORTS.md).
+- ✅ **Key reports section:** `#/reports` and `#/reports/<slug>`. The renderer is
+  `dashboard/reports.js`/`.css`, with print-to-PDF, a 360 px layout and a link from
+  `#/stock/<T>`. It is validated in CI by `scripts/test_reports.js` and covered by the smoke
+  test.
+- ✅ **`engine/reports.py financials`:** a deterministic job that builds EDGAR statements
+  (YTD de-cumulation, vintages, rounding tracking) for any filer. Tests are in
+  `tests/test_reports_engine.py`.
+- ✅ **CoreWeave initiation:** `dashboard/reports/crwv.json`, Neutral / Very high risk, with
+  114 sources.
+  - It was adversarially verified on numbers, sources, compliance and editorial quality.
+  - **Still owed:** a click-through of every link from a machine with open egress, and
+    re-sourcing the debt stack and customer concentration to the primary 10-Q and 8-Ks. The
+    sandbox could not reach sec.gov or the company's investor-relations site.
+- **The miss (audit 2026-10-17):** no module flagged CRWV or its slide. Follow-ups, ranked by
+  leverage:
+  - ⬜ **Value scoring with missing inputs:** `metrics.py` divides by the full weight sum even
+    when yields are NaN, so rows with no valuation inputs score "Cheap" (about 300 of about
+    330 such stocks in a replication). Divide by the weights present instead, set NaN when
+    none are present, and gate value_band, GARP and value_trap on a real score.
+  - ⬜ **Multi-class share counts:** CRWV has A/B/C classes, and companyfacts drops per-class
+    facts. As a result there is no market cap or multiples for 219 securities. Add a
+    `missing_market_cap` quality check.
+  - ⬜ **A lens for recent IPOs and loss-makers:** EV/Sales on TTM, scored on growth plus cash
+    runway. Relax `growthhistory._QUARTER_IN_ANNUAL` for confirmed hyper-growth.
+  - ⬜ **Balance-sheet / credit-risk score:** debt/equity, net debt/OCF, capex/OCF, interest
+    cover and liabilities/assets. CRWV's slide was credit-led.
+  - ⬜ **Labelled share-price risk alerts** (never "growth"): ret_1m/3m, drawdown_52w and a
+    watchlist drawdown alert.
+  - ⬜ **8-K events ingestion into `events`:** the table has 0 rows today. Items 1.01, 2.03 and
+    2.04 are public domain.
+  - ⬜ **Analyst agent candidate pools:** add overvalued-and-frothy and
+    drawdown-with-deteriorating-fundamentals pools. Fix the 10-12 run, where all 8
+    investigations failed with `no_thesis_max_steps`.
+  - ⬜ **Thematic proxy:** add an AI-infrastructure or cloud ETF to the universe. Re-tag CRWV
+    away from SIC 7372 (software).
+  - ⬜ **Filings `period_end`:** before eebc2f6, "first fact wins" stamped comparative periods,
+    and those rows were never updated. After eebc2f6, the cover-page dei date is stamped
+    instead. About 88% of 10-Q rows are wrong. Fix it with the submissions-API `reportDate`.
+    The backfill updates rows in place, so it needs the owner's go-ahead.
+  - ⬜ **Missed-calls loop:** each week, list covered names that fell 25% or more without any
+    module surfacing them.
+
 ## Parallel tracks (don't block the critical path)  ⬜
 - ✅ **Global universe expansion (ADR-014/015)** — universe is committed data:
   US top-2,500 by cross-checked public float + `discover-foreign` (all 20-F/40-F

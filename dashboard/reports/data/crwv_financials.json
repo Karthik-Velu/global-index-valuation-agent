@@ -1,9 +1,9 @@
 {
  "meta": {
   "security_id": 5913,
-  "ticker": "CRWV",
+  "ticker": null,
   "name": "CoreWeave, Inc.",
-  "generated_at": "2026-10-17T04:53:46+00:00",
+  "generated_at": "2026-10-17T09:33:08+00:00",
   "job": "engine.reports financials (deterministic, no LLM)",
   "source": "SEC EDGAR XBRL via Tier B fundamental_metrics (public domain)",
   "latest_filing_used": "2026-08-12",
@@ -13,7 +13,8 @@
    "Latest filed vintage per period; later values that only round an earlier precise value keep the precise one.",
    "Growth = fundamental YoY growth (revenue/earnings), never share-price performance; % growth only off a positive base, else absolute change.",
    "gross_profit = revenue \u2212 cost_of_revenue as tagged; ebitda_derived = operating income + depreciation (GAAP proxy, not company adjusted EBITDA).",
-   "EPS is reported as filed (YTD) \u2014 only Q1 EPS is a discrete quarter."
+   "EPS is reported as filed (YTD) \u2014 only Q1 EPS is a discrete quarter.",
+   "uncertainty = worst-case rounding bound (USD) from the filed inputs' reporting units; shown only when >= US$0.5m. checks.precision lists bounds >= 1% of the value."
   ]
  },
  "fiscal_year_end_month": 12,
@@ -468,6 +469,21 @@
     "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 500000.0,
+    "ebitda_derived": 1000000.0,
+    "ebitda_plus_sbc_derived": 1500000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
    "margins": {
     "gross_margin": 0.6986899563318777,
     "operating_margin": -0.0611353711790393,
@@ -521,6 +537,21 @@
     "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 500000.0,
+    "ebitda_derived": 1000000.0,
+    "ebitda_plus_sbc_derived": 1500000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
    "margins": {
     "gross_margin": 0.7425587467362924,
     "operating_margin": 0.1691906005221932,
@@ -543,6 +574,10 @@
     "net_income_yoy_change": -269000000.0,
     "ebitda_derived_yoy": 12.620689655172415,
     "ebitda_derived_yoy_change": 1098000000.0,
+    "ebitda_derived_yoy_range": [
+     12.454545454545455,
+     12.790697674418604
+    ],
     "operating_cash_flow_yoy": 0.49972722313147844,
     "operating_cash_flow_yoy_change": 916000000.0,
     "eps_basic_yoy": null,
@@ -589,6 +624,21 @@
     "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 50000000.0,
+    "ebitda_derived": 50500000.0,
+    "ebitda_plus_sbc_derived": 51000000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
    "margins": {
     "gross_margin": 0.7168193334632625,
     "operating_margin": -0.00896511401286299,
@@ -611,6 +661,10 @@
     "net_income_yoy_change": -304000000.0,
     "ebitda_derived_yoy": 0.9864978902953587,
     "ebitda_derived_yoy_change": 1169000000.0,
+    "ebitda_derived_yoy_range": [
+     0.9422428330522765,
+     1.0308277027027026
+    ],
     "operating_cash_flow_yoy": 0.11240451073117508,
     "operating_cash_flow_yoy_change": 309000000.0,
     "eps_basic_yoy": null,
@@ -655,6 +709,12 @@
     "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1001000.0,
+    "ebitda_plus_sbc_derived": 1002000.0,
+    "rd_expense": 1000000.0
    },
    "margins": {
     "gross_margin": 0.7548827706908746,
@@ -703,6 +763,21 @@
     "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500500.0,
+    "cost_of_revenue": 500500.0,
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1500500.0,
+    "ebitda_plus_sbc_derived": 2001000.0,
+    "free_cash_flow": 1001000.0,
+    "gross_profit": 1001000.0,
+    "net_income": 500500.0,
+    "operating_cash_flow": 500500.0,
+    "operating_income": 500500.0,
+    "rd_expense": 1000000.0,
+    "revenue": 500500.0,
+    "sbc": 500500.0
    },
    "margins": {
     "gross_margin": 0.7566170997745661,
@@ -757,6 +832,12 @@
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 500000.0,
+    "ebitda_derived": 505000.0,
+    "ebitda_plus_sbc_derived": 505500.0,
+    "rd_expense": 500000.0
    },
    "margins": {
     "gross_margin": 0.7326961631242666,
@@ -825,6 +906,12 @@
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1005500.0,
+    "ebitda_plus_sbc_derived": 1006500.0,
+    "rd_expense": 1000000.0
+   },
    "margins": {
     "gross_margin": 0.7421915454308585,
     "operating_margin": 0.015838712124460336,
@@ -890,6 +977,12 @@
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "depreciation": 50500000.0,
+    "ebitda_derived": 50501000.0,
+    "ebitda_plus_sbc_derived": 50502000.0,
+    "rd_expense": 1000000.0
+   },
    "margins": {
     "gross_margin": 0.7297351166137603,
     "operating_margin": 0.03799436642836834,
@@ -912,6 +1005,10 @@
     "net_income_yoy_change": 249683000.0,
     "ebitda_derived_yoy": 0.7720120178538621,
     "ebitda_derived_yoy_change": 285734000.0,
+    "ebitda_derived_yoy_range": [
+     0.6311540565374263,
+     0.9136339623152676
+    ],
     "operating_cash_flow_yoy": 1.634242118954122,
     "operating_cash_flow_yoy_change": 1047912000.0
    }
@@ -951,6 +1048,21 @@
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 500500.0,
+    "cost_of_revenue": 500500.0,
+    "depreciation": 100000000.0,
+    "ebitda_derived": 100500500.0,
+    "ebitda_plus_sbc_derived": 101001000.0,
+    "free_cash_flow": 1001000.0,
+    "gross_profit": 1001000.0,
+    "net_income": 500500.0,
+    "operating_cash_flow": 500500.0,
+    "operating_income": 500500.0,
+    "rd_expense": 1000000.0,
+    "revenue": 500500.0,
+    "sbc": 500500.0
+   },
    "margins": {
     "gross_margin": 0.6761157169903506,
     "operating_margin": -0.0569939385611335,
@@ -973,6 +1085,10 @@
     "net_income_yoy_change": -400802000.0,
     "ebitda_derived_yoy": 0.48834524717378014,
     "ebitda_derived_yoy_change": 233095000.0,
+    "ebitda_derived_yoy_range": [
+     0.27378755744632866,
+     0.7042561665183249
+    ],
     "operating_cash_flow_yoy": 7.356108359597778,
     "operating_cash_flow_yoy_change": 1372385000.0
    }
@@ -1018,6 +1134,21 @@
     "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 50000000.0,
+    "ebitda_derived": 50500000.0,
+    "ebitda_plus_sbc_derived": 51000000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
    "margins": {
     "gross_margin": 0.6554379210779596,
     "operating_margin": -0.06929740134744947,
@@ -1040,6 +1171,10 @@
     "net_income_yoy_change": -425359000.0,
     "ebitda_derived_yoy": 1.300676244795803,
     "ebitda_derived_yoy_change": 540470000.0,
+    "ebitda_derived_yoy_range": [
+     1.1764995733532033,
+     1.425155111137883
+    ],
     "operating_cash_flow_yoy": 47.783677739994765,
     "operating_cash_flow_yoy_change": 2922832000.0,
     "eps_basic_yoy": null,
@@ -1085,6 +1220,21 @@
     "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
     "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
    },
+   "uncertainty": {
+    "capex": 1000000.0,
+    "cost_of_revenue": 1000000.0,
+    "depreciation": 100000000.0,
+    "ebitda_derived": 101000000.0,
+    "ebitda_plus_sbc_derived": 102000000.0,
+    "free_cash_flow": 2000000.0,
+    "gross_profit": 2000000.0,
+    "net_income": 1000000.0,
+    "operating_cash_flow": 1000000.0,
+    "operating_income": 1000000.0,
+    "rd_expense": 1000000.0,
+    "revenue": 1000000.0,
+    "sbc": 1000000.0
+   },
    "margins": {
     "gross_margin": 0.6586407766990291,
     "operating_margin": -0.019029126213592235,
@@ -1107,6 +1257,10 @@
     "net_income_yoy_change": -335491000.0,
     "ebitda_derived_yoy": 1.3610254295196333,
     "ebitda_derived_yoy_change": 778791000.0,
+    "ebitda_derived_yoy_range": [
+     1.1806845430462767,
+     1.5420012307347557
+    ],
     "operating_cash_flow_yoy": null,
     "operating_cash_flow_yoy_change": 930251000.0
    }
@@ -1140,6 +1294,21 @@
    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+  },
+  "uncertainty": {
+   "capex": 1000500.0,
+   "cost_of_revenue": 1000500.0,
+   "depreciation": 100500000.0,
+   "ebitda_derived": 101500500.0,
+   "ebitda_plus_sbc_derived": 102501000.0,
+   "free_cash_flow": 2001000.0,
+   "gross_profit": 2005500.0,
+   "net_income": 1005000.0,
+   "operating_cash_flow": 1000500.0,
+   "operating_income": 1000500.0,
+   "rd_expense": 1500000.0,
+   "revenue": 1005000.0,
+   "sbc": 1000500.0
   },
   "margins": {
    "gross_margin": 0.6741665546710095,
@@ -1425,7 +1594,226 @@
  "checks": {
   "misaligned_rows_corroborated": 8,
   "misaligned_rows_uncorroborated": [],
-  "warnings": []
+  "warnings": [],
+  "precision": [
+   {
+    "period": "FY2023",
+    "field": "ebitda_derived",
+    "value": 87000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 102000000.0,
+    "bound": 1500000.0,
+    "note": "\u00b11.5m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "operating_income",
+    "value": -14000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (4% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "rd_expense",
+    "value": 21000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "sbc",
+    "value": 15000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "FY2024",
+    "field": "sbc",
+    "value": 31000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "depreciation",
+    "value": 2400000000.0,
+    "bound": 50000000.0,
+    "note": "\u00b150.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "ebitda_derived",
+    "value": 2354000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 2984000000.0,
+    "bound": 51000000.0,
+    "note": "\u00b151.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "operating_income",
+    "value": -46000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q3 FY2024",
+    "field": "rd_expense",
+    "value": 14000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q4 FY2024",
+    "field": "rd_expense",
+    "value": 21000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q4 FY2024",
+    "field": "sbc",
+    "value": 7534000.0,
+    "bound": 500500.0,
+    "note": "\u00b10.5m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2025",
+    "field": "rd_expense",
+    "value": 80000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "depreciation",
+    "value": 604000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (8% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "ebitda_derived",
+    "value": 655850000.0,
+    "bound": 50501000.0,
+    "note": "\u00b150.5m from rounded filed inputs (8% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 800281000.0,
+    "bound": 50502000.0,
+    "note": "\u00b150.5m from rounded filed inputs (6% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "rd_expense",
+    "value": 93000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "depreciation",
+    "value": 800000000.0,
+    "bound": 100000000.0,
+    "note": "\u00b1100.0m from rounded filed inputs (12% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "ebitda_derived",
+    "value": 710411000.0,
+    "bound": 100500500.0,
+    "note": "\u00b1100.5m from rounded filed inputs (14% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 867002000.0,
+    "bound": 101001000.0,
+    "note": "\u00b1101.0m from rounded filed inputs (12% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "depreciation",
+    "value": 1100000000.0,
+    "bound": 50000000.0,
+    "note": "\u00b150.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "ebitda_derived",
+    "value": 956000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 1109000000.0,
+    "bound": 51000000.0,
+    "note": "\u00b151.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "depreciation",
+    "value": 1400000000.0,
+    "bound": 100000000.0,
+    "note": "\u00b1100.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "ebitda_derived",
+    "value": 1351000000.0,
+    "bound": 101000000.0,
+    "note": "\u00b1101.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 1516000000.0,
+    "bound": 102000000.0,
+    "note": "\u00b1102.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "operating_income",
+    "value": -49000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "depreciation",
+    "value": 3904000000.0,
+    "bound": 100500000.0,
+    "note": "\u00b1100.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "ebitda_derived",
+    "value": 3673261000.0,
+    "bound": 101500500.0,
+    "note": "\u00b1101.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 4292283000.0,
+    "bound": 102501000.0,
+    "note": "\u00b1102.5m from rounded filed inputs (2% of the value)"
+   }
+  ]
  },
  "ignored_forms": {
   "DEF 14A": 1

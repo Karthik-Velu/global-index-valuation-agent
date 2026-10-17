@@ -43,7 +43,8 @@ const HTML_TAG_RE = /<\s*\/?\s*[A-Za-z!?]/;              // '<b', '</p', '<!--',
 const STANCE = ['Positive', 'Neutral', 'Cautious'];
 const RISK = ['Low', 'Medium', 'High', 'Very high'];
 const TYPES = ['Initiation', 'Update', 'Deep dive'];
-const SCEN = ['Bear', 'Base', 'Bull'];
+const SCEN = ['Bear', 'Base', 'Bull'];                  // required, one each
+const SCEN_OPT = ['Restructuring'];                      // optional tail case (equity ≈ 0), at most one
 const TONES = ['info', 'positive', 'risk'];
 // Project rule: "growth" always means fundamental growth — never a price move.
 const PRICE_GROWTH_RE = /\b(share[- ]price|stock[- ]price|price|momentum)\s+growth\b/i;
@@ -65,6 +66,11 @@ const BLOCK_KEYS = {
   chart: { req: ['symbol'], opt: [] },
 };
 
+// A source page that gives only a month ('2025-09') is dated by month; never a bare year.
+function validMonth(s) {
+  const m = /^(\d{4})-(\d{2})$/.exec(s);
+  return !!m && +m[2] >= 1 && +m[2] <= 12;
+}
 function validDate(s) {
   if (!DATE_RE.test(s)) return false;
   const d = new Date(`${s}T00:00:00Z`);
@@ -111,7 +117,7 @@ function validateReport(r, { file } = {}) {
     else ids.add(s.id);
     if (!isStr(s.title)) err(w, 'title required');
     if (!isStr(s.publisher)) err(w, 'publisher required');
-    if (typeof s.date !== 'string' || (s.date !== '' && !validDate(s.date))) err(w, 'date must be YYYY-MM-DD or ""');
+    if (typeof s.date !== 'string' || (s.date !== '' && !validDate(s.date) && !validMonth(s.date))) err(w, 'date must be YYYY-MM-DD, YYYY-MM or ""');
     let u = null;
     try { u = new URL(s.url); } catch { u = null; }
     if (!u || u.protocol !== 'https:' || !/^https:\/\//.test(s.url)) err(w, `url must be https: (${s.url})`);
@@ -223,8 +229,10 @@ function validateBlock(b, w, { err, isStr, isObj, keysOnly, srcRef }) {
       break;
     }
     case 'scenarios':
-      if (!Array.isArray(b.rows) || b.rows.length !== 3) { err(w, 'rows: exactly Bear, Base and Bull'); break; }
+      if (!Array.isArray(b.rows) || b.rows.length < 3 || b.rows.length > 4) { err(w, 'rows: exactly Bear, Base and Bull (plus an optional Restructuring)'); break; }
       if (SCEN.some(n => b.rows.filter(r => r && r.name === n).length !== 1)) err(w, 'rows: exactly one each of Bear, Base, Bull');
+      if (b.rows.some(r => r && !SCEN.includes(r.name) && !SCEN_OPT.includes(r.name))) err(w, 'rows: names must be Bear, Base, Bull or Restructuring');
+      if (SCEN_OPT.some(n => b.rows.filter(r => r && r.name === n).length > 1)) err(w, 'rows: at most one Restructuring case');
       b.rows.forEach((r, i) => {
         if (!isObj(r)) { err(w, `rows[${i}] not an object`); return; }
         keysOnly(r, ['name', 'value', 'prob', 'text'], `${w}.rows[${i}]`);
@@ -327,6 +335,10 @@ const broken = [
   ['chart symbol', r => { r.sections[4].blocks[0].symbol = 'CRWV"><script>'; }, /symbol must look like/],
   ['slug vs file name', r => { r.slug = 'other'; }, /does not match the file name/],
   ['data_asof after published', r => { r.data_asof = '2026-12-01'; }, /after published/],
+  ['source dated by a bare year', r => { r.sources[0].date = '2026'; }, /date must be YYYY-MM-DD, YYYY-MM/],
+  ['source dated by a month 13', r => { r.sources[0].date = '2026-13'; }, /date must be YYYY-MM-DD, YYYY-MM/],
+  ['two restructuring cases', r => { const rows = r.sections[2].blocks[2].rows; rows.push({ ...rows[0], name: 'Restructuring' }); rows.push({ ...rows[1], name: 'Restructuring' }); }, /rows: exactly Bear, Base and Bull/],
+  ['restructuring duplicated in place of a case', r => { const rows = r.sections[2].blocks[2].rows; rows.push({ ...rows[0], name: 'Restructuring' }); rows[1] = { ...rows[1], name: 'Restructuring' }; }, /at most one Restructuring/],
 ];
 for (const [name, mutate, re] of broken) {
   check(`validator rejects: ${name}`, () => {
@@ -373,6 +385,8 @@ check('helpers: plainText, safeUrl, fmtDate, fmtCell, barsScale', () => {
   eq(I.fmtDate('2026-10-17'), '17 Oct 2026');
   eq(I.fmtDate('2026-01-02'), '2 Jan 2026');
   eq(I.fmtDate('soon'), 'soon');
+  eq(I.fmtDate('2025-09'), 'Sep 2025', 'a month-only source date');
+  eq(I.fmtDate('2025-13'), '2025-13');
   eq(I.fmtCell(null), '—');
   eq(I.fmtCell(-1234.5), '−1,234.5');
   eq(I.fmtCell(NaN), '—');
@@ -477,7 +491,7 @@ function assertSafeTree(F, root) {
       assert.ok(ALLOWED_ATTRS.has(k), `unexpected attribute ${k}="${v}" on <${el.localName}>`);
       assert.ok(!/^on/i.test(k), `event-handler attribute ${k}`);
       if (k === 'href') assert.ok(/^https:\/\//.test(v) || /^#\/reports(\/[a-z0-9-]+)?$/.test(v), `unsafe href ${v}`);
-      if (k === 'style') assert.match(v, /^background:#[0-9a-f]{6}$/, `unexpected style ${v}`);
+      if (k === 'style') assert.match(v, el.localName === 'svg' ? /^--rpt-bars-minw:\d{3,4}px$/ : /^background:#[0-9a-f]{6}$/, `unexpected style ${v}`);
       if (k === 'target') assert.strictEqual(el.getAttribute('rel'), 'noopener noreferrer', 'target=_blank without rel');
     }
   }
@@ -593,6 +607,16 @@ check('renderReport: bad slugs never fetch; 404 and junk give "Report not found"
   await R.renderReport(el, 'fxr');
   assert.match(el.textContent, /Fixture Corp/);
   eq(mounted, { kind: 'symbol', symbol: 'NASDAQ:FXR', height: 380 }, 'the chart block uses charts.js (TradingView, kind symbol)');
+  // Back from a stock drawer / a data refresh re-runs the router for the same report: the
+  // page (and the reader's scroll position, the live chart) must stay — no refetch, no rebuild.
+  const art = el.firstChild, nCalls = calls.length;
+  let scrolled = 0;
+  const savedWin = global.window;
+  global.window = { scrollTo: () => { scrolled++; } };
+  try { await R.renderReport(el, 'fxr'); } finally { if (savedWin === undefined) delete global.window; else global.window = savedWin; }
+  assert.strictEqual(el.firstChild, art, 'same report: the article is kept');
+  eq(calls.length, nCalls, 'same report: no second fetch');
+  eq([scrolled, disposed], [0, 0], 'same report: no scroll to top, chart not disposed');
   assert.ok(F.doc.documentElement.classList.contains('rpt-on'), 'print mode on while a report is shown');
   assert.match(F.doc.title, /^Fixture Corp \(FXR\) — Key report/);
   R.unmount();
@@ -648,13 +672,73 @@ check('index.html: nav tab, view container, stylesheet and script', () => {
   assert.match(html, /<script src="reports\.js"><\/script>/);
   assert.ok(html.indexOf('src="charts.js"') < html.indexOf('src="reports.js"'), 'reports.js after charts.js');
 });
+// gitignore semantics, as Vercel applies them: a pattern with no slash except a trailing one
+// matches a file or directory of that name at ANY depth ('data/' drops dashboard/reports/data);
+// a leading or inner slash anchors it to the root. '*' never crosses a '/'.
+function ignoreMatcher(pattern) {
+  const dirOnly = pattern.endsWith('/');
+  let p = pattern.replace(/\/$/, '');
+  const anchored = p.includes('/');
+  p = p.replace(/^\//, '');
+  const body = p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '.*');
+  const re = new RegExp(`^${anchored ? '' : '(?:.*/)?'}${body}$`);
+  // a path is ignored when it, or any directory above it, matches
+  return file => {
+    const parts = file.split('/');
+    for (let i = 1; i <= parts.length; i++) {
+      const sub = parts.slice(0, i).join('/');
+      if ((i < parts.length || !dirOnly) && re.test(sub)) return true;
+    }
+    return false;
+  };
+}
 check('.vercelignore does not drop dashboard/reports (the JSON is served statically)', () => {
   const lines = fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  const served = ['dashboard/reports.js', 'dashboard/reports.css', 'dashboard/reports/index.json',
+    ...reportFiles.map(f => `dashboard/reports/${f}`), 'dashboard/reports/data/crwv_financials.json'];
   for (const l of lines) {
-    const pat = l.replace(/\/$/, '');
-    assert.ok(!['dashboard', 'dashboard/reports', 'reports', '*.json', 'dashboard/*', 'dashboard/reports/*'].includes(pat), `.vercelignore line "${l}" would drop the reports`);
+    if (l.startsWith('!')) continue;
+    const hit = served.filter(ignoreMatcher(l));
+    assert.ok(!hit.length, `.vercelignore line "${l}" would drop ${hit.join(', ')}`);
   }
+  // the matcher itself: a slash-less directory pattern matches at any depth, an anchored one does not
+  assert.ok(ignoreMatcher('data/')('dashboard/reports/data/x.json'));
+  assert.ok(!ignoreMatcher('/data/')('dashboard/reports/data/x.json'));
+  assert.ok(ignoreMatcher('/data/')('data/tierb/x.parquet'));
+  assert.ok(ignoreMatcher('*.log')('a/b/c.log') && !ignoreMatcher('/engine/')('dashboard/engine.js'));
 });
+check('scenarios: an optional Restructuring case renders first, in a four-card grid', () => withDOM(F => {
+  const r = clone(FIX);
+  const blk = r.sections[2].blocks[2];
+  blk.rows.push({ name: 'Restructuring', value: '≈ US$0', prob: '15%', text: 'Equity wiped out [s1].' });
+  eq(validateReport(r, { file: 'fxr.json' }), []);
+  const { el } = R._internal.build(r);
+  eq(F.all(el).filter(e => e.getAttribute('class') === 'rpt-scen-name').map(e => e.textContent), ['Restructuring case', 'Bear case', 'Base case', 'Bull case']);
+  assert.ok(F.all(el).some(e => e.getAttribute('class') === 'rpt-scen n4'));
+}));
+check('bars: value labels never overprint (3 series x 8 groups, adjacent negatives)', () => withDOM(F => {
+  const r = clone(FIX);
+  const labels = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8'];
+  r.sections[1].blocks = [{ type: 'bars', title: 'Cash', unit: 'US$ m', labels,
+    series: [{ name: 'OCF', values: [-140, 506, 1800, 2700, 1200, 980, 3300, 2010] },
+      { name: 'Capex', values: [-1407, -3498, -2453, -1910, -2800, -4100, -5200, -6100] },
+      { name: 'FCF', values: [-1346, -3311, -2704, 790, -1600, -3120, -1900, -4090] }] }];
+  const { el } = R._internal.build(r);
+  F.doc.body.appendChild(el);
+  const svg = F.all(el).find(e => e.localName === 'svg');
+  const W = +svg.getAttribute('viewBox').split(' ')[2];
+  eq(+svg.getAttribute('width'), W, 'the SVG carries its own width (never scaled past 1:1)');
+  const boxes = F.all(svg).filter(e => e.getAttribute('class') === 'rpt-val').map(t => {
+    const x = +t.getAttribute('x'), y = +t.getAttribute('y'), w = t.textContent.length * 6.2;
+    return { x0: x - w / 2, x1: x + w / 2, y0: y - 9, y1: y + 2, t: t.textContent };
+  });
+  assert.ok(boxes.length >= 16, `most labels still shown (${boxes.length})`);
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i], b = boxes[j];
+    assert.ok(!(a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1), `labels ${a.t} and ${b.t} overlap`);
+  }
+  eq(F.all(svg).filter(e => e.localName === 'rect').length, 24, 'every bar is still drawn');
+}));
 check('browser load defines only window.Reports', () => {
   const vm = require('vm');
   const ctx = {};

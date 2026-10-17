@@ -1,0 +1,3522 @@
+{
+ "v": 1,
+ "slug": "crwv",
+ "ticker": "CRWV",
+ "exchange": "Nasdaq",
+ "company": "CoreWeave, Inc.",
+ "title": "CoreWeave: the backlog is real; the equity is a levered bet on refinancing it",
+ "subtitle": "Initiation. Revenue is compounding at more than 110% a year against a US$104bn backlog, but most of the build-out is funded with borrowed money that the bond market now prices near distress. Our four scenarios run from a restructuring (about US$0) to about US$259 a share. Weighted, they give about US$70, 14% above the US$61.39 close, with a 55% chance of losing three-quarters of the equity or more. We start at Neutral, with Very high risk.",
+ "published": "2026-10-17",
+ "data_asof": "2026-10-16",
+ "author": "GIVA Research (AI-assisted)",
+ "sector": "Information Technology (AI cloud infrastructure)",
+ "report_type": "Initiation",
+ "stance": {
+  "label": "Neutral",
+  "risk": "Very high",
+  "horizon": "About 14 months, to end-2027 (our valuation date). Checkpoints: Q3 FY2026 results (around 9–10 Nov 2026) and FY2026 results with the FY2027 capex guide (around late Feb 2027)",
+  "summary": "The fundamentals are not the problem: Q2 FY2026 revenue rose **112% y/y** to US$2.58bn and RPO reached **US$103.7bn** [s2,s8]. The funding is: net debt of about **US$29.8bn** on **US$5.0bn** of equity [s8,s57], interest of US$640m a quarter heading to about US$900m [s9], and unsecured bonds yielding about 15% [s28,s31]. Our probability-weighted value is about **US$70** a share against the US$61.39 close [s25], but 55% of the weight sits in a restructuring or a funding-constrained bear case that leaves the equity worth US$5 or less. Whether CoreWeave can fund its 2027 plan on acceptable terms will largely be settled inside our horizon, and we have no edge over the credit market on that, so we start at Neutral."
+ },
+ "key_stats": [
+  {
+   "label": "Share price",
+   "value": "$61.39",
+   "note": "close, 16 Oct 2026 (−11.9% on the day)",
+   "src": "s25"
+  },
+  {
+   "label": "Market cap (our arithmetic)",
+   "value": "≈ $33.9bn",
+   "note": "$61.39 × 551.5m Class A + B shares (10-Q cover, 31 Jul 2026)",
+   "src": "s55"
+  },
+  {
+   "label": "Enterprise value (spot, our arithmetic)",
+   "value": "≈ $63.6bn",
+   "note": "market cap + $29.8bn net debt at 30 Jun 2026",
+   "src": "s57"
+  },
+  {
+   "label": "Revenue (TTM to Jun-26)",
+   "value": "$7.59bn",
+   "note": "+115% vs the prior TTM",
+   "src": "s2"
+  },
+  {
+   "label": "Revenue growth, Q2 FY26 y/y",
+   "value": "+112%",
+   "note": "fundamental growth; FY26 guide midpoint ≈ +149%",
+   "src": "s2"
+  },
+  {
+   "label": "Remaining performance obligations",
+   "value": "$103.7bn",
+   "note": "30 Jun 2026; ≈ 13.7x TTM revenue",
+   "src": "s2"
+  },
+  {
+   "label": "Net debt (incl. finance leases)",
+   "value": "$29.8bn",
+   "note": "30 Jun 2026; ≈ 5.9x book equity",
+   "src": "s57"
+  },
+  {
+   "label": "Net debt / annualised adj. EBITDA",
+   "value": "≈ 4.9x",
+   "note": "Q2 adj. EBITDA $1.51bn × 4; ≈ 6.1x on end-2026E net debt ÷ FY26 consensus EBITDA (our arithmetic)",
+   "src": "s8"
+  },
+  {
+   "label": "Unsecured yield / five-year CDS",
+   "value": "≈ 15% / ≈ 1,040bp",
+   "note": "9.625% 2032 notes and CDS, 14–15 Oct 2026; CDS record ≈ 1,195bp intraday",
+   "src": "s31"
+  },
+  {
+   "label": "FY26 revenue guidance",
+   "value": "$12.4–13.2bn",
+   "note": "raised 11 Aug 2026; capex guide $35–39bn",
+   "src": "s9"
+  }
+ ],
+ "highlights": [
+  "**Fundamental growth is not the debate.** Revenue rose from US$229m in FY2023 to US$5.13bn in FY2025 and US$7.59bn TTM; Q2 FY2026 grew 112% y/y, and FY2026 guidance was raised to US$12.4–13.2bn [s1,s2,s9].",
+  "**Financing is the debate.** TTM operating cash flow of US$6.9bn covered about a third of US$20.6bn of cash capex, and the company plans US$35–39bn of capex in 2026 on its own definition [s2,s9]. Interest expense rose from US$267m (Q2 FY2025) to US$640m (Q2 FY2026), with US$860–940m guided for Q3 [s8,s9].",
+  "**The October slide started in the credit market, but it is not only sentiment.** Shares fell about 25% in the week to 16 Oct as unsecured yields reached about 15% and five-year CDS hit a record of about 1,195bp intraday [s27,s28,s34]. For a company that can only grow by borrowing, the cost of funding is a fundamental input, and two demand datapoints turned too: OpenAI’s lower net revenue run-rate and Reuters’ report of hyperscaler capex-delay signals [s35,s47]. Reported results did not miss.",
+  "**Valuation is a levered residual with a real tail.** Our base case (FY2028 adj. EBITDA US$23.6bn at 7x, net debt about US$77bn by end-2027) is worth about US$120 a share; a funding-constrained bear case about US$5; a restructuring about nothing. Weighted 15/40/35/10 with the bull case (about US$259), that is about US$70. Each turn of EV/EBITDA moves the base case by about US$32 a share.",
+  "**Revenue concentration is falling; backlog concentration is not.** The largest customer fell from 71% to 36% of revenue in a year, but on disclosed contract ceilings Meta (about US$35bn) and OpenAI (about US$22bn) are roughly a third and a fifth of the US$103.7bn RPO. OpenAI-backed capacity is financed in a non-investment-grade facility that cannot use the A3-rated DDTL 4.0 template [s2,s17,s19,s103,s110]."
+ ],
+ "sections": [
+  {
+   "id": "house-view",
+   "title": "House view & investment case",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "CoreWeave rents NVIDIA GPU capacity, mostly on multi-year take-or-pay contracts, to AI labs and hyperscalers [s1,s84]. Revenue was **US$5.13bn in FY2025 (+168%)** and **US$2.58bn in Q2 FY2026 alone (+112% y/y)** [s1,s2]. Contracted demand is visible: RPO was **US$103.7bn** at 30 June 2026, and management reported more than US$25bn of further commitments signed early in Q3 [s2,s8]."
+    },
+    {
+     "type": "p",
+     "text": "The equity case turns on the other side of the balance sheet. Most of the build-out is financed with debt raised against GPUs and customer contracts: operating cash flow covered about a third of cash capex over the last twelve months, and NVIDIA added US$2bn of equity in January [s2,s62]. Debt was about **US$35.1bn** at 30 June 2026 against **US$5.0bn** of equity [s2,s57]. Interest already exceeds adjusted operating income: US$640m against US$128m in Q2 [s8], with Q3 guidance of US$860–940m against US$200–260m [s9]. S&P rates the issuer B+, with a positive outlook [s117]. The company is exposed less to demand than to the price and availability of credit, and in October that price moved sharply against it [s28,s31]."
+    },
+    {
+     "type": "kv",
+     "items": [
+      {
+       "label": "Stance",
+       "value": "Neutral"
+      },
+      {
+       "label": "Risk",
+       "value": "Very high: book equity is about 6.5% of assets, and 55% of our scenario weight loses three-quarters of the equity or more"
+      },
+      {
+       "label": "Probability-weighted value (15/40/35/10)",
+       "value": "≈ US$70 a share against a US$61.39 close [s25] (Section 8)"
+      },
+      {
+       "label": "Credit-market read, like for like",
+       "value": "five-year CDS near 1,040bp implies about a 16% one-year and 58% five-year risk-neutral default probability at 40% recovery (our arithmetic from [s31]); we put 15% on a restructuring by end-2027"
+      }
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Why Neutral.** Our weighted value is about 14% above the share price, but the distribution is close to binary: 55% of the weight sits in a restructuring or in a funding-constrained bear case worth about US$5, and 45% in cases worth about US$120–260. Which side CoreWeave lands on turns on funding roughly US$50bn of cash needs through end-2027 (Section 8), and the answer will largely be known inside our horizon, once the FY2027 capex and funding plan is out. We have no edge over the credit market on that outcome, and small changes in our weights move the weighted value by about as much as the gap to the price: each 5 points moved from the bear to the base case adds about US$6. **Why not Cautious.** Reported results have not missed: Q2 beat consensus revenue, guidance went up and the backlog grew [s8,s24]. A successful investment-grade financing of the 2027 plan would cut the cost of capital sharply (DDTL 4.0 priced at SOFR + 225bp [s17])."
+    },
+    {
+     "type": "callout",
+     "tone": "positive",
+     "title": "What would make us more positive",
+     "text": "Q3 FY2026 revenue at or above the US$3.45–3.60bn guide with interest inside US$860–940m [s9]; an FY2027 capex plan funded mainly through investment-grade, contract-backed facilities like DDTL 4.0 rather than unsecured paper near 15% [s17,s28]; an upgrade from S&P’s B+ toward the investment-grade profile management says it is targeting [s109,s117]; and a sustained fall in CDS from the October record [s31]."
+    },
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "What would make us Cautious",
+     "text": "Refinancing at unsecured yields near current levels; any cash-trap event under a GPU facility [s61]; another capex raise without matching revenue; re-scoping of an OpenAI or Microsoft contract [s35]; another data-centre delivery delay like November 2025’s [s114]; or equity issuance well beyond the 35m-share at-the-market programme [s109]."
+    }
+   ]
+  },
+  {
+   "id": "business",
+   "title": "Business overview",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "**Model.** CoreWeave sells GPU compute by the hour or, mostly, under committed multi-year contracts. Average contract length rose from about four to about five years during 2025 [s84]. Customers prepay part of the contract value, which is why deferred revenue reached US$9.7bn at 30 June 2026 [s2]. Each large contract is typically financed in its own special-purpose vehicle with a delayed-draw term loan (DDTL) secured on the GPUs and the contract cash flows, which pay operating costs and lenders before the parent [s17,s103]. One secondary source describes a cash trap in DDTL 3.0 if a key customer seriously breaches its contract [s61]; we have not checked that against the credit agreement. In Q3 FY2026 the company began signing short-dated (3–6 month) capacity at about US$40m of annualised revenue per MW, which it described as higher pricing [s16,s37]. For scale, Q2 revenue ran at about US$7m a year per active MW (US$2.58bn × 4 ÷ about 1.5 GW, our arithmetic [s2,s10]); most existing capacity is locked in at fixed contract prices, so the uplift reaches revenue slowly."
+    },
+    {
+     "type": "p",
+     "text": "**Platform.** Beyond bare-metal GPUs, the stack includes CoreWeave Kubernetes Service, Slurm-on-Kubernetes (SUNK), Mission Control for fleet operations, and developer tools from acquisitions: Weights & Biases (completed May 2025) [s22], OpenPipe and Marimo [s102]. A planned all-stock takeover of Core Scientific was voted down by that company’s shareholders on 30 October 2025 [s23]. CoreWeave still leases about 590 MW from Core Scientific across six sites under 12-year hosting contracts [s115], which makes it the company’s largest landlord."
+    },
+    {
+     "type": "table",
+     "caption": "Footprint and power",
+     "columns": [
+      "As of",
+      "Active power",
+      "Contracted power",
+      "Data centres"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "r"
+     ],
+     "rows": [
+      [
+       "31 Mar 2026",
+       "> 1 GW",
+       "> 3.5 GW",
+       "49"
+      ],
+      [
+       "30 Jun 2026",
+       "≈ 1.5 GW",
+       "≈ 3.7 GW",
+       "51"
+      ],
+      [
+       "11 Aug 2026",
+       "—",
+       "≈ 4.2 GW",
+       "—"
+      ],
+      [
+       "End-2026 target",
+       "> 1.85 GW (raised from > 1.7 GW)",
+       "—",
+       "—"
+      ],
+      [
+       "2030 target",
+       "≥ 8 GW",
+       "—",
+       "—"
+      ]
+     ],
+     "note": "Active power was about 41% of contracted power at 30 June 2026 (our arithmetic): most of the contracted capacity still has to be built, energised and financed. Capacity is mostly leased colocation; the first self-built site is due in 2026 [s81].",
+     "src": [
+      "s10",
+      "s11",
+      "s16",
+      "s81",
+      "s82"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**NVIDIA is supplier, shareholder, customer and backstop at once.** It supplies the GPUs, anchored the IPO and invested a further US$2bn at US$87.20 a share in January 2026 [s62,s63]. Under a September 2025 order it must buy any capacity CoreWeave cannot sell, up to US$6.3bn through April 2032 [s20]. On 15 October its CEO said CoreWeave was \"improving every day\" and needed no backstop [s32]. The arrangement supports demand in a downturn, but it also ties CoreWeave’s fortunes to a single supplier’s strategy."
+    },
+    {
+     "type": "p",
+     "text": "**Governance.** Class B shares carry ten votes. At 31 July 2026 Class B was about 17% of shares and about 67% of votes, held by the founders [s55]. Founders and early investors have been heavy sellers since the IPO, mostly under 10b5-1 plans [s53,s96]."
+    },
+    {
+     "type": "p",
+     "text": "**Controls and litigation.** The FY2025 10-K reports material weaknesses in internal control over financial reporting (IT general controls, segregation of duties and accounting staffing) that still existed at 31 December 2025, with remediation expected to continue through 2026 [s1]. Every statement figure in this report rests on those filings. A securities class action (Masaitis v. CoreWeave, D.N.J. No. 2:26-cv-00355, class period 28 March to 15 December 2025) alleges the company understated its reliance on a single third-party data-centre supplier; we have not tracked its current status [s116]."
+    }
+   ]
+  },
+  {
+   "id": "industry",
+   "title": "Industry & competitive position",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "**Demand.** The four largest US platforms (Amazon, Microsoft, Alphabet, Meta) guided combined 2026 capex of roughly US$700–725bn, up from about US$410bn in 2025 [s78]. Neoclouds take the overflow, and Microsoft has been CoreWeave’s largest customer [s56]. Frontier labs (OpenAI, Meta, Anthropic) are the other demand pool [s18,s19,s92]."
+    },
+    {
+     "type": "p",
+     "text": "**Doubts.** In October the sector’s sentiment turned on three things. OpenAI told investors its annualised revenue was about US$50bn, below the widely reported US$68bn, which had counted revenue booked by its partners [s35]. Reuters reported hints of data-centre project delays and slower capex growth from hyperscalers, and that Gartner ranks CoreWeave first of about 100 neoclouds on exposure to the gap between revenue and capital spending [s47]. And Gartner forecast that more than 80% of neocloud providers will be forced to cease independent operations by 2030 [s29,s30]."
+    },
+    {
+     "type": "table",
+     "caption": "Competitive landscape (qualitative, with cited data points)",
+     "columns": [
+      "Player",
+      "Model",
+      "Scale marker",
+      "Read-across for CoreWeave"
+     ],
+     "align": [
+      "l",
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "CoreWeave",
+       "Leased colocation, contract-backed GPU financing",
+       "RPO US$103.7bn; ≈1.5 GW active [s2,s10]",
+       "Largest neocloud by backlog; most levered"
+      ],
+      [
+       "Nebius (NBIS)",
+       "GPU cloud",
+       "Market cap about US$50.6bn (15 Oct) [s75]",
+       "Similar customers (Microsoft, Meta)"
+      ],
+      [
+       "Oracle (OCI)",
+       "Hyperscaler, balance-sheet funded",
+       "OpenAI multi-year contract; KeyBanc sees about US$100bn of borrowing [s100,s101]",
+       "The closest levered AI-cloud comparison"
+      ],
+      [
+       "AWS, Azure, Google Cloud",
+       "Own build-outs",
+       "US$700bn+ combined 2026 capex [s78]",
+       "Customers today, competitors if spill-over demand fades"
+      ],
+      [
+       "Lambda, Nscale, Crusoe, IREN",
+       "Private or ex-miner hosts",
+       "Hyperscaler capacity contracts (not quantified here)",
+       "Compete for the same lab and hyperscaler contracts"
+      ]
+     ],
+     "src": [
+      "s2",
+      "s75",
+      "s78",
+      "s100",
+      "s101"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Where CoreWeave is strong.** It has the largest backlog, it is usually first to deploy new NVIDIA platforms, and it was first to raise investment-grade financing against GPU contracts (DDTL 4.0, rated A3 by Moody’s and backed by Meta contracts) [s17,s60]. **Where it is weak.** It owns little of its real estate or power, its cost of unsecured capital is high, and two counterparties hold most of its disclosed backlog (Section 6)."
+    },
+    {
+     "type": "p",
+     "text": "**Power and delivery.** Delivery risk is not theoretical. On 10 November 2025 CoreWeave cut FY2025 revenue guidance from US$5.15–5.35bn to US$5.05–5.15bn because a third-party data-centre developer (reported to be Core Scientific) ran late, and the shares fell sharply the next day [s13,s114]; FY2025 revenue landed at US$5.13bn [s1]. With active power at about 41% of contracted power at 30 June 2026 (Section 2), most of the backlog still depends on landlords and utilities delivering on time. Our bear case assumes they deliver late and the company cannot fund the rest at acceptable cost."
+    },
+    {
+     "type": "p",
+     "text": "**GPU useful life: how much of the EBITDA is real?** CoreWeave depreciates technology equipment over six years [s1]; secondary coverage reports that it lengthened that life from five to six years from 1 January 2023, which we have not confirmed in the filings [s85]. Critics argue the economic life of AI GPUs is closer to two or three years [s85]. Depreciation is the largest cost line: about US$1.4bn in Q2 FY2026, 54% of revenue [s2]. The table rescales Q2 depreciation to shorter lives, holding everything else equal."
+    },
+    {
+     "type": "table",
+     "caption": "Q2 FY2026 depreciation and operating income at shorter GPU lives (US$ m, our arithmetic)",
+     "columns": [
+      "Useful life",
+      "Quarterly depreciation",
+      "Operating income",
+      "Annualised depreciation"
+     ],
+     "rows": [
+      [
+       "6 years (as reported)",
+       "≈ 1,400",
+       "−49",
+       "≈ 5,600"
+      ],
+      [
+       "5 years",
+       "≈ 1,680",
+       "≈ −330",
+       "≈ 6,700"
+      ],
+      [
+       "4 years",
+       "≈ 2,100",
+       "≈ −750",
+       "≈ 8,400"
+      ]
+     ],
+     "note": "A simple rescaling: it treats all depreciation as technology equipment on a six-year straight-line life (buildings and other assets have different lives), and Q2 depreciation is itself filed rounded (about ±US$100m). Cash flow does not change.",
+     "src": [
+      "s2",
+      "s1"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "A shorter life does not change cash flow, but it changes two things that matter here. First, maintenance: to hold a given EBITDA, the fleet has to be replaced on its economic life, not its book life, so EBITDA overstates owner earnings by the gap. Second, collateral: GPU loans are sized against contracts of about five years and amortise from contract cash flows [s17,s84], so lenders are exposed to what a GPU is worth when its first contract ends. If renewal prices for Hopper-generation fleets reset sharply lower, the residual value that the next financing leans on falls with them. We reflect this in a below-peer 7x base multiple and in the bear case’s lower FY2028 margin (Section 8) rather than in a DCF."
+    }
+   ]
+  },
+  {
+   "id": "financials",
+   "title": "Financial analysis",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "All statement figures below come from CoreWeave’s XBRL filings with the SEC, processed by GIVA’s deterministic financials job. Revenue, operating income and net income match the company’s press releases to rounding for every quarter we checked [s8,s11,s12,s13]. The company reported material weaknesses in internal control over financial reporting at 31 December 2025 (Section 2) [s1], so we use the filings as filed and mark figures that rest on rounded inputs. Two definitional differences matter, and we show both versions: **capex** (XBRL records cash paid; the company’s headline figure also includes accrued and vendor-financed additions) and **EBITDA** (our GAAP proxy versus the company’s adjusted figure)."
+    },
+    {
+     "type": "table",
+     "caption": "Income statement and cash flow, fiscal years and TTM (US$ m, GAAP, as filed in XBRL)",
+     "columns": [
+      "US$ m",
+      "FY2023",
+      "FY2024",
+      "FY2025",
+      "TTM Jun-26"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "r",
+      "r"
+     ],
+     "rows": [
+      [
+       "Revenue",
+       "229",
+       "1,915",
+       "5,131",
+       "7,590"
+      ],
+      [
+       "Cost of revenue (excl. D&A)",
+       "69",
+       "493",
+       "1,453",
+       "2,473"
+      ],
+      [
+       "Revenue less cost of revenue",
+       "160",
+       "1,422",
+       "3,678",
+       "5,117"
+      ],
+      [
+       "R&D expense",
+       "21",
+       "56",
+       "352",
+       "423"
+      ],
+      [
+       "Depreciation",
+       "101",
+       "861",
+       "≈ 2,400",
+       "≈ 3,900"
+      ],
+      [
+       "Operating income",
+       "−14",
+       "324",
+       "−46",
+       "−231"
+      ],
+      [
+       "Net income",
+       "−594",
+       "−863",
+       "−1,167",
+       "−1,928"
+      ],
+      [
+       "EBITDA proxy (operating income + depreciation)",
+       "87",
+       "1,185",
+       "≈ 2,350",
+       "≈ 3,670"
+      ],
+      [
+       "Stock-based compensation",
+       "15",
+       "31",
+       "630",
+       "619"
+      ],
+      [
+       "Operating cash flow",
+       "1,833",
+       "2,749",
+       "3,058",
+       "6,911"
+      ],
+      [
+       "Capex (cash purchases of PP&E)",
+       "2,943",
+       "8,702",
+       "10,309",
+       "20,566"
+      ],
+      [
+       "Free cash flow (OCF − cash capex)",
+       "−1,110",
+       "−5,953",
+       "−7,251",
+       "−13,655"
+      ],
+      [
+       "EPS, basic (US$)",
+       "−3.09",
+       "−4.30",
+       "−2.75",
+       "—"
+      ],
+      [
+       "Weighted basic shares, implied (m)",
+       "192.2",
+       "200.7",
+       "424.4",
+       "—"
+      ]
+     ],
+     "note": "TTM = Q3 FY2025 to Q2 FY2026, de-cumulated from year-to-date 10-Q facts. FY2023 and FY2024 are the comparative columns of the FY2025 10-K, filed in US$ millions. \"≈\" marks figures built on depreciation, which CoreWeave tags rounded to US$0.1bn from its Q3 2025 10-Q on: FY2025 depreciation is good to about ±US$50m and TTM to about ±US$100m. The EBITDA proxy is a GAAP construct, not the company’s adjusted EBITDA (see the non-GAAP table below). Implied shares = net income ÷ basic EPS.",
+     "src": [
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "s7"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Discrete quarters, de-cumulated from 10-Q year-to-date facts (US$ m)",
+     "columns": [
+      "US$ m",
+      "Q3 FY24",
+      "Q4 FY24",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "rows": [
+      [
+       "Revenue",
+       "584",
+       "747",
+       "982",
+       "1,213",
+       "1,365",
+       "1,572",
+       "2,078",
+       "2,575"
+      ],
+      [
+       "Cost of revenue (excl. D&A)",
+       "143",
+       "182",
+       "262",
+       "313",
+       "369",
+       "509",
+       "716",
+       "879"
+      ],
+      [
+       "Revenue less cost of revenue",
+       "441",
+       "565",
+       "719",
+       "900",
+       "996",
+       "1,063",
+       "1,362",
+       "1,696"
+      ],
+      [
+       "R&D expense",
+       "14",
+       "21",
+       "70",
+       "80",
+       "93",
+       "109",
+       "104",
+       "117"
+      ],
+      [
+       "Depreciation",
+       "253",
+       "365",
+       "443",
+       "553",
+       "≈ 600",
+       "≈ 800",
+       "≈ 1,100",
+       "≈ 1,400"
+      ],
+      [
+       "Operating income",
+       "117",
+       "112",
+       "−27",
+       "19",
+       "52",
+       "−90",
+       "−144",
+       "−49"
+      ],
+      [
+       "Net income",
+       "−360",
+       "−51",
+       "−315",
+       "−291",
+       "−110",
+       "−452",
+       "−740",
+       "−626"
+      ],
+      [
+       "EBITDA proxy",
+       "370",
+       "477",
+       "416",
+       "572",
+       "≈ 660",
+       "≈ 710",
+       "≈ 960",
+       "≈ 1,350"
+      ],
+      [
+       "Stock-based compensation",
+       "8",
+       "8",
+       "184",
+       "145",
+       "144",
+       "157",
+       "153",
+       "165"
+      ],
+      [
+       "Operating cash flow",
+       "641",
+       "187",
+       "61",
+       "−251",
+       "1,689",
+       "1,559",
+       "2,984",
+       "679"
+      ],
+      [
+       "Capex (cash)",
+       "1,215",
+       "3,498",
+       "1,407",
+       "2,453",
+       "2,389",
+       "4,060",
+       "7,695",
+       "6,422"
+      ],
+      [
+       "Free cash flow (OCF − cash capex)",
+       "−574",
+       "−3,311",
+       "−1,346",
+       "−2,704",
+       "−700",
+       "−2,501",
+       "−4,711",
+       "−5,743"
+      ],
+      [
+       "Operating margin (%)",
+       "20.1%",
+       "15.0%",
+       "−2.8%",
+       "1.6%",
+       "3.8%",
+       "−5.7%",
+       "−6.9%",
+       "−1.9%"
+      ],
+      [
+       "Net margin (%)",
+       "−61.6%",
+       "−6.8%",
+       "−32.1%",
+       "−24.0%",
+       "−8.1%",
+       "−28.7%",
+       "−35.6%",
+       "−24.3%"
+      ],
+      [
+       "Cash capex / revenue (%)",
+       "208.1%",
+       "468.2%",
+       "143.4%",
+       "202.3%",
+       "175.1%",
+       "258.3%",
+       "370.3%",
+       "249.4%"
+      ],
+      [
+       "SBC / revenue (%)",
+       "1.3%",
+       "1.0%",
+       "18.7%",
+       "12.0%",
+       "10.6%",
+       "10.0%",
+       "7.4%",
+       "6.4%"
+      ]
+     ],
+     "note": "Q2 = H1 − Q1, Q3 = 9M − H1, Q4 = FY − 9M. All eight later roll-forward rows in the filings agree with these derived quarters, and revenue, operating income and net income match the company’s press releases to rounding. Shown to the nearest US$1m: the FY2025 10-K and the 2026 10-Qs are filed in millions, so Q4 figures (FY − 9M) are good to about ±US$0.5m. Depreciation is tagged rounded to US$0.1bn from the Q3 2025 10-Q on, so depreciation and the EBITDA proxy (\"≈\") are good to about ±US$50m in Q3 FY25 and Q1 FY26, and about ±US$100m in Q4 FY25 and Q2 FY26, each the difference of two rounded facts (engine.reports rounding bounds).",
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1",
+      "s7"
+     ]
+    },
+    {
+     "type": "bars",
+     "title": "Quarterly revenue",
+     "unit": "US$ m",
+     "labels": [
+      "Q3 FY24",
+      "Q4 FY24",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "series": [
+      {
+       "name": "Revenue",
+       "values": [
+        583.9,
+        747.0,
+        981.6,
+        1212.8,
+        1364.7,
+        1571.9,
+        2078.0,
+        2575.0
+       ]
+      }
+     ],
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1"
+     ]
+    },
+    {
+     "type": "bars",
+     "title": "Quarterly operating income and net income (GAAP)",
+     "unit": "US$ m",
+     "labels": [
+      "Q3 FY24",
+      "Q4 FY24",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "series": [
+      {
+       "name": "Operating income",
+       "values": [
+        117.1,
+        112.3,
+        -27.5,
+        19.2,
+        51.9,
+        -89.6,
+        -144.0,
+        -49.0
+       ]
+      },
+      {
+       "name": "Net income",
+       "values": [
+        -359.8,
+        -50.9,
+        -314.6,
+        -290.5,
+        -110.1,
+        -451.7,
+        -740.0,
+        -626.0
+       ]
+      }
+     ],
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Fundamental growth troughed at about 110%, and guidance implies re-acceleration.** Year-on-year revenue growth fell from 420% in Q1 FY2025 to 110% in Q4 FY2025, then held at 112% in each of the first two quarters of 2026. Sequential growth picked up to 32% in Q1 FY2026 and 24% in Q2 [s2,s3]. The Q3 guide midpoint of US$3.53bn implies about 158% y/y and 37% q/q, and the FY2026 midpoint of US$12.8bn about 149% [s9]. The debate is whether the second-half ramp is delivered on time, given the November 2025 delay (Section 3)."
+    },
+    {
+     "type": "table",
+     "caption": "Fundamental growth: year-on-year change by quarter",
+     "columns": [
+      "Y/Y",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "rows": [
+      [
+       "Revenue growth",
+       "+420.3%",
+       "+206.7%",
+       "+133.7%",
+       "+110.4%",
+       "+111.7%",
+       "+112.3%"
+      ],
+      [
+       "Revenue less cost of revenue, growth",
+       "+455.6%",
+       "+214.1%",
+       "+125.9%",
+       "+88.0%",
+       "+89.4%",
+       "+88.4%"
+      ],
+      [
+       "EBITDA proxy, growth",
+       "+333.5%",
+       "+136.7%",
+       "+63% to +91%",
+       "+27% to +70%",
+       "+118% to +143%",
+       "+118% to +154%"
+      ],
+      [
+       "Operating income, change (US$ m)",
+       "−44",
+       "−59",
+       "−65",
+       "−202",
+       "−117",
+       "−68"
+      ],
+      [
+       "Net income, change (US$ m)",
+       "−185",
+       "+33",
+       "+250",
+       "−401",
+       "−425",
+       "−335"
+      ]
+     ],
+     "note": "Percentage growth is shown only off a positive base; where the base is a loss, the absolute change is shown instead. Where an input is rounded (depreciation from Q3 FY2025), EBITDA-proxy growth is shown as the range the rounding allows. Growth here is always fundamental (revenue, gross profit, EBITDA), never share-price performance.",
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1",
+      "s7"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Margins are compressing.** Revenue less cost of revenue (which excludes depreciation) fell from about 73–76% through Q3 FY2025 to 67.6% in Q4 FY2025 and about 66% in the first half of 2026. We have not confirmed management’s explanation; the likeliest driver is lease and power cost on capacity that is energised before it earns full revenue (operating lease cost was about US$500m in Q2 FY2026, against about US$180m a year earlier, per the 10-Q [s2]). Gross-profit growth (88% y/y in Q2 FY2026) is now well below revenue growth (112%). Operating margin was negative in three of the last four quarters, because depreciation arrives as soon as capacity is energised, before the revenue ramps [s2]."
+    },
+    {
+     "type": "bars",
+     "title": "Revenue less cost of revenue and EBITDA-proxy margin",
+     "unit": "%",
+     "labels": [
+      "Q3 FY24",
+      "Q4 FY24",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "series": [
+      {
+       "name": "Revenue less cost of revenue",
+       "values": [
+        75.5,
+        75.7,
+        73.3,
+        74.2,
+        73.0,
+        67.6,
+        65.5,
+        65.9
+       ]
+      },
+      {
+       "name": "EBITDA-proxy margin (≈, from Q3 FY25 ±2–6pp)",
+       "values": [
+        63,
+        64,
+        42,
+        47,
+        48,
+        45,
+        46,
+        52
+       ]
+      }
+     ],
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Company-defined (non-GAAP) figures and guidance alongside the XBRL equivalents (US$ m)",
+     "columns": [
+      "US$ m",
+      "FY2024",
+      "FY2025",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26",
+      "Q3 FY26 guide"
+     ],
+     "rows": [
+      [
+       "Adjusted EBITDA (company)",
+       "—",
+       "3,093",
+       "898",
+       "1,157",
+       "1,510",
+       "—"
+      ],
+      [
+       "Adjusted EBITDA margin (company)",
+       "—",
+       "60%",
+       "57%",
+       "56%",
+       "59%",
+       "—"
+      ],
+      [
+       "EBITDA proxy + SBC (XBRL, ours)",
+       "1,216",
+       "≈ 2,980",
+       "≈ 870",
+       "≈ 1,110",
+       "≈ 1,520",
+       "—"
+      ],
+      [
+       "Adjusted operating income (company)",
+       "—",
+       "—",
+       "—",
+       "—",
+       "128",
+       "200–260"
+      ],
+      [
+       "Interest expense",
+       "361",
+       "1,229",
+       "388",
+       "536",
+       "640",
+       "860–940"
+      ],
+      [
+       "Capex, company definition",
+       "—",
+       "14,900",
+       "8,200",
+       "≈ 7,700",
+       "9,400",
+       "11,500–13,500"
+      ],
+      [
+       "Capex, cash (XBRL)",
+       "8,702",
+       "10,309",
+       "4,060",
+       "7,695",
+       "6,422",
+       "—"
+      ]
+     ],
+     "note": "Q1 FY2026 interest is shown net, as reported. The company’s adjusted EBITDA adds back stock-based compensation and other items; our XBRL proxy plus SBC lands within about 5% of it (\"≈\": built on depreciation filed rounded to US$0.1bn). FY2026 guidance: revenue US$12.4–13.2bn, adjusted operating income US$0.96–1.15bn, capex US$35–39bn, exit-2026 annualised revenue US$18.5–19.5bn [s9].",
+     "src": [
+      "s8",
+      "s9",
+      "s11",
+      "s12",
+      "s83",
+      "s1",
+      "s2",
+      "s3"
+     ]
+    },
+    {
+     "type": "bars",
+     "title": "Interest expense against adjusted EBITDA and adjusted operating income (company figures)",
+     "unit": "US$ m",
+     "labels": [
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26",
+      "Q3 FY26 guide (mid)"
+     ],
+     "series": [
+      {
+       "name": "Interest expense",
+       "values": [
+        388,
+        536,
+        640,
+        900
+       ]
+      },
+      {
+       "name": "Adjusted EBITDA",
+       "values": [
+        898,
+        1157,
+        1510,
+        null
+       ]
+      },
+      {
+       "name": "Adjusted operating income",
+       "values": [
+        null,
+        null,
+        128,
+        230
+       ]
+      }
+     ],
+     "src": [
+      "s8",
+      "s9",
+      "s11",
+      "s12"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Cash flow and capex intensity.** Over the twelve months to June 2026, operating cash flow was US$6.9bn (91% of revenue, flattered by customer prepayments) and cash capex was US$20.6bn (271% of revenue), for free cash flow of **−US$13.7bn** [s2]. On the company’s capex definition the burn is larger: H1 FY2026 company-defined capex was about US$17.1bn against US$3.7bn of operating cash flow [s2,s8,s83]. The full-year plan of US$35–39bn means roughly US$20bn more to fund in the second half [s9]."
+    },
+    {
+     "type": "bars",
+     "title": "Operating cash flow vs cash capex by quarter",
+     "unit": "US$ m",
+     "labels": [
+      "Q3 FY24",
+      "Q4 FY24",
+      "Q1 FY25",
+      "Q2 FY25",
+      "Q3 FY25",
+      "Q4 FY25",
+      "Q1 FY26",
+      "Q2 FY26"
+     ],
+     "series": [
+      {
+       "name": "Operating cash flow",
+       "values": [
+        641.2,
+        186.6,
+        61.2,
+        -251.3,
+        1689.1,
+        1558.9,
+        2984.0,
+        679.0
+       ]
+      },
+      {
+       "name": "Cash capex",
+       "values": [
+        -1215.2,
+        -3497.7,
+        -1407.4,
+        -2453.0,
+        -2388.9,
+        -4059.8,
+        -7695.0,
+        -6422.0
+       ]
+      },
+      {
+       "name": "Free cash flow",
+       "values": [
+        -573.9,
+        -3311.2,
+        -1346.2,
+        -2704.2,
+        -699.8,
+        -2500.8,
+        -4711.0,
+        -5743.0
+       ]
+      }
+     ],
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1"
+     ]
+    },
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "The capex treadmill",
+     "text": "Capex guidance for 2026 was raised twice, from US$30–35bn to US$31–35bn in May and to US$35–39bn in August, while revenue guidance rose only at the edges [s9,s83]. At midpoints, the August revision added about US$13 of capex for each US$1 of added revenue guidance [s9,s98]. Part of that capex is for revenue in 2027 and beyond, but until the ratio turns, every revenue beat brings a larger financing need."
+    }
+   ]
+  },
+  {
+   "id": "balance-sheet",
+   "title": "Balance sheet, financing & liquidity",
+   "blocks": [
+    {
+     "type": "table",
+     "caption": "Balance-sheet snapshots from XBRL (US$ m, period-end)",
+     "columns": [
+      "US$ m",
+      "Dec-24",
+      "Mar-25",
+      "Jun-25",
+      "Sep-25",
+      "Dec-25",
+      "Mar-26",
+      "Jun-26"
+     ],
+     "rows": [
+      [
+       "Cash and cash equivalents",
+       "1,361",
+       "1,276",
+       "1,153",
+       "1,894",
+       "3,127",
+       "2,244",
+       "5,524"
+      ],
+      [
+       "Total assets",
+       "17,833",
+       "21,860",
+       "26,241",
+       "32,910",
+       "49,302",
+       "55,573",
+       "77,070"
+      ],
+      [
+       "Total debt, carrying value (incl. current portion)",
+       "7,926",
+       "8,712",
+       "11,052",
+       "14,035",
+       "21,373",
+       "24,859",
+       "35,068"
+      ],
+      [
+       "Net debt (debt − cash, excl. leases)",
+       "6,565",
+       "7,435",
+       "9,899",
+       "12,141",
+       "18,246",
+       "22,615",
+       "29,544"
+      ],
+      [
+       "Stockholders’ equity",
+       "−414",
+       "1,906",
+       "2,658",
+       "3,878",
+       "3,335",
+       "4,759",
+       "5,024"
+      ],
+      [
+       "Net debt / equity",
+       "n/m",
+       "3.9x",
+       "3.7x",
+       "3.1x",
+       "5.5x",
+       "4.8x",
+       "5.9x"
+      ],
+      [
+       "Accounts payable",
+       "868",
+       "1,242",
+       "1,227",
+       "1,157",
+       "1,623",
+       "3,371",
+       "3,633"
+      ],
+      [
+       "Deferred revenue (contract liabilities)",
+       "4,100",
+       "4,000",
+       "4,800",
+       "5,300",
+       "8,200",
+       "7,500",
+       "9,700"
+      ],
+      [
+       "Remaining performance obligations",
+       "—",
+       "14,700",
+       "30,100",
+       "50,000",
+       "60,700",
+       "98,800",
+       "103,700"
+      ],
+      [
+       "Accumulated depreciation on PP&E",
+       "965",
+       "1,400",
+       "1,954",
+       "2,575",
+       "3,384",
+       "4,509",
+       "5,886"
+      ]
+     ],
+     "note": "Debt to Mar-26 is the XBRL long-term-debt fact (which includes the current portion). The 30 Jun 2026 10-Q does not carry that tag, so the Jun-26 figure is the balance-sheet total from the debt-stack table below [s57]. Equity was negative at Dec-24 (pre-IPO), so net debt/equity is not meaningful there.",
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1",
+      "s7",
+      "s57"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Debt stack, net debt and lease-adjusted leverage at 30 Jun 2026 (US$ m; 10-Q balance sheet as summarised by StockTitan)",
+     "columns": [
+      "US$ m",
+      "Current",
+      "Non-current",
+      "Total"
+     ],
+     "rows": [
+      [
+       "Debt, recourse",
+       "6,235",
+       "25,170",
+       "31,405"
+      ],
+      [
+       "Debt, non-recourse",
+       "1,278",
+       "2,385",
+       "3,663"
+      ],
+      [
+       "Total debt (carrying value)",
+       "7,513",
+       "27,555",
+       "35,068"
+      ],
+      [
+       "Memo: principal outstanding",
+       "—",
+       "—",
+       "35,551"
+      ],
+      [
+       "Finance-lease liabilities",
+       "7",
+       "214",
+       "221"
+      ],
+      [
+       "Less: cash and cash equivalents",
+       "—",
+       "—",
+       "−5,524"
+      ],
+      [
+       "**Net debt (incl. finance leases)**",
+       "—",
+       "—",
+       "**29,765**"
+      ],
+      [
+       "Stockholders’ equity",
+       "—",
+       "—",
+       "5,024"
+      ],
+      [
+       "Net debt / equity",
+       "—",
+       "—",
+       "5.9x"
+      ],
+      [
+       "Net debt / annualised Q2 adjusted EBITDA (US$1,510m × 4)",
+       "—",
+       "—",
+       "4.9x"
+      ],
+      [
+       "Memo: operating-lease liabilities (approximate)",
+       "—",
+       "—",
+       "≈ 16,300"
+      ],
+      [
+       "Lease-adjusted net debt",
+       "—",
+       "—",
+       "≈ 46,100"
+      ],
+      [
+       "Lease-adjusted net debt / annualised Q2 EBITDAR",
+       "—",
+       "—",
+       "≈ 5.7x"
+      ],
+      [
+       "Total assets less equity (derived) / total assets",
+       "—",
+       "—",
+       "72,046 / 77,070 = 93%"
+      ]
+     ],
+     "note": "Debt lines are the 10-Q balance sheet as summarised by a secondary source [s57]; we could not open the filing itself. The liabilities line is derived (assets − equity), so it also includes any non-controlling or temporary equity, which we have not checked. Operating-lease liabilities are not in our debt total, consistent with rent sitting above EBITDA; debt plus all lease liabilities is about US$51.6bn per a secondary 10-Q summary [s56], and press figures of \"about US$50bn\" of debt include leases [s25]. EBITDAR adds Q2 operating lease cost of about US$500m [s2] to adjusted EBITDA [s8]. Debt raised after 30 June (DDTL 5.5 draws and the September convertible) is not included.",
+     "src": [
+      "s57",
+      "s8",
+      "s2",
+      "s56"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Principal facilities and securities",
+     "columns": [
+      "Instrument",
+      "Size",
+      "Pricing",
+      "Maturity / terms"
+     ],
+     "align": [
+      "l",
+      "r",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "DDTL 3.0 (secured; backs the OpenAI contract) [s103]",
+       "US$2.6bn",
+       "SOFR + 400bp",
+       "21 Aug 2030 (closed 31 Jul 2025)"
+      ],
+      [
+       "DDTL 4.0 (secured, rated A3 / A(low)) [s17,s60]",
+       "US$8.5bn",
+       "SOFR + 225bp (floating tranche)",
+       "Mar 2032; backed by Meta contracts (per Bloomberg Law [s60])"
+      ],
+      [
+       "DDTL 5.0 (secured, rated Ba2 / BB+) [s104]",
+       "US$3.1bn",
+       "SOFR + 450bp",
+       "about 5.5 years (closed 18 May 2026); tied to two non-investment-grade customers"
+      ],
+      [
+       "DDTL 5.5 (secured) [s59,s97]",
+       "US$2.6bn",
+       "SOFR + 550bp",
+       "about 5 years (Aug 2026)"
+      ],
+      [
+       "Senior unsecured notes [s28,s58]",
+       "about US$10bn",
+       "8.50%–9.75% coupons",
+       "incl. 9.75% 2031s and 9.625% 2032s"
+      ],
+      [
+       "Convertible senior notes due 2031 [s105,s107]",
+       "about US$2.6bn (US$2.25bn plus a US$337.5m option)",
+       "1.75%",
+       "1 Dec 2031; conversion terms not confirmed by us"
+      ],
+      [
+       "Convertible senior notes due 2032 [s106,s107]",
+       "about US$4.0bn (US$3.5bn plus a US$0.5bn option)",
+       "1.75%",
+       "1 Oct 2032; conversion about US$119.60 (secondary); capped calls"
+      ],
+      [
+       "Convertible senior notes due 2033 [s14,s39,s108]",
+       "US$4.2bn (option fully exercised; closed 22 Sep 2026)",
+       "2.875%",
+       "1 Apr 2033; conversion ≈ US$97.85, capped call to US$199.70"
+      ],
+      [
+       "At-the-market equity programme [s109]",
+       "up to 35m Class A shares",
+       "market",
+       "launched 17 Sep 2026; agency sales or a collared forward sale; we found no reported sales"
+      ]
+     ],
+     "src": [
+      "s14",
+      "s17",
+      "s39",
+      "s58",
+      "s59",
+      "s60",
+      "s97",
+      "s103",
+      "s104",
+      "s105",
+      "s106",
+      "s107",
+      "s108",
+      "s109"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Interest burden.** Interest expense rose from US$361m in FY2024 to US$1,229m in FY2025 and US$640m in Q2 FY2026 alone, against US$267m a year earlier [s8,s12]. Q3 guidance of US$860–940m is about four times guided adjusted operating income of US$200–260m [s9]. Measured against adjusted EBITDA, interest absorbed 40% in FY2025 and 42% in Q2 FY2026 (our arithmetic from [s8,s12]). Fixed-charge cover is thin: in Q2, adjusted EBITDA plus rent covered interest plus rent about 1.8 times (our arithmetic from [s2,s8]). Because most secured debt floats over SOFR, rates feed straight into the interest line: the Fed raised its target range by 25bp to 3.75–4.00% on 16 September, its first hike since 2023 [s111], and the hot September CPI print raised the odds of another move at the 27–28 October meeting [s87]."
+    },
+    {
+     "type": "p",
+     "text": "**Maturities and liquidity.** US$7.5bn of debt was classified as current at 30 June 2026 [s57], and one secondary source puts principal due by end-2027 at US$10.6bn [s58]. DDTL debt amortises from contract cash flows, so the more relevant refinancing exposure is the unsecured notes and any facility whose cash is trapped. The company did breach covenants on a 2024 loan, which triggered technical defaults that were later waived [s91]. Cash was US$5.5bn at 30 June. The September convertible closed at US$4.2bn with the option exercised: net proceeds were about US$4.14bn, and after about US$0.57bn of capped calls it added about US$3.57bn of cash before offering expenses [s39,s108]."
+    },
+    {
+     "type": "p",
+     "text": "**Dilution.** Class A plus Class B shares were 551.5m at 31 July 2026, up from 545.6m at 30 April [s3,s55]; implied weighted basic shares were 200.7m in FY2024 and 424.4m in FY2025 (IPO and conversions) [s1]. Ahead: the ATM programme (up to 35m shares, about 6% of the count) [s109]; three convertibles, of which the 2033s convert into about 42.9m shares at US$97.85 and the 2032s into roughly 33m at about US$119.60 (the 2031s’ conversion terms we have not confirmed), each with capped calls that offset dilution up to their caps [s14,s105,s106,s107]; and stock-based compensation of US$619m over the last twelve months, 8.2% of revenue [s2]. We treat all three convertibles as debt in every scenario (Section 8)."
+    },
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "Credit market, week of 12–16 October",
+     "text": "The 9.625% 2032 notes traded below 80 cents for a yield near 15%, and the 2031s yielded about 15.8% on 15 October [s28,s31]. Five-year CDS reached a record of about 1,195bp intraday before settling near 1,040bp [s31,s34]. S&P rates the issuer B+ with a positive outlook [s117]. Equity holders sit below roughly US$35bn of debt at 30 June, more after the September convertible, that the market prices as high yield bordering on distressed. Section 8 sets the equity discount rate separately from these yields."
+    }
+   ]
+  },
+  {
+   "id": "backlog",
+   "title": "Backlog, RPO & customer concentration",
+   "blocks": [
+    {
+     "type": "bars",
+     "title": "Remaining performance obligations (RPO) and deferred revenue",
+     "unit": "US$ bn",
+     "labels": [
+      "Mar-25",
+      "Jun-25",
+      "Sep-25",
+      "Dec-25",
+      "Mar-26",
+      "Jun-26"
+     ],
+     "series": [
+      {
+       "name": "RPO",
+       "values": [
+        14.7,
+        30.1,
+        50.0,
+        60.7,
+        98.8,
+        103.7
+       ]
+      },
+      {
+       "name": "Deferred revenue",
+       "values": [
+        4.0,
+        4.8,
+        5.3,
+        8.2,
+        7.5,
+        9.7
+       ]
+      }
+     ],
+     "src": [
+      "s2",
+      "s3",
+      "s4",
+      "s5",
+      "s6",
+      "s1"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "RPO rose from US$14.7bn at March 2025 to **US$103.7bn** at June 2026, about **13.7x TTM revenue** [s2,s6]. The company’s \"revenue backlog\" (RPO plus other committed amounts) was about US$104bn, excluding more than US$25bn of commitments signed after quarter-end [s8]. At Q1 the company said about 36% of backlog would be recognised within 24 months [s95]. On the Q2 call management said ten customers have each committed at least US$1bn, and that non-investment-grade AI-native companies and labs are under 30% of backlog [s10,s86]."
+    },
+    {
+     "type": "table",
+     "caption": "Customer concentration (share of revenue)",
+     "columns": [
+      "Period",
+      "Largest customer",
+      "Second",
+      "Third",
+      "Comment"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "r",
+      "l"
+     ],
+     "rows": [
+      [
+       "FY2023",
+       "35% (Microsoft)",
+       "—",
+       "—",
+       "secondary source [s56]"
+      ],
+      [
+       "FY2024",
+       "62% (Microsoft)",
+       "15%",
+       "—",
+       "top two 77% [s56]"
+      ],
+      [
+       "Q2 FY2025",
+       "71% (Customer A)",
+       "—",
+       "—",
+       "three months; 10-Q comparative [s2,s56]"
+      ],
+      [
+       "Q1 FY2026",
+       "about 45%",
+       "—",
+       "—",
+       "three months; top two about 65% [s3,s56]"
+      ],
+      [
+       "Q2 FY2026",
+       "36% (Customer A)",
+       "26% (Customer B)",
+       "10% (Customer C)",
+       "three months, as summarised by sec-api.io [s56]"
+      ],
+      [
+       "H1 FY2026",
+       "40% (Customer A)",
+       "23% (Customer B)",
+       "—",
+       "six months; receivables A 32%, B 32% (10-Q as summarised by StockTitan [s57])"
+      ]
+     ],
+     "note": "The 10-Q warns that the letters may refer to different customers in different periods. Every percentage here comes from a secondary summary of the filings; we could not open the 10-Q concentration note itself.",
+     "src": [
+      "s2",
+      "s3",
+      "s56",
+      "s57"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Backlog by counterparty: disclosed contract ceilings against RPO of US$103.7bn (US$ bn, our arithmetic)",
+     "columns": [
+      "Counterparty",
+      "Disclosed ceiling",
+      "Share of RPO",
+      "Credit standing",
+      "Financing"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "Meta",
+       "≈ 35.2 (14.2 + ≈ 21)",
+       "≈ 34%",
+       "Investment grade",
+       "DDTL 4.0, SOFR + 225bp, rated A3 [s17,s60]"
+      ],
+      [
+       "OpenAI",
+       "≈ 22.4",
+       "≈ 22%",
+       "No investment-grade rating",
+       "DDTL 3.0, SOFR + 400bp [s103]"
+      ],
+      [
+       "NVIDIA (unsold-capacity backstop)",
+       "6.3",
+       "≈ 6%",
+       "Investment grade",
+       "—"
+      ],
+      [
+       "All others (incl. Microsoft, Anthropic)",
+       "≈ 39.8 (residual)",
+       "≈ 38%",
+       "Mixed",
+       "incl. DDTL 5.0, tied to two non-investment-grade customers [s104]"
+      ]
+     ],
+     "note": "Ceilings are company-disclosed maximums, not minimums, and part of each may already be recognised or not yet be in RPO, so the shares are indicative. Management says non-investment-grade AI-native companies and labs are under 30% of backlog [s10,s86]; on these ceilings OpenAI alone would be most of that.",
+     "src": [
+      "s2",
+      "s17",
+      "s19",
+      "s20",
+      "s21",
+      "s103",
+      "s104",
+      "s110"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Named contracts (company-disclosed ceilings, not guaranteed minimums)",
+     "columns": [
+      "Counterparty",
+      "Disclosed value",
+      "Term / timing",
+      "Comment"
+     ],
+     "align": [
+      "l",
+      "r",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "OpenAI",
+       "up to about US$22.4bn",
+       "Mar 2025 to Sep 2025 signings, through Oct 2030",
+       "Three agreements (US$11.9bn + US$4bn + US$6.5bn) [s19,s63]; DDTL 3.0 finances it [s103]"
+      ],
+      [
+       "Meta",
+       "up to US$14.2bn + about US$21bn",
+       "2025 order to Dec 2031; 9 Apr 2026 expansion to Dec 2032",
+       "An earlier Meta contract backs the investment-grade DDTL 4.0, per Bloomberg Law [s21,s60,s92,s110]"
+      ],
+      [
+       "NVIDIA",
+       "US$6.3bn",
+       "through Apr 2032",
+       "Obligation to buy unsold capacity [s20]"
+      ],
+      [
+       "Anthropic",
+       "not disclosed",
+       "multi-year; compute from late 2026",
+       "Production Claude workloads [s18]"
+      ],
+      [
+       "Microsoft",
+       "not disclosed",
+       "—",
+       "Largest customer historically [s56]"
+      ]
+     ],
+     "src": [
+      "s18",
+      "s19",
+      "s20",
+      "s21",
+      "s56",
+      "s60",
+      "s92",
+      "s103",
+      "s110"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Our read.** Revenue concentration is falling; backlog concentration is not. The largest customer fell from 71% of revenue a year ago to 36% in Q2 FY2026 [s2,s56], but in dollars it barely moved (about US$0.86bn in Q2 FY2025 against about US$0.93bn in Q2 FY2026, if Customer A is the same company in both periods), so the falling share reflects growth elsewhere rather than roll-off. We have not reviewed Microsoft’s contract end dates in the 10-K. On the backlog, two counterparties hold more than half of the disclosed ceilings. The bear reading: about US$22bn of ceilings from OpenAI, whose own disclosure put its net annualised revenue at about US$50bn rather than the US$68bn gross figure that had been reported [s35], sit in non-investment-grade financing that cannot migrate to the SOFR + 225bp structure, which works only because Meta is investment grade [s17,s103]. Large RPO is necessary for the equity case, but on its own it does not make the case."
+    }
+   ]
+  },
+  {
+   "id": "share-price",
+   "title": "Recent share-price performance: what drove the slide",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "From a post-earnings close of about US$108 on 12 August (a single source) [s40] the shares fell to **US$61.39 on 16 October** [s25,s26], about **−43%**. Most of the fall came in the week of 12–16 October, when the shares lost about a quarter of their value [s27]. CNBC’s quote page showed a 52-week high of US$150.40, set on 16 October 2025, so that high was rolling out of the window on our data date [s42]. The October slide also retraced a rebound: the shares had fallen about 26% in the five sessions to 29 July [s113] before rallying on the August results. Since August the move had three legs: a five-session fall of about 19% to 15 September, ahead of the Fed’s 16 September hike [s111,s112]; the convertible-plus-ATM financing on 17 September; and an October cascade that started in the credit market."
+    },
+    {
+     "type": "table",
+     "caption": "Dated timeline of catalysts and reported share-price reactions",
+     "columns": [
+      "Date (2026)",
+      "Event",
+      "Type",
+      "Reported reaction"
+     ],
+     "align": [
+      "l",
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "23–29 Jul",
+       "Five-session losing streak on AI-debt and capex worries [s113]",
+       "Credit sentiment",
+       "about −26% over five sessions [s113]"
+      ],
+      [
+       "11–12 Aug",
+       "Q2 results: revenue US$2.58bn (+112%), backlog about US$104bn, FY guide raised; net loss widened to US$626m on US$640m interest [s8,s24]",
+       "Earnings",
+       "about +19% next day, close about US$108 (single source) [s40]"
+      ],
+      [
+       "18 Aug",
+       "Risk-off day; debt-financing and capex concerns as long Treasury yields rose [s51]",
+       "Rates / leverage",
+       "about −12% [s51]"
+      ],
+      [
+       "8 Sep",
+       "Sector lifted by a Nebius–Palantir tie-up [s52]",
+       "Sector",
+       "about +12% [s52]"
+      ],
+      [
+       "9–15 Sep",
+       "Five-session losing streak ahead of the Fed decision [s112]",
+       "Rates",
+       "about −19% over five sessions [s112]"
+      ],
+      [
+       "16 Sep",
+       "Fed raises its target range by 25bp to 3.75–4.00%, its first hike since 2023 [s111]",
+       "Rates",
+       "—"
+      ],
+      [
+       "17 Sep",
+       "Proposed US$3.0bn convertible plus an ATM programme for up to 35m shares [s15,s109]",
+       "Financing",
+       "down about 4–5% (reports differ); close US$79.88 [s38,s118]"
+      ],
+      [
+       "18–22 Sep",
+       "Convertible priced, upsized to US$3.7bn at 2.875%; closed on 22 Sep at US$4.2bn with the option exercised [s14,s39,s108]",
+       "Financing",
+       "—"
+      ],
+      [
+       "24 Sep",
+       "JPMorgan upgrade to Overweight, target US$125, citing short-term contract pricing [s37]",
+       "Analyst",
+       "shares rose; we found no dated public close to cite"
+      ],
+      [
+       "8 Oct",
+       "OpenAI tells investors its annualised revenue is about US$50bn net of partner sales, not the US$68bn reported [s35]",
+       "Customer / sector",
+       "about −7%, intraday US$81.94 [s36]"
+      ],
+      [
+       "13 Oct",
+       "Bond-yield chart near 15% circulates widely on social media [s50]",
+       "Credit sentiment",
+       "drop followed on 14 Oct"
+      ],
+      [
+       "14 Oct",
+       "Hot September CPI lifts the odds of another Fed hike [s87]; Gartner neocloud forecast [s30]; 2032 notes below 80c [s28]; D.A. Davidson says equity \"could go to zero\" [s43]; CEO calls the move irrational [s44]",
+       "Macro, credit, third party",
+       "−15.5% to US$65.78 [s29]"
+      ],
+      [
+       "15 Oct",
+       "CDS at a record of about 1,195bp intraday [s31,s34]; Mizuho cuts target to US$88 [s45]; Deutsche Bank says buy [s46]; NVIDIA CEO backs CoreWeave [s32]",
+       "Credit, analysts, support",
+       "low US$59.51, then +5.9% to US$69.69 [s33,s42]"
+      ],
+      [
+       "16 Oct",
+       "Bonds in distressed territory [s88]; Reuters reports hyperscaler capex-delay signals [s47]; chip stocks down nine sessions running [s48]; Nasdaq −2.1% [s27]",
+       "Credit, sector",
+       "−11.9% to US$61.39 [s25,s26]"
+      ]
+     ],
+     "note": "Closing prices are as reported by the cited outlets; where outlets disagree we give the range. Other items in the window were minor: a Magnetar-affiliated sale on 13 Aug [s53] and the CRO’s sell-to-cover sales for RSU tax on 12–13 Oct [s54]. Searches found no short-seller report, no lock-up expiry and no NVIDIA or founder sales in the window.",
+     "src": [
+      "s25",
+      "s26",
+      "s27",
+      "s29",
+      "s33",
+      "s36",
+      "s37",
+      "s38",
+      "s40",
+      "s111",
+      "s112",
+      "s113",
+      "s118"
+     ]
+    },
+    {
+     "type": "chart",
+     "symbol": "NASDAQ:CRWV"
+    },
+    {
+     "type": "p",
+     "text": "**Interpretation.** The slide started in the credit market: unsecured yields moved from 9–10% coupons to about 15% and CDS reached a record [s28,s31]. That is not only sentiment. For a company that can only grow by borrowing, the cost and availability of funding are fundamental inputs, and two demand datapoints also turned against it: OpenAI’s lower net run-rate and Reuters’ hyperscaler capex-delay signals [s35,s47]. Reported results did not miss: the last quarter beat on revenue and raised guidance [s8,s24]. The fall was also sector-wide: Nebius, IREN, Oracle and the semiconductor index fell alongside, and CoreWeave, the most levered name, fell most [s25,s48]. Sell-side defenders included Cantor (Overweight, US$176), JPMorgan (\"overdone\") and Deutsche Bank [s46,s70,s93]."
+    }
+   ]
+  },
+  {
+   "id": "valuation",
+   "title": "Valuation",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "CoreWeave has no earnings to put a P/E on, so we value it on enterprise value against forward adjusted EBITDA, and we treat the equity explicitly as what is left after debt. Spot inputs: **US$61.39** close [s25] × **551.5m** shares [s55] = **US$33.9bn** market cap; plus **US$29.8bn** net debt at 30 June [s57] = **US$63.6bn** spot EV (our arithmetic). We treat all three convertibles as debt, assuming net-share settlement: principal is repaid like debt, and the capped calls offset the conversion spread up to their caps [s14,s106]."
+    },
+    {
+     "type": "table",
+     "caption": "Peer multiples (approximate; snapshot dates and EV definitions differ; live pages read 17 Oct 2026)",
+     "columns": [
+      "Company",
+      "Basis",
+      "EV / sales",
+      "EV / EBITDA",
+      "Comment"
+     ],
+     "align": [
+      "l",
+      "l",
+      "r",
+      "r",
+      "l"
+     ],
+     "rows": [
+      [
+       "CoreWeave, spot EV US$63.6bn",
+       "FY26 / FY27 consensus [s64,s65]",
+       "4.9x / 2.4x",
+       "8.6x / 3.8–4.1x",
+       "Our arithmetic"
+      ],
+      [
+       "CoreWeave, forward EV US$79.2bn",
+       "Net debt rolled to end-2026",
+       "6.2x / 3.0x",
+       "10.7x / 4.8–5.1x",
+       "Adds H2 FY26 funding need"
+      ],
+      [
+       "Nebius (NBIS)",
+       "Market cap about US$50.6bn at US$186.01 (15 Oct) [s75]",
+       "about 4.1x FY27",
+       "n/a",
+       "Net debt assumed nil [s76]"
+      ],
+      [
+       "Oracle (ORCL)",
+       "FY May-27 / May-28 [s72]",
+       "—",
+       "about 10.1x / 7.3x",
+       "Investment-grade hyperscaler"
+      ],
+      [
+       "NVIDIA (NVDA)",
+       "FY Jan-27 / Jan-28 (16 Sep) [s73]; NTM sales (Sep) [s74]",
+       "about 9.5x NTM",
+       "18.4x / 10.8x",
+       "Asset-light supplier"
+      ],
+      [
+       "Microsoft / Alphabet",
+       "NTM sales (Sep) [s74]",
+       "about 9.4x / 7.0x",
+       "n/a",
+       "Hyperscalers"
+      ]
+     ],
+     "note": "CoreWeave’s adjusted EBITDA adds back all stock-based compensation and sits above depreciation equal to about 40–55% of revenue, so its EBITDA multiples are not like-for-like with asset-light peers [s77]. We found no citable EV/EBITDA for the hyperscalers and do not show one.",
+     "src": [
+      "s25",
+      "s55",
+      "s57",
+      "s64",
+      "s65",
+      "s72",
+      "s73",
+      "s74",
+      "s75",
+      "s76"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Choosing the multiple.** The asset-light names above are not the right anchor: their EBITDA is not consumed by depreciation and their balance sheets are investment grade. The closer economic comparables are lessors of depreciating, debt-financed equipment on contracts (aircraft lessors, equipment rental), with contracted data-centre landlords as an upper bound for longer-dated contracts on longer-lived assets. We did not find dated, citable multiples for those groups in time for this report, so we show none. Our 7x base multiple sits below Oracle’s forward multiple and well below the asset-light peers; the bear case uses 5.5x, a distressed-credit level."
+    },
+    {
+     "type": "p",
+     "text": "**Method.** We value the company at end-2027 on a one-year-forward multiple of FY2028 adjusted EBITDA, roll net debt forward with guidance and consensus cash flows, and discount the per-share value back 1.2 years at an **18% cost of equity**. That rate is a stated premium (roughly the 3.75–4.00% policy rate [s111] plus about 14 points for a single-B, pre-profit, highly levered equity), not a read-across from the bond yield: a 15% yield on near-distressed bonds is a promised yield, not an expected return. Default risk sits in the scenario weights, so the high rate is partly a second, conservative haircut; at 15% or 21% the weighted value would be about US$72 or US$68. Step 1 is common to all cases: from US$29.8bn at 30 June, H2 FY2026 company-defined capex of about US$19.9bn (guide midpoint US$37bn less H1 about US$17.1bn [s9,s83,s8]), H2 adjusted EBITDA of about US$4.7bn (consensus FY US$7.4bn [s65] less H1 US$2.67bn [s8,s11]), interest of about US$1.9bn and US$1.5bn of prepayments take **net debt to about US$45.3bn by end-2026**. After that, any equity raised is credited against net debt, so new shares are not counted twice."
+    },
+    {
+     "type": "table",
+     "caption": "Scenario assumptions (US$ bn unless stated; the restructuring case needs none)",
+     "columns": [
+      "Assumption",
+      "Bear (funding-constrained)",
+      "Base",
+      "Bull",
+      "Anchor"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "r",
+      "l"
+     ],
+     "rows": [
+      [
+       "FY27 revenue",
+       "20.0",
+       "26.3",
+       "31.0",
+       "Bear: about the exit-2026 run-rate guide of US$18.5–19.5bn [s9] plus little new capacity; base and bull: consensus mean and high [s64]"
+      ],
+      [
+       "FY27 adj. EBITDA margin",
+       "55%",
+       "62%",
+       "65%",
+       "Q2 FY26 actual 59% [s8]; FY27 consensus 59–63% [s65]"
+      ],
+      [
+       "FY28 revenue",
+       "22.0",
+       "38.0",
+       "45.0",
+       "Bear: exit-2027 active power of about 2.3–2.4 GW, less lower renewal pricing on Hopper fleets; bull: near BofA’s US$43.3bn [s71]"
+      ],
+      [
+       "FY28 adj. EBITDA margin",
+       "52%",
+       "62%",
+       "65%",
+       "Bear: renewal pricing resets and leased capacity sits part-empty; base and bull held at the FY27 margin"
+      ],
+      [
+       "FY28 adj. EBITDA",
+       "11.44",
+       "23.56",
+       "29.25",
+       "FY28 revenue × FY28 margin; FY28 consensus about US$28.7bn [s65]"
+      ],
+      [
+       "FY27 capex",
+       "22.0",
+       "47.4",
+       "52.0",
+       "Bear: capped at about US$6bn of operating cash flow plus new contract-backed debt and equity; base: BofA FY27 US$47.4bn [s71]"
+      ],
+      [
+       "FY27 interest",
+       "5.5",
+       "5.0",
+       "5.0",
+       "Q3 FY26 run-rate about US$3.6bn a year, on more debt and higher rates [s9,s111]"
+      ],
+      [
+       "FY27 customer prepayments / working capital",
+       "+0.5",
+       "+2.0",
+       "+3.0",
+       "Our assumption; deferred revenue rose about US$1.5bn in H1 FY26 [s2]"
+      ],
+      [
+       "FY27 free cash flow",
+       "−16.00",
+       "−34.09",
+       "−33.85",
+       "EBITDA − interest + prepayments − capex"
+      ],
+      [
+       "Equity issued to end-2027 (credited to net debt)",
+       "2.6",
+       "2.45",
+       "2.75",
+       "Bear: 35m ATM shares at about US$45 plus 40m at about US$25; base: 35m at about US$70; bull: 25m at about US$110"
+      ],
+      [
+       "Net debt, end-2027",
+       "58.73",
+       "76.98",
+       "76.43",
+       "US$45.33bn + FY27 burn − equity issued"
+      ],
+      [
+       "Net debt / FY28 adj. EBITDA",
+       "5.1x",
+       "3.3x",
+       "2.6x",
+       "—"
+      ],
+      [
+       "Target EV / FY28 EBITDA",
+       "5.5x",
+       "7.0x",
+       "9.0x",
+       "Distressed credit / below Oracle’s forward multiple / re-rated [s72]"
+      ],
+      [
+       "Diluted shares, end-2027 (m)",
+       "641.5",
+       "600",
+       "590",
+       "551.5m [s55] + the shares issued above + SBC (15m / 13.5m / 13.5m)"
+      ]
+     ],
+     "src": [
+      "s8",
+      "s9",
+      "s55",
+      "s64",
+      "s65",
+      "s71",
+      "s72",
+      "s111"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Scenario arithmetic: value per share",
+     "columns": [
+      "Line",
+      "Bear",
+      "Base",
+      "Bull"
+     ],
+     "align": [
+      "l",
+      "r",
+      "r",
+      "r"
+     ],
+     "rows": [
+      [
+       "EV at end-2027 = multiple × FY28 EBITDA (US$ bn)",
+       "5.5 × 11.44 = 62.9",
+       "7.0 × 23.56 = 164.9",
+       "9.0 × 29.25 = 263.3"
+      ],
+      [
+       "Less net debt, end-2027 (US$ bn)",
+       "−58.7",
+       "−77.0",
+       "−76.4"
+      ],
+      [
+       "Equity value, end-2027 (US$ bn)",
+       "4.2",
+       "87.9",
+       "186.8"
+      ],
+      [
+       "Per share, end-2027 (US$)",
+       "6.53",
+       "146.57",
+       "316.64"
+      ],
+      [
+       "Discounted at 18% for 1.205 years (÷ 1.2207)",
+       "**≈ US$5**",
+       "**≈ US$120**",
+       "**≈ US$259**"
+      ],
+      [
+       "vs US$61.39 close [s25]",
+       "−91%",
+       "+96%",
+       "+323%"
+      ]
+     ],
+     "note": "Probability-weighted at 15% restructuring (≈ US$0), 40% bear, 35% base and 10% bull: about US$70, 14% above the close. Reverse case: at US$61.39, with base net debt and shares, the market pays about 5.2x our base FY28 EBITDA, or 7x on FY28 EBITDA of about US$17.4bn (about US$28.1bn of revenue at a 62% margin). Convertibles: the base (US$147) and bull (US$317) end-2027 values are above the 2033s’ US$97.85 conversion price. Under net-share settlement the capped calls offset that dilution up to US$199.70, so only the bull case carries net dilution above the cap (about 16m shares from the 2033s, roughly 3%, plus some from the 2032s, whose cap we have not confirmed), which we do not model.",
+     "src": [
+      "s14",
+      "s25",
+      "s55",
+      "s57",
+      "s65"
+     ]
+    },
+    {
+     "type": "scenarios",
+     "rows": [
+      {
+       "name": "Restructuring",
+       "value": "≈ US$0 a share",
+       "prob": "15% (ours)",
+       "text": "Unsecured refinancing fails, or a covenant or cash-trap event cascades, before the FY2027 plan is funded, and the equity is wiped out or heavily diluted in a restructuring. We set the weight a little below the roughly 19% risk-neutral default probability that CDS near 1,040bp implies to end-2027 at 40% recovery [s31], because risk-neutral odds overstate real-world ones. D.A. Davidson has said the equity \"could go to zero\" [s43]."
+      },
+      {
+       "name": "Bear",
+       "value": "≈ US$5 a share",
+       "prob": "40%",
+       "text": "Funding-constrained. Capital stays expensive, so FY2027 capex is cut to about US$22bn; revenue stalls near the exit-2026 run-rate (US$20bn in FY2027, US$22bn in FY2028); renewal pricing on Hopper fleets resets lower and leased capacity sits part-empty (52% FY2028 margin). Net debt still reaches about US$59bn, 5.1x FY2028 EBITDA, and at a distressed 5.5x the equity is a sliver spread over 90m more shares. Triggers: refinancing near 15%, a large customer re-scoping, or another delivery delay [s28,s35,s114]."
+      },
+      {
+       "name": "Base",
+       "value": "≈ US$120 a share",
+       "prob": "35%",
+       "text": "Consensus-like FY27 revenue of US$26.3bn, 62% margins, and FY28 adjusted EBITDA of about US$23.6bn valued at 7x, below Oracle’s forward multiple [s64,s72]. Requires the 2027 capex plan (about US$47bn) to be funded without a further jump in the cost of capital; the 35m-share ATM is sold at about US$70."
+      },
+      {
+       "name": "Bull",
+       "value": "≈ US$259 a share",
+       "prob": "10%",
+       "text": "Revenue at the top of the range (US$31bn in FY27, US$45bn in FY28), 65% margins as short-term pricing holds [s16], and a re-rating to 9x as investment-grade financing becomes the norm [s17]. Net debt still rises to about US$76bn, about 2.6x FY2028 EBITDA."
+      }
+     ]
+    },
+    {
+     "type": "bars",
+     "title": "Net debt: actual and projected by scenario (our arithmetic)",
+     "unit": "US$ bn",
+     "labels": [
+      "30 Jun 2026",
+      "End-2026E",
+      "End-2027E bear",
+      "End-2027E base",
+      "End-2027E bull"
+     ],
+     "series": [
+      {
+       "name": "Net debt",
+       "values": [
+        29.8,
+        45.3,
+        58.7,
+        77.0,
+        76.4
+       ]
+      }
+     ],
+     "src": [
+      "s57",
+      "s9",
+      "s65",
+      "s71"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Sensitivity: base-case value per share today (US$), net debt US$77.0bn, 600m shares, 18% cost of equity",
+     "columns": [
+      "FY28 EBITDA",
+      "5x",
+      "6x",
+      "7x",
+      "8x",
+      "9x",
+      "10x"
+     ],
+     "rows": [
+      [
+       "US$15.0bn",
+       "<0",
+       "18",
+       "38",
+       "59",
+       "79",
+       "100"
+      ],
+      [
+       "US$18.0bn",
+       "18",
+       "42",
+       "67",
+       "91",
+       "116",
+       "141"
+      ],
+      [
+       "US$21.0bn",
+       "38",
+       "67",
+       "96",
+       "124",
+       "153",
+       "182"
+      ],
+      [
+       "**US$23.6bn (base)**",
+       "56",
+       "88",
+       "**120**",
+       "152",
+       "184",
+       "217"
+      ],
+      [
+       "US$26.0bn",
+       "72",
+       "108",
+       "143",
+       "179",
+       "214",
+       "250"
+      ],
+      [
+       "US$29.0bn",
+       "93",
+       "132",
+       "172",
+       "212",
+       "251",
+       "291"
+      ]
+     ],
+     "note": "Each turn of multiple on base FY28 EBITDA is worth about US$32 a share; each US$10bn of extra net debt costs about US$14 a share. \"<0\" means enterprise value below net debt: the equity cannot be worth less than nothing, and that corner is the restructuring case. That gearing is why the equity moves several times as much as the bonds.",
+     "src": [
+      "s25",
+      "s55",
+      "s57",
+      "s65"
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Does the backlog cover the debt on its own?** We test the \"backlog is real\" half of the thesis by stopping growth: no capex after the committed 2026 build, revenue held at the roughly US$19bn exit-2026 run-rate [s9] for five years (about the average contract length [s84]), a 59% EBITDA margin [s8], and the US$9.7bn of customer prepayments already received [s2] unwinding over the period. Contracted cash flow pays the interest and cuts net debt from about US$45bn to about US$18bn by end-2031, but it does not clear it. In run-off, the equity is worth roughly the residual value of five-year-old GPUs plus the value of renewing contracts, less about US$18bn of debt, before discounting. The backlog is real; on its own it does not make the equity safe."
+    },
+    {
+     "type": "table",
+     "caption": "Run-off test: the fleet energised by end-2026 only, no new capex (US$ bn, illustrative, our arithmetic)",
+     "columns": [
+      "Year",
+      "Revenue",
+      "Adj. EBITDA (59%)",
+      "Interest (≈ 10.5% of net debt)",
+      "Prepayment unwind",
+      "Cash to debt",
+      "Net debt, year-end"
+     ],
+     "rows": [
+      [
+       "2027",
+       "19.0",
+       "11.2",
+       "−4.8",
+       "−1.9",
+       "4.5",
+       "40.8"
+      ],
+      [
+       "2028",
+       "19.0",
+       "11.2",
+       "−4.3",
+       "−1.9",
+       "5.0",
+       "35.8"
+      ],
+      [
+       "2029",
+       "19.0",
+       "11.2",
+       "−3.8",
+       "−1.9",
+       "5.5",
+       "30.3"
+      ],
+      [
+       "2030",
+       "19.0",
+       "11.2",
+       "−3.2",
+       "−1.9",
+       "6.1",
+       "24.3"
+      ],
+      [
+       "2031",
+       "19.0",
+       "11.2",
+       "−2.6",
+       "−1.9",
+       "6.7",
+       "17.5"
+      ]
+     ],
+     "note": "Starts from US$45.3bn of end-2026 net debt (Step 1). Ignores taxes (the company is loss-making), maintenance capex, renewals and any residual-value sale, and holds the rate at about 10.5% of opening net debt (the Q3 FY26 interest guide annualised is about 9% on roughly US$40bn of debt, before higher rates and refinancing).",
+     "src": [
+      "s2",
+      "s8",
+      "s9",
+      "s84"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Street view (consensus pages read 17 Oct 2026; most targets predate the 14–16 October sell-off)",
+     "columns": [
+      "Item",
+      "Value",
+      "Source"
+     ],
+     "align": [
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "Consensus revenue FY26 / FY27",
+       "US$12.87bn / US$26.27bn (FY27 range US$21.1–31.0bn)",
+       "[s64]"
+      ],
+      [
+       "Consensus adj. EBITDA FY26 / FY27 / FY28",
+       "about US$7.4bn / US$15.6–16.6bn / US$28.7bn",
+       "[s65]"
+      ],
+      [
+       "Consensus EPS FY27",
+       "−US$4.33, from −US$3.37 ninety days earlier",
+       "[s64]"
+      ],
+      [
+       "Average price target",
+       "about US$137–144 across aggregators (MarketBeat US$138.78 on 29 Sep)",
+       "[s66,s67]"
+      ],
+      [
+       "Recent actions",
+       "Mizuho Neutral, US$115 → US$88 (15 Oct); Bernstein Underperform, US$74; BofA Buy, US$140; JPMorgan Overweight, US$125; D.A. Davidson Neutral, US$100",
+       "[s43,s45,s68,s69,s37]"
+      ]
+     ],
+     "note": "The average target is more than double the share price but largely predates the credit sell-off. Our base case lands somewhat below the street; the gap to the share price is mostly a question of how much weight to give the bear and restructuring cases.",
+     "src": [
+      "s64",
+      "s65",
+      "s66",
+      "s67",
+      "s68",
+      "s69"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "risks",
+   "title": "Key risks & catalysts",
+   "blocks": [
+    {
+     "type": "table",
+     "caption": "Key risks, ranked (probability and impact are our judgement to end-2027, our valuation date)",
+     "columns": [
+      "#",
+      "Risk",
+      "Probability",
+      "Impact",
+      "Evidence / mitigant"
+     ],
+     "align": [
+      "r",
+      "l",
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "1",
+       "Refinancing / cost of capital: unsecured debt rolls at around 15% or the market shuts",
+       "High",
+       "Severe",
+       "Yields about 15%, CDS above 1,000bp [s28,s31]; this drives our bear and restructuring cases (55% of the weight); mitigant: investment-grade contract-backed DDTLs [s17]"
+      ],
+      [
+       "2",
+       "Capex overruns and delivery delays (power, components, landlords and developers)",
+       "Medium–high",
+       "High",
+       "A developer delay cut FY2025 guidance in November 2025 [s13,s114]; capex guide raised twice [s9,s83]; 41% of contracted power active; peer cost overruns [s49]"
+      ],
+      [
+       "3",
+       "Counterparty stress at a large customer (OpenAI ceilings; Meta and Microsoft concentration)",
+       "Medium",
+       "High",
+       "OpenAI’s lower net run-rate disclosure [s35]; reported cash-trap clauses [s61]"
+      ],
+      [
+       "4",
+       "Equity dilution to fund the gap",
+       "High",
+       "High",
+       "ATM up to 35m shares [s109]; three convertibles [s14,s105,s106]; 90m new shares in our bear case"
+      ],
+      [
+       "5",
+       "Renewal pricing and residual value when first contracts end",
+       "Medium",
+       "High",
+       "Short-term pricing firm for now [s16]; GPU-life debate [s85]; lenders lend against contract cash flows [s17]"
+      ],
+      [
+       "6",
+       "Shorter GPU economic life than the six-year book life",
+       "Medium",
+       "High",
+       "Depreciation already 54% of revenue [s2]; at a four-year life the Q2 operating loss would be about US$0.75bn (Section 3)"
+      ],
+      [
+       "7",
+       "Covenant or cash-trap event in a non-investment-grade facility",
+       "Low–medium",
+       "High",
+       "2024 technical defaults, later waived [s91]; DDTL 5.0 tied to two non-investment-grade customers [s104]"
+      ],
+      [
+       "8",
+       "Landlord and developer concentration (Core Scientific about 590 MW)",
+       "Medium",
+       "Medium",
+       "Six sites under 12-year contracts [s115]; the November 2025 delay [s114]"
+      ],
+      [
+       "9",
+       "Rates: floating-rate secured debt after the September hike",
+       "Medium",
+       "Medium",
+       "Fed +25bp on 16 Sep [s111]; hot September CPI [s87]"
+      ],
+      [
+       "10",
+       "Internal controls and litigation",
+       "Medium",
+       "Low–medium",
+       "Material weaknesses at 31 Dec 2025 [s1]; securities class action pending [s116]"
+      ],
+      [
+       "11",
+       "Pricing and competition as neocloud capacity grows",
+       "Medium",
+       "Medium",
+       "Gartner consolidation forecast [s30]; short-term pricing firm for now [s16]"
+      ],
+      [
+       "12",
+       "Governance: dual-class control and sustained insider selling",
+       "High",
+       "Low–medium",
+       "Class B about 67% of votes [s55]; more than US$2bn of executive sales reported [s96]"
+      ],
+      [
+       "13",
+       "NVIDIA shifts allocation or support toward other neoclouds or its own cloud",
+       "Low",
+       "High",
+       "NVIDIA is supplier, investor, customer and backstop to 2032 [s20,s62]; CEO support on 15 Oct [s32]"
+      ]
+     ],
+     "src": [
+      "s1",
+      "s2",
+      "s9",
+      "s14",
+      "s16",
+      "s17",
+      "s20",
+      "s28",
+      "s30",
+      "s31",
+      "s35",
+      "s61",
+      "s87",
+      "s104",
+      "s109",
+      "s111",
+      "s114",
+      "s115",
+      "s116"
+     ]
+    },
+    {
+     "type": "table",
+     "caption": "Catalyst calendar",
+     "columns": [
+      "Expected timing",
+      "Catalyst",
+      "What to watch"
+     ],
+     "align": [
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "27–28 Oct 2026",
+       "US Federal Reserve decision (FOMC)",
+       "After the 25bp hike on 16 Sep [s111], the hot September CPI print raised the odds of another; published estimates vary by outlet and time [s87]"
+      ],
+      [
+       "about 9–10 Nov 2026 (date not yet confirmed)",
+       "Q3 FY2026 results",
+       "Revenue vs US$3.45–3.60bn; interest vs US$860–940m; capex vs US$11.5–13.5bn; funding mix after the ATM [s9,s90]"
+      ],
+      [
+       "Q4 2026 onward",
+       "Credit ratings",
+       "S&P has the issuer at B+ with a positive outlook [s117]; management targets an investment-grade enterprise credit profile [s44,s109]"
+      ],
+      [
+       "end-2026",
+       "Active power above 1.85 GW",
+       "Delivery against plan [s10]"
+      ],
+      [
+       "early 2027",
+       "Core Scientific sites at the full 590 MW",
+       "Lease ramp [s94,s115]"
+      ],
+      [
+       "early 2027",
+       "OpenAI IPO (reported timing)",
+       "Counterparty disclosure and funding [s35]"
+      ],
+      [
+       "about late Feb 2027",
+       "FY2026 results and FY2027 capex guide",
+       "The single most important financing datapoint (FY2025 results came on 26 Feb 2026 [s12])"
+      ]
+     ],
+     "src": [
+      "s9",
+      "s10",
+      "s12",
+      "s35",
+      "s44",
+      "s87",
+      "s90",
+      "s94",
+      "s109",
+      "s111",
+      "s115",
+      "s117"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "our-models",
+   "title": "Appendix: what our systematic screens said",
+   "blocks": [
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "Short answer: nothing flagged it",
+     "text": "No GIVA module named CoreWeave, flagged its share-price slide, or warned about the balance-sheet and credit risk behind it before the week of 12–16 October. CoreWeave has never appeared on the published dashboard [s99]. The miss is structural: several independent gaps each blocked it, and fixing any single one would not have produced the call."
+    },
+    {
+     "type": "p",
+     "text": "The only related signal was generic and at market level. In every weekly run between 1 August and 12 October (nine runs; none was recorded for 17, 24 or 31 August), our market models flagged the Nasdaq, S&P 500, technology, semiconductor and software indices and the growth-style (IVW) and momentum-factor (MTUM) index proxies as **overvalued**, with value scores between about 2 and 19 out of 100 (below 3 for the Nasdaq and semiconductors), according to our internal prediction logs. Nothing connected that to AI infrastructure or to debt-funded capex, and our Analyst agent never selected those markets for review."
+    },
+    {
+     "type": "table",
+     "caption": "Module-by-module audit (as of the 12 October dashboard refresh; internal records)",
+     "columns": [
+      "Module",
+      "What it did with CRWV",
+      "Why it did not warn"
+     ],
+     "align": [
+      "l",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "Stock valuation",
+       "Scored CRWV, but with no market cap or multiples",
+       "No share count in our store: CRWV has three share classes and the EDGAR feed we use drops per-class cover-page facts. CRWV and 218 other priced securities share the gap, and no quality check flagged it"
+      ],
+      [
+       "Value scoring",
+       "Labelled CRWV \"Cheap\" and GARP",
+       "A missing valuation input is treated as average for its peer group. In a replication of our 2 October scoring run, CRWV ranked around the 87th percentile of technology peers on value, and across the universe roughly 300 of about 330 stocks with no valuation inputs scored \"Cheap\""
+      ],
+      [
+       "Top picks and strategies",
+       "Excluded CRWV",
+       "By design they need P/E above zero, three years of annual history and a US$2bn market cap; a loss-making 2025 IPO can never qualify"
+      ],
+      [
+       "Risk signals",
+       "None",
+       "Debt and capex are ingested but not scored; there is no leverage, interest-cover, cash-burn or credit input"
+      ],
+      [
+       "Screener and alerts",
+       "Not in any screener",
+       "The stock-screener snapshot had not been created yet; once live, CRWV would be hidden by default (short-history data flag). No drawdown, 1-month or 200-day fields exist, so a user could not build a \"fell more than 20%\" alert"
+      ],
+      [
+       "News and events",
+       "None",
+       "The events table is empty; we ingest no news, 8-K items or credit events"
+      ],
+      [
+       "Analyst agent (LLM)",
+       "Never looked",
+       "Its candidate pools exclude overvalued or frothy markets; its 12 October run produced no theses (all eight attempts failed to parse)"
+      ],
+      [
+       "Sector classification",
+       "Tagged as prepackaged software (SIC 7372) and ranked against all technology stocks",
+       "Neither is the right peer group for a GPU-infrastructure company"
+      ]
+     ]
+    },
+    {
+     "type": "p",
+     "text": "**Would better data have helped?** Only partly. With the public share count injected, CRWV would no longer have read as \"Cheap\" on value against technology peers; it would score very high on fundamental growth and still fail our compounder rules. It would not have warned, because the risk that actually moved the stock (refinancing and credit) is not modelled."
+    },
+    {
+     "type": "table",
+     "caption": "Fixes we recommend (proposed, ranked by leverage; none is live as of publication)",
+     "columns": [
+      "#",
+      "Fix",
+      "Effect"
+     ],
+     "align": [
+      "r",
+      "l",
+      "l"
+     ],
+     "rows": [
+      [
+       "1",
+       "Score value only on inputs that exist; leave value blank (not neutral) when no earnings, book, sales or cash-flow yield exists",
+       "Removes the false \"Cheap\" labels on stocks with no valuation inputs (roughly 300 in our replication)"
+      ],
+      [
+       "2",
+       "Sum per-class share counts for multi-class issuers; add a missing-shares / missing-market-cap quality check",
+       "Restores market cap and multiples for about 219 securities and makes the gap visible"
+      ],
+      [
+       "3",
+       "A separate lens for high-growth, loss-making companies: EV/sales on trailing revenue, cash runway, trailing-twelve-month flows",
+       "Covers recent IPOs without loosening the compounder picks"
+      ],
+      [
+       "4",
+       "A balance-sheet and credit-risk score: debt/equity, net debt/operating cash flow, capex/operating cash flow, interest cover, liabilities/assets",
+       "CRWV would trip every threshold; a fundamental warning, not a price signal"
+      ],
+      [
+       "5",
+       "Price-based risk alerts, labelled as share-price performance: 1-month return, drawdown from the 52-week high, distance from the 200-day average",
+       "Lets users and the pipeline flag falls of 15–20% or more"
+      ],
+      [
+       "6",
+       "News and corporate-event ingestion, starting with SEC 8-K items for debt and credit events (public domain)",
+       "Feeds the Analyst agent the facts that drove this slide"
+      ],
+      [
+       "7",
+       "Analyst agent: add \"overvalued with high momentum\" and \"deep drawdown with weakening fundamentals\" candidate pools; fix the parse failures",
+       "Puts froth and stress in front of the agent"
+      ],
+      [
+       "8",
+       "An AI-infrastructure market proxy, and re-tag CRWV out of software",
+       "Correct peer groups"
+      ],
+      [
+       "9",
+       "A weekly missed-calls report: covered names down 25% or more that no module surfaced",
+       "Makes misses like this one visible and gradeable"
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "sources": [
+  {
+   "id": "s1",
+   "title": "CoreWeave, Inc. Form 10-K for fiscal 2025 (accession 0001769628-26-000104), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2026-03-02",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000104/0001769628-26-000104-index.htm"
+  },
+  {
+   "id": "s2",
+   "title": "CoreWeave, Inc. Form 10-Q for the quarter ended 30 Jun 2026 (accession 0001769628-26-000366), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2026-08-12",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000366/0001769628-26-000366-index.htm"
+  },
+  {
+   "id": "s3",
+   "title": "CoreWeave, Inc. Form 10-Q for the quarter ended 31 Mar 2026 (accession 0001769628-26-000222), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2026-05-08",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000222/0001769628-26-000222-index.htm"
+  },
+  {
+   "id": "s4",
+   "title": "CoreWeave, Inc. Form 10-Q for the quarter ended 30 Sep 2025 (accession 0001769628-25-000062), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2025-11-13",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962825000062/0001769628-25-000062-index.htm"
+  },
+  {
+   "id": "s5",
+   "title": "CoreWeave, Inc. Form 10-Q for the quarter ended 30 Jun 2025 (accession 0001769628-25-000041), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2025-08-13",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962825000041/0001769628-25-000041-index.htm"
+  },
+  {
+   "id": "s6",
+   "title": "CoreWeave, Inc. Form 10-Q for the quarter ended 31 Mar 2025 (accession 0001769628-25-000014), filing index",
+   "publisher": "SEC EDGAR",
+   "date": "2025-05-15",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962825000014/0001769628-25-000014-index.htm"
+  },
+  {
+   "id": "s7",
+   "title": "CoreWeave, Inc. XBRL company facts (CIK 0001769628) (live page, read 17 Oct 2026)",
+   "publisher": "SEC EDGAR (data.sec.gov)",
+   "date": "2026-10-17",
+   "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001769628.json"
+  },
+  {
+   "id": "s8",
+   "title": "CoreWeave Reports Strong Second Quarter 2026 Results",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-08-11",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx"
+  },
+  {
+   "id": "s9",
+   "title": "CoreWeave Q2 2026 earnings outlook presentation",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-08-11",
+   "url": "https://s205.q4cdn.com/133937190/files/doc_financials/2026/q2/CoreWeave-Q2-26-Earnings-Outlook-Presentation.pdf"
+  },
+  {
+   "id": "s10",
+   "title": "CoreWeave Q2 2026 earnings call, corrected transcript",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-08-11",
+   "url": "https://s205.q4cdn.com/133937190/files/doc_financials/2026/q2/CRWV-US-CORRECTED-TRANSCRIPT-CoreWeave-Q2-2026-Earnings-Call-11August2026.pdf"
+  },
+  {
+   "id": "s11",
+   "title": "CoreWeave Reports Strong First Quarter 2026 Results",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-05-07",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-First-Quarter-2026-Results/default.aspx"
+  },
+  {
+   "id": "s12",
+   "title": "CoreWeave Reports Strong Fourth Quarter and Fiscal Year 2025 Results",
+   "publisher": "Business Wire",
+   "date": "2026-02-26",
+   "url": "https://www.businesswire.com/news/home/20260226281661/en/CoreWeave-Reports-Strong-Fourth-Quarter-and-Fiscal-Year-2025-Results"
+  },
+  {
+   "id": "s13",
+   "title": "CoreWeave Reports Strong Third Quarter 2025 Results",
+   "publisher": "Business Wire",
+   "date": "2025-11-10",
+   "url": "https://www.businesswire.com/news/home/20251110221705/en"
+  },
+  {
+   "id": "s14",
+   "title": "CoreWeave Prices Upsized $3.7 Billion Convertible Senior Notes Offering",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-09-18",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Prices-Upsized-3-7-Billion-Convertible-Senior-Notes-Offering/default.aspx"
+  },
+  {
+   "id": "s15",
+   "title": "CoreWeave Announces Proposed $3.0 Billion Convertible Senior Notes Offering",
+   "publisher": "Nasdaq (company press release)",
+   "date": "2026-09-17",
+   "url": "https://www.nasdaq.com/press-release/coreweave-announces-proposed-30-billion-convertible-senior-notes-offering-2026-09-17"
+  },
+  {
+   "id": "s16",
+   "title": "CoreWeave Continues to Contract New Compute Capacity at Higher Prices",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-09-17",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Continues-to-Contract-New-Compute-Capacity-at-Higher-Prices/default.aspx"
+  },
+  {
+   "id": "s17",
+   "title": "DDTL 4.0 financing overview",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-03-30",
+   "url": "https://s205.q4cdn.com/133937190/files/doc_presentations/2026/Mar/2026-03-DDTL-4-Overview.pdf"
+  },
+  {
+   "id": "s18",
+   "title": "CoreWeave announces multi-year agreement with Anthropic",
+   "publisher": "CoreWeave",
+   "date": "2026-04-10",
+   "url": "https://coreweave.com/news/coreweave-announces-multi-year-agreement-with-anthropic"
+  },
+  {
+   "id": "s19",
+   "title": "CoreWeave expands agreement with OpenAI by up to $6.5B",
+   "publisher": "CoreWeave",
+   "date": "2025-09-25",
+   "url": "https://www.coreweave.com/news/coreweave-expands-agreement-with-openai-by-up-to-6-5b"
+  },
+  {
+   "id": "s20",
+   "title": "CoreWeave Form 8-K: NVIDIA capacity order under the April 2023 master services agreement",
+   "publisher": "SEC EDGAR",
+   "date": "2025-09-15",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962825000047/crwv-20250909.htm"
+  },
+  {
+   "id": "s21",
+   "title": "CoreWeave first-quarter 2026 earnings press release (Form 8-K exhibit)",
+   "publisher": "SEC EDGAR",
+   "date": "2026-05-07",
+   "url": "https://www.sec.gov/Archives/edgar/data/0001769628/000176962826000220/coreweave1q26earningspress.htm"
+  },
+  {
+   "id": "s22",
+   "title": "CoreWeave completes acquisition of Weights & Biases",
+   "publisher": "CoreWeave",
+   "date": "2025-05-05",
+   "url": "https://coreweave.com/news/coreweave-completes-acquisition-of-weights-biases-2"
+  },
+  {
+   "id": "s23",
+   "title": "CoreWeave comments on Core Scientific stockholder vote",
+   "publisher": "Business Wire",
+   "date": "2025-10-30",
+   "url": "https://www.businesswire.com/news/home/20251030245341/en/coreweave-comments-on-core-scientific-stockholder-vote"
+  },
+  {
+   "id": "s24",
+   "title": "CoreWeave Q2 2026 earnings report",
+   "publisher": "CNBC",
+   "date": "2026-08-11",
+   "url": "https://www.cnbc.com/2026/08/11/coreweave-crwv-q2-earnings-report-2026.html"
+  },
+  {
+   "id": "s25",
+   "title": "Why is CoreWeave stock falling today?",
+   "publisher": "The Motley Fool",
+   "date": "2026-10-16",
+   "url": "https://www.fool.com/investing/2026/10/16/why-is-coreweave-stock-falling-today/"
+  },
+  {
+   "id": "s26",
+   "title": "CoreWeave (NASDAQ:CRWV) stock price down 11.9% — here is what happened",
+   "publisher": "MarketBeat",
+   "date": "2026-10-16",
+   "url": "https://www.marketbeat.com/instant-alerts/price-coreweave-nasdaq-crwv-stock-price-down-119-heres-what-happened-2026-10-16/"
+  },
+  {
+   "id": "s27",
+   "title": "Nasdaq sinks more than 2% as investors raise questions about AI debt",
+   "publisher": "CNN Business",
+   "date": "2026-10-16",
+   "url": "https://www.cnn.com/2026/10/16/investing/tech-stocks-ai-coreweave"
+  },
+  {
+   "id": "s28",
+   "title": "CoreWeave stock falls as bond yields jump on AI debt worries",
+   "publisher": "CNBC",
+   "date": "2026-10-14",
+   "url": "https://www.cnbc.com/2026/10/14/coreweave-stock-bond-yields-ai-debt.html"
+  },
+  {
+   "id": "s29",
+   "title": "Stock market today, Oct. 14: CoreWeave plummets on Gartner neocloud warning and bond-yield surge",
+   "publisher": "The Motley Fool",
+   "date": "2026-10-14",
+   "url": "https://www.fool.com/coverage/stock-market-today/2026/10/14/stock-market-today-oct-14-coreweave-plummets-on-gartner-neocloud-warning-and-bond-yield-surge/"
+  },
+  {
+   "id": "s30",
+   "title": "CRWV, NBIS, IREN in focus: Gartner warns 80% of neoclouds will cease independent operations by 2030",
+   "publisher": "Benzinga",
+   "date": "2026-10-14",
+   "url": "https://www.benzinga.com/markets/equities/26/10/62381272/crwv-nbis-iren-in-focus-gartner-warns-80-of-neoclouds-will-cease-independent-operations-by-2030"
+  },
+  {
+   "id": "s31",
+   "title": "CoreWeave credit default swaps hit distress levels as investors sour on AI debt",
+   "publisher": "CNBC",
+   "date": "2026-10-15",
+   "url": "https://www.cnbc.com/2026/10/15/coreweave-credit-default-swaps-hit-distress-levels-as-investors-sour-on-ai-debt.html"
+  },
+  {
+   "id": "s32",
+   "title": "Nvidia CEO Huang says CoreWeave improving, no backstop needed",
+   "publisher": "Bloomberg",
+   "date": "2026-10-15",
+   "url": "https://www.bloomberg.com/news/articles/2026-10-15/nvidia-ceo-huang-says-coreweave-improving-no-backstop-needed"
+  },
+  {
+   "id": "s33",
+   "title": "CoreWeave (NASDAQ:CRWV) stock jumps 5.9% — here is why",
+   "publisher": "MarketBeat",
+   "date": "2026-10-15",
+   "url": "https://www.marketbeat.com/instant-alerts/price-coreweave-nasdaq-crwv-stock-jumps-59-heres-why-2026-10-15/"
+  },
+  {
+   "id": "s34",
+   "title": "Jensen Huang on CoreWeave as debt default risk hits a record",
+   "publisher": "Quartz",
+   "date": "2026-10-16",
+   "url": "https://qz.com/jensen-huang-coreweave-debt-default-risk-record-101626"
+  },
+  {
+   "id": "s35",
+   "title": "OpenAI revenue report weighs on Nvidia, Oracle, CoreWeave",
+   "publisher": "CNBC",
+   "date": "2026-10-08",
+   "url": "https://www.cnbc.com/2026/10/08/open-ai-revenue-nvidia-oracle-coreweave.html"
+  },
+  {
+   "id": "s36",
+   "title": "CoreWeave sinks 7% as financed AI build-out names sell off",
+   "publisher": "24/7 Wall St.",
+   "date": "2026-10-08",
+   "url": "https://247wallst.com/investing/2026/10/08/coreweave-sinks-7-as-financed-ai-buildout-names-sell-off-apart-from-cloud-software-nebius-drops-6-oracle-falls-5/"
+  },
+  {
+   "id": "s37",
+   "title": "Buy CoreWeave as it leans into short-term contracts, JPMorgan says",
+   "publisher": "CNBC",
+   "date": "2026-09-24",
+   "url": "https://www.cnbc.com/2026/09/24/buy-coreweave-as-it-leans-into-short-term-contracts-jpmorgan-says-.html"
+  },
+  {
+   "id": "s38",
+   "title": "CoreWeave (CRWV) prices $3.7B convertible notes, expands offering",
+   "publisher": "GuruFocus",
+   "date": "2026-09-18",
+   "url": "https://www.gurufocus.com/news/9087861/coreweave-crwv-prices-37b-convertible-notes-expands-offering-amid-mixed-market-signals"
+  },
+  {
+   "id": "s39",
+   "title": "CoreWeave closes $4.2 billion convertible notes offering",
+   "publisher": "Blockspace",
+   "date": "2026-09-22",
+   "url": "https://blockspace.media/insight/coreweave-closes-4-2-billion-convertible-notes-offering/"
+  },
+  {
+   "id": "s40",
+   "title": "CoreWeave stock holds its 19% earnings jump as $104 billion backlog meets a 3.6x capex load",
+   "publisher": "TS2",
+   "date": "2026-08-12",
+   "url": "https://ts2.tech/en/coreweave-stock-holds-its-19-earnings-jump-as-104-billion-backlog-meets-a-3-6-times-capex-load/"
+  },
+  {
+   "id": "s42",
+   "title": "CoreWeave Inc (CRWV) quote and 52-week range",
+   "publisher": "CNBC",
+   "date": "2026-10-16",
+   "url": "https://www.cnbc.com/quotes/CRWV"
+  },
+  {
+   "id": "s43",
+   "title": "CoreWeave equity 'could go to zero' if AI cycle sputters, D.A. Davidson's Luria says",
+   "publisher": "MarketScreener",
+   "date": "2026-10-14",
+   "url": "https://www.marketscreener.com/news/coreweave-equity-could-go-to-zero-if-ai-cycle-sputters-d-a-davidson-s-luria-says-ce785dd2d088f420"
+  },
+  {
+   "id": "s44",
+   "title": "CoreWeave CEO says share drop due to market acting irrationally (Bloomberg)",
+   "publisher": "MarketScreener",
+   "date": "2026-10-14",
+   "url": "https://www.marketscreener.com/news/coreweave-ceo-says-share-drop-due-to-market-acting-irrationally-bloomberg-reports-ce785dd2d18dff27"
+  },
+  {
+   "id": "s45",
+   "title": "Mizuho cuts CoreWeave target price to $88 from $115",
+   "publisher": "Rallies.ai",
+   "date": "2026-10-15",
+   "url": "https://rallies.ai/news/mizuho-cuts-coreweave-target-price-to-88-from-115-b1768cebca6c33e9"
+  },
+  {
+   "id": "s46",
+   "title": "CoreWeave's selloff is buying opportunity, Deutsche Bank says",
+   "publisher": "Bloomberg",
+   "date": "2026-10-15",
+   "url": "https://www.bloomberg.com/news/articles/2026-10-15/coreweave-s-selloff-is-buying-opportunity-deutsche-bank-says"
+  },
+  {
+   "id": "s47",
+   "title": "Analysis: why CoreWeave is in the crosshairs of the AI scare (Reuters)",
+   "publisher": "Investing.com",
+   "date": "2026-10-16",
+   "url": "https://www.investing.com/news/stock-market-news/analysiswhy-coreweave-is-in-the-crosshairs-of-the-ai-scare-4954698"
+  },
+  {
+   "id": "s48",
+   "title": "Chip stocks endure longest losing streak since 2006 as CoreWeave credit concerns mount",
+   "publisher": "Benzinga",
+   "date": "2026-10-16",
+   "url": "https://www.benzinga.com/markets/equities/26/10/62424485/chip-stocks-endure-longest-losing-streak-since-2006-as-coreweave-credit-concerns-mount-this-week-on-wall-street"
+  },
+  {
+   "id": "s49",
+   "title": "CoreWeave, data-center bonds slide on capex and debt overhang concerns",
+   "publisher": "Morningstar",
+   "date": "2026-10-15",
+   "url": "https://www.morningstar.com/bonds/coreweave-data-center-bonds-slide-capex-debt-overhang-concerns"
+  },
+  {
+   "id": "s50",
+   "title": "Elon Musk says 'Yikes' to CoreWeave bond chart",
+   "publisher": "Yahoo Finance",
+   "date": "2026-10-14",
+   "url": "https://finance.yahoo.com/markets/stocks/articles/elon-musk-says-yikes-coreweave-084136864.html"
+  },
+  {
+   "id": "s51",
+   "title": "Stock market today, Aug. 18: CoreWeave falls as debt-financing concerns and capital-spending pressures rise",
+   "publisher": "The Motley Fool",
+   "date": "2026-08-18",
+   "url": "https://www.fool.com/coverage/stock-market-today/2026/08/18/stock-market-today-aug-18-coreweave-falls-as-debt-financing-concerns-and-capital-spending-pressures-rise-with-interest-rates/"
+  },
+  {
+   "id": "s52",
+   "title": "Why CoreWeave stock soared 12%",
+   "publisher": "The Motley Fool (via Yahoo Finance)",
+   "date": "2026-09-08",
+   "url": "https://finance.yahoo.com/markets/stocks/articles/why-coreweave-stock-soared-12-205153112.html"
+  },
+  {
+   "id": "s53",
+   "title": "CoreWeave Form 4 filings: Magnetar-affiliated sales",
+   "publisher": "StockTitan",
+   "date": "2026-08-13",
+   "url": "https://www.stocktitan.net/sec-filings/CRWV/form-4-core-weave-inc-insider-trading-activity-90eecf0cefe8.html"
+  },
+  {
+   "id": "s54",
+   "title": "CoreWeave CRO sells 21,569 shares (sell-to-cover)",
+   "publisher": "MarketBeat",
+   "date": "2026-10-14",
+   "url": "https://www.marketbeat.com/instant-alerts/insider-insider-selling-coreweave-nasdaq-crwv-cro-sells-21569-shares-of-company-stock-2026-10-14/"
+  },
+  {
+   "id": "s55",
+   "title": "CoreWeave (CRWV) ownership and voting power, from 10-Q cover and proxy",
+   "publisher": "sec-api.io",
+   "date": "2026-08-12",
+   "url": "https://sec-api.io/insights/coreweave-crwv-ownership-and-votes"
+  },
+  {
+   "id": "s56",
+   "title": "CoreWeave (CRWV) 2026 revenue analysis: top-customer concentration",
+   "publisher": "sec-api.io",
+   "date": "2026-08-12",
+   "url": "https://sec-api.io/insights/coreweave-crwv-2026-revenue-analysis-top-customer-concentration-exposure"
+  },
+  {
+   "id": "s57",
+   "title": "CoreWeave 10-Q quarterly report summary (Q2 2026 balance sheet and debt note)",
+   "publisher": "StockTitan",
+   "date": "2026-08-12",
+   "url": "https://www.stocktitan.net/sec-filings/CRWV/10-q-core-weave-inc-quarterly-earnings-report-d3b596a1f167.html"
+  },
+  {
+   "id": "s58",
+   "title": "CoreWeave and Nebius AI-cloud debt: when it comes due",
+   "publisher": "StockTitan",
+   "date": "2026-09-30",
+   "url": "https://www.stocktitan.net/articles/coreweave-nebius-ai-cloud-debt-when-it-comes-due"
+  },
+  {
+   "id": "s59",
+   "title": "CoreWeave closes $2.6 billion financing",
+   "publisher": "Yahoo Finance",
+   "date": "2026-08-11",
+   "url": "https://finance.yahoo.com/technology/ai/articles/coreweave-closes-2-6-billion-132706704.html"
+  },
+  {
+   "id": "s60",
+   "title": "CoreWeave raises $8.5 billion GPU loan backed by Meta deal",
+   "publisher": "Bloomberg Law",
+   "date": "2026-03-31",
+   "url": "https://news.bloomberglaw.com/capital-markets/coreweave-raises-8-5-billion-gpu-loan-backed-by-meta-deal"
+  },
+  {
+   "id": "s61",
+   "title": "CoreWeave stock fell nearly 8% in a day on an OpenAI revenue report: why its borrowing model raises the stakes",
+   "publisher": "TIKR",
+   "date": "2026-10-09",
+   "url": "https://www.tikr.com/blog/coreweave-stock-fell-nearly-8-in-a-day-on-an-openai-revenue-report-heres-why-its-borrowing-model-raises-the-stakes"
+  },
+  {
+   "id": "s62",
+   "title": "Nvidia invests another $2 billion in CoreWeave",
+   "publisher": "Bloomberg",
+   "date": "2026-01-26",
+   "url": "https://www.bloomberg.com/news/articles/2026-01-26/nvidia-invests-another-2-billion-in-coreweave-offers-new-chip"
+  },
+  {
+   "id": "s63",
+   "title": "AI-focused cloud computing provider CoreWeave prices downsized IPO at $40",
+   "publisher": "Renaissance Capital",
+   "date": "2025-03-28",
+   "url": "https://www.renaissancecapital.com/IPO-Center/News/110124/ai-focused-cloud-computing-provider-coreweave-prices-downsized-ipo-at-40"
+  },
+  {
+   "id": "s64",
+   "title": "CoreWeave (CRWV) analyst estimates (live page, read 17 Oct 2026)",
+   "publisher": "Yahoo Finance",
+   "date": "2026-10-17",
+   "url": "https://finance.yahoo.com/quote/CRWV/analysis/"
+  },
+  {
+   "id": "s65",
+   "title": "CoreWeave Inc valuation and consensus estimates (live page, read 17 Oct 2026)",
+   "publisher": "MarketScreener",
+   "date": "2026-10-17",
+   "url": "https://www.marketscreener.com/quote/stock/COREWEAVE-INC-185380761/valuation/"
+  },
+  {
+   "id": "s66",
+   "title": "CoreWeave rated Moderate Buy by sell-side analysts (consensus)",
+   "publisher": "MarketBeat",
+   "date": "2026-09-29",
+   "url": "https://www.marketbeat.com/instant-alerts/consensus-coreweave-inc-nasdaq-crwv-stock-now-rated-moderate-buy-by-sell-side-analysts-2026-09-29/"
+  },
+  {
+   "id": "s67",
+   "title": "CoreWeave stock price forecast: what analysts expect after the sell-off",
+   "publisher": "TipRanks",
+   "date": "2026-10-15",
+   "url": "https://www.tipranks.com/news/coreweave-stock-price-forecast-what-analysts-expect-after-the-sell-off"
+  },
+  {
+   "id": "s68",
+   "title": "Sell CoreWeave stock, says Bernstein, as it warns of fragile economics",
+   "publisher": "TipRanks",
+   "date": "2026-10-15",
+   "url": "https://www.tipranks.com/news/sell-coreweave-stock-says-bernstein-as-it-warns-of-fragile-economics"
+  },
+  {
+   "id": "s69",
+   "title": "CoreWeave bonds at 15% yield; Bank of America keeps $140 price target",
+   "publisher": "Benzinga",
+   "date": "2026-10-15",
+   "url": "https://www.benzinga.com/analyst-stock-ratings/analyst-color/26/10/62399089/coreweave-bonds-15-yield-bank-of-america-140-price-target"
+  },
+  {
+   "id": "s70",
+   "title": "CRWV weekly sell-off overdone, JPMorgan says",
+   "publisher": "Stocktwits",
+   "date": "2026-10-16",
+   "url": "https://stocktwits.com/news-articles/markets/equity/crwv-stock-weekly-sell-off-overdone-jp-morgan-says-sees-robust-ai-demand-healthy-returns/cZxK2Q7RBsK"
+  },
+  {
+   "id": "s71",
+   "title": "CoreWeave rallies as BofA dismisses market-saturation worries",
+   "publisher": "Parameter",
+   "date": "2026-10",
+   "url": "https://parameter.io/coreweave-crwv-stock-rallies-as-bofa-dismisses-market-saturation-worries/"
+  },
+  {
+   "id": "s72",
+   "title": "Oracle EV/EBITDA relative valuation (live page, read 17 Oct 2026)",
+   "publisher": "Alpha Spread",
+   "date": "2026-10-17",
+   "url": "https://www.alphaspread.com/security/nyse/orcl/relative-valuation/ratio/enterprise-value-to-ebitda"
+  },
+  {
+   "id": "s73",
+   "title": "NVIDIA Corporation valuation",
+   "publisher": "MarketScreener",
+   "date": "2026-09-16",
+   "url": "https://www.marketscreener.com/quote/stock/NVIDIA-CORPORATION-57732095/valuation/"
+  },
+  {
+   "id": "s74",
+   "title": "AI valuation multiples (September 2026 snapshot)",
+   "publisher": "Multiples.vc",
+   "date": "2026-09",
+   "url": "https://multiples.vc/insights/ai-valuation-multiples"
+  },
+  {
+   "id": "s75",
+   "title": "Nebius Group (NBIS) stock overview",
+   "publisher": "WallStreetZen",
+   "date": "2026-10-15",
+   "url": "https://www.wallstreetzen.com/stocks/us/nasdaq/nbis"
+  },
+  {
+   "id": "s76",
+   "title": "Nebius Group future growth estimates (live page, read 17 Oct 2026)",
+   "publisher": "Simply Wall St",
+   "date": "2026-10-17",
+   "url": "https://simplywall.st/stocks/us/software/nasdaq-nbis/nebius-group/future"
+  },
+  {
+   "id": "s77",
+   "title": "Nebius vs CoreWeave: neocloud financial analysis (undated blog post, read 17 Oct 2026)",
+   "publisher": "Daloopa",
+   "date": "2026-10-17",
+   "url": "https://daloopa.com/blog/analyst-pov/nebius-vs-coreweave-neoclouds-financial-analysis-daloopa-mcp-sourced"
+  },
+  {
+   "id": "s78",
+   "title": "Hyperscalers hit $700 billion in 2026 AI capex plans",
+   "publisher": "Yahoo Finance",
+   "date": "2026-05",
+   "url": "https://finance.yahoo.com/sectors/technology/articles/hyperscalers-hit-700-billion-2026-111243744.html"
+  },
+  {
+   "id": "s81",
+   "title": "CoreWeave surpasses 1GW of data-center capacity, pushes more into self-builds",
+   "publisher": "DatacenterDynamics",
+   "date": "2026-05",
+   "url": "https://www.datacenterdynamics.com/en/news/coreweave-surpasses-1gw-of-data-center-capacity-pushes-more-into-self-builds/"
+  },
+  {
+   "id": "s82",
+   "title": "CoreWeave Q2 2026 slides: revenue doubles, backlog surges 246%",
+   "publisher": "Investing.com",
+   "date": "2026-08-11",
+   "url": "https://www.investing.com/news/company-news/coreweave-q2-2026-slides-revenue-doubles-backlog-surges-246-93CH-4852949"
+  },
+  {
+   "id": "s83",
+   "title": "CoreWeave guides $31-35B capex for 2026",
+   "publisher": "Chartmill",
+   "date": "2026-05",
+   "url": "https://www.chartmill.com/news/external/49312/coreweave-guides-31-35b-capex-for-2026-fuel-or-financial-strain"
+  },
+  {
+   "id": "s84",
+   "title": "CoreWeave's $66.8B backlog boosts long-term growth outlook",
+   "publisher": "Nasdaq.com",
+   "date": "2026-03",
+   "url": "https://www.nasdaq.com/articles/coreweaves-668b-backlog-boosts-long-term-growth-outlook"
+  },
+  {
+   "id": "s85",
+   "title": "Michael Burry's latest warning could be bad news for CoreWeave",
+   "publisher": "The Motley Fool",
+   "date": "2025-11-11",
+   "url": "https://www.fool.com/investing/2025/11/11/michael-burrys-latest-warning-could-be-bad-news-fo"
+  },
+  {
+   "id": "s86",
+   "title": "CoreWeave reports large backlog amid elevated debt costs",
+   "publisher": "Let’s Data Science",
+   "date": "2026-08",
+   "url": "https://letsdatascience.com/news/coreweave-reports-large-backlog-amid-elevated-debt-costs-28a8d777"
+  },
+  {
+   "id": "s87",
+   "title": "US CPI inflation, September 2026",
+   "publisher": "CNN Business",
+   "date": "2026-10-14",
+   "url": "https://www.cnn.com/2026/10/14/economy/us-cpi-inflation-september"
+  },
+  {
+   "id": "s88",
+   "title": "Why debt-laden neoclouds could become a trillion-dollar WeWork 2.0",
+   "publisher": "Forbes",
+   "date": "2026-10-16",
+   "url": "https://www.forbes.com/sites/giacomotognini/2026/10/16/why-debt-laden-neoclouds-could-become-a-trillion-dollar-wework-20/"
+  },
+  {
+   "id": "s90",
+   "title": "CoreWeave stock gets hammered by debt fears; analyst says there's more to the story",
+   "publisher": "Benzinga",
+   "date": "2026-10-15",
+   "url": "https://www.benzinga.com/markets/tech/26/10/62405513/coreweave-stock-gets-hammered-by-debt-fears-analyst-says-theres-more-to-the-story"
+  },
+  {
+   "id": "s91",
+   "title": "CoreWeave triggered technical defaults on loan after breaching terms (FT; 2025 item, page gives no full date, read 17 Oct 2026)",
+   "publisher": "Seeking Alpha",
+   "date": "2026-10-17",
+   "url": "https://seekingalpha.com/news/4425364-coreweave-triggered-technical-defaults-on-loan-after-breaching-terms"
+  },
+  {
+   "id": "s92",
+   "title": "AI hyperscaler CoreWeave signs $14 billion deal with Meta",
+   "publisher": "PYMNTS",
+   "date": "2025-09-30",
+   "url": "https://www.pymnts.com/news/artificial-intelligence/2025/ai-hyperscaler-coreweave-signs-14-billion-dollar-deal-with-meta/"
+  },
+  {
+   "id": "s93",
+   "title": "The drumbeat to buy battered shares of CoreWeave is growing louder on Wall Street",
+   "publisher": "CNBC",
+   "date": "2026-10-16",
+   "url": "https://cnbc.com/2026/10/16/coreweave-stock-selloff-analysts.html"
+  },
+  {
+   "id": "s94",
+   "title": "CoreWeave comments on Core Scientific stockholder vote (lease terms)",
+   "publisher": "Barchart",
+   "date": "2025-10-30",
+   "url": "https://www.barchart.com/story/news/35797096/coreweave-comments-on-core-scientific-stockholder-vote"
+  },
+  {
+   "id": "s95",
+   "title": "CoreWeave Q1 earnings call highlights",
+   "publisher": "Nasdaq.com",
+   "date": "2026-05-07",
+   "url": "https://www.nasdaq.com/articles/coreweave-q1-earnings-call-highlights"
+  },
+  {
+   "id": "s96",
+   "title": "CoreWeave executives cash out stock windfalls (undated article, read 17 Oct 2026)",
+   "publisher": "Let’s Data Science",
+   "date": "2026-10-17",
+   "url": "https://letsdatascience.com/news/coreweave-executives-cash-out-stock-windfalls-e9350cac"
+  },
+  {
+   "id": "s97",
+   "title": "CoreWeave Form 8-K exhibit 99.1: press release on the US$2.6 billion DDTL 5.5 facility",
+   "publisher": "SEC EDGAR",
+   "date": "2026-08",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000357/ex991pr.htm"
+  },
+  {
+   "id": "s98",
+   "title": "CoreWeave Q2 2026 earnings call highlights",
+   "publisher": "MarketBeat",
+   "date": "2026-08-11",
+   "url": "https://www.marketbeat.com/instant-alerts/coreweave-q2-earnings-call-highlights-2026-08-11/"
+  },
+  {
+   "id": "s99",
+   "title": "Global Index Valuation Agent: live app (screener and stock pages)",
+   "publisher": "GIVA",
+   "date": "2026-10-17",
+   "url": "https://global-index-valuation-agent.vercel.app"
+  },
+  {
+   "id": "s100",
+   "title": "OpenAI signs $300 billion cloud contract with Oracle, according to WSJ",
+   "publisher": "The Decoder",
+   "date": "2025-09",
+   "url": "https://the-decoder.com/openai-signs-300-billion-cloud-contract-with-oracle-according-to-wsj/"
+  },
+  {
+   "id": "s101",
+   "title": "Oracle may need to borrow $100bn for OpenAI efforts, says KeyBanc Capital Markets",
+   "publisher": "DatacenterDynamics",
+   "date": "2025-09",
+   "url": "https://www.datacenterdynamics.com/en/news/oracle-may-need-to-borrow-100bn-for-openai-efforts-says-keybanc-capital-markets/"
+  },
+  {
+   "id": "s102",
+   "title": "CoreWeave acquires Marimo to unify the generative-AI developer workflow",
+   "publisher": "CoreWeave",
+   "date": "2025-10-30",
+   "url": "https://coreweave.com/news/coreweave-acquires-marimo-to-unify-the-generative-ai-developer-workflow"
+  },
+  {
+   "id": "s103",
+   "title": "CoreWeave Closes $2.6 Billion Secured Debt Financing Facility (DDTL 3.0)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2025-07-31",
+   "url": "https://investors.coreweave.com/news/news-details/2025/CoreWeave-Closes-2-6-Billion-Secured-Debt-Financing-Facility-Strengthening-Market-Position-as-AI-Cloud-Leader/default.aspx"
+  },
+  {
+   "id": "s104",
+   "title": "CoreWeave Closes $3.1 Billion Loan Facility, Expanding Access to Public Markets for GPU-Backed Financing (DDTL 5.0)",
+   "publisher": "Business Wire",
+   "date": "2026-05-18",
+   "url": "https://www.businesswire.com/news/home/20260518337916/en/CoreWeave-Closes-3.1-Billion-Loan-Facility-Expanding-Access-to-Public-Markets-for-GPU-Backed-Financing/"
+  },
+  {
+   "id": "s105",
+   "title": "CoreWeave Prices Upsized $2.25 Billion Convertible Senior Notes Offering (1.75% due 2031)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2025-12-09",
+   "url": "https://investors.coreweave.com/news/news-details/2025/CoreWeave-Prices-Upsized-2-25-Billion-Convertible-Senior-Notes-Offering/default.aspx"
+  },
+  {
+   "id": "s106",
+   "title": "CoreWeave Prices Upsized $3.5 Billion Convertible Senior Notes Offering (1.75% due 2032)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-04",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Prices-Upsized-3-5-Billion-Convertible-Senior-Notes-Offering/default.aspx"
+  },
+  {
+   "id": "s107",
+   "title": "CoreWeave debt, lenders and contracts (debt tracker) (live page, read 17 Oct 2026)",
+   "publisher": "amcompute",
+   "date": "2026-10-17",
+   "url": "https://www.amcompute.com/companies/coreweave"
+  },
+  {
+   "id": "s108",
+   "title": "CoreWeave completes $4.2 billion convertible notes offering (opinion)",
+   "publisher": "Benzinga",
+   "date": "2026-09",
+   "url": "https://www.benzinga.com/Opinion/26/09/61993678"
+  },
+  {
+   "id": "s109",
+   "title": "CoreWeave Announces At-the-Market Offering Program",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-09-17",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-At-the-Market-Offering-Program/default.aspx"
+  },
+  {
+   "id": "s110",
+   "title": "CoreWeave and Meta Announce $21 Billion Expanded AI Infrastructure Agreement",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-04-09",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-and-Meta-Announce-21-Billion-Expanded-AI-Infrastructure-Agreement"
+  },
+  {
+   "id": "s111",
+   "title": "Fed hikes, hints at more: 7 takeaways from the September FOMC",
+   "publisher": "investingLive",
+   "date": "2026-09-16",
+   "url": "https://investinglive.com/central-banks/fed-hikes-hints-at-more-7-takeaways-from-the-september-fomc/"
+  },
+  {
+   "id": "s112",
+   "title": "CoreWeave Stock Extends Losing Streak to 5 Days, Shedding 19%",
+   "publisher": "Trefis",
+   "date": "2026-09-16",
+   "url": "https://www.trefis.com/stock/crwv/articles/615498/coreweave-stock-extends-losing-streak-to-5-days-shedding-19/2026-09-16"
+  },
+  {
+   "id": "s113",
+   "title": "CoreWeave Stock Extends A 5-Day Losing Streak To A 26% Loss",
+   "publisher": "Trefis",
+   "date": "2026-07-30",
+   "url": "https://www.trefis.com/stock/crwv/articles/609474/coreweave-stock-extends-a-5-day-losing-streak-to-a-26-loss/2026-07-30"
+  },
+  {
+   "id": "s114",
+   "title": "CoreWeave cuts revenue forecast on data centre delay (Reuters)",
+   "publisher": "BusinessDay",
+   "date": "2025-11-11",
+   "url": "https://www.businessday.co.za/world/international-companies/2025-11-11-coreweave-cuts-revenue-forecast-on-data-centre-delay/"
+  },
+  {
+   "id": "s115",
+   "title": "CoreWeave's $9B Core Scientific acquisition is a bid for more power",
+   "publisher": "The Register",
+   "date": "2025-07-07",
+   "url": "https://www.theregister.com/2025/07/07/coreweave_core_scientific_buy/"
+  },
+  {
+   "id": "s116",
+   "title": "Securities class action filed against CoreWeave, Inc. (Masaitis v. CoreWeave, D.N.J. No. 2:26-cv-00355): plaintiff-firm notice",
+   "publisher": "Business Wire",
+   "date": "2026-01-14",
+   "url": "https://www.businesswire.com/news/home/20260114078990/en"
+  },
+  {
+   "id": "s117",
+   "title": "CoreWeave faces rising liabilities and leverage (S&P B+ rating, positive outlook; undated article, read 17 Oct 2026)",
+   "publisher": "Let’s Data Science",
+   "date": "2026-10-17",
+   "url": "https://letsdatascience.com/news/coreweave-faces-rising-liabilities-and-leverage-32d677ad"
+  },
+  {
+   "id": "s118",
+   "title": "Why CoreWeave stock dived by more than 5% today",
+   "publisher": "The Motley Fool",
+   "date": "2026-09-17",
+   "url": "https://www.fool.com/investing/2026/09/17/why-coreweave-stock-dived-by-more-than-5-today/"
+  }
+ ],
+ "disclosures": [
+  "**AI-assisted research.** This report was drafted by GIVA Research with AI assistance from deterministic EDGAR extracts and cited public sources, and checked by automated schema and sourcing tests. It has not been reviewed by a registered investment adviser or a licensed research analyst.",
+  "**Not investment advice.** This is general research for information only. It is not a recommendation or an offer to buy or sell any security, and it does not take account of any reader’s objectives, finances or needs. GIVA does not provide personalised advice. The stance labels (Positive, Neutral, Cautious) describe our view of risk and reward against the evidence; they are not ratings, and the scenario values are not price targets.",
+  "**Conflicts.** GIVA receives no compensation from issuers and has no banking or advisory relationship with CoreWeave. This report does not consider any reader’s holdings.",
+  "**Data sources.** Financial-statement figures come from SEC EDGAR XBRL filings (public domain), processed by GIVA’s deterministic job (engine.reports, no LLM): discrete quarters are de-cumulated from year-to-date facts and labelled as such, and figures built on rounded filed inputs are marked \"≈\" or shown as ranges. Company-defined (non-GAAP) figures, guidance, contracts, debt terms and all share-price, market-cap, bond and CDS figures are quoted from the cited third-party and company sources, with their dates. For live pages (quote, consensus, peer-multiple and tracker pages) the date shown is the day we read them, 17 Oct 2026, and the figures may have changed since; a month-only date means the page gave no day. GIVA does not publish licensed market data; market cap and enterprise value are our arithmetic from the cited inputs.",
+  "**Source verification.** Several third-party figures (customer percentages beyond the largest customer, debt maturities, some facility and convertible terms, consensus estimates and day-by-day share prices) were taken from search-engine summaries of the cited pages, because the primary documents could not be opened from our research environment. Where sources disagreed we say so. Readers should check any figure against the cited source before relying on it.",
+  "**Forward-looking statements.** Scenario values, probabilities and projected net debt are our estimates and depend on assumptions that may prove wrong. Equity in a highly levered company can lose most or all of its value; past share-price performance is not a guide to the future.",
+  "**Methodology note.** \"Growth\" in GIVA research always means fundamental growth (revenue, earnings, backlog, estimates). Price moves are described as share-price performance."
+ ]
+}

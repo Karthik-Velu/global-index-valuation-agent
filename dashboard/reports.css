@@ -1,12 +1,14 @@
 /* Key reports (rpt-*) — the #/reports list and the fund-house-style report page (reports.js).
    Plain CSS on the dashboard's dark palette, held as custom properties on .rpt so the print
    stylesheet can swap the whole page to black-on-white in one place; works with the
-   Tailwind CDN blocked. Headings use a book serif (the research-note look), body text the
+   Tailwind CDN blocked (html.rpt-on gives the page its own dark background, which otherwise
+   comes only from Tailwind's bg-ink). --rpt-faint is the lowest-contrast text colour and still
+   clears WCAG AA (4.5:1) on every panel background. Headings use a book serif (the research-note look), body text the
    dashboard's system sans. Every rule is scoped under .rpt / .rpt-* / html.rpt-on. */
 
 .rpt {
   --rpt-ink: #0b0f17; --rpt-panel: #121826; --rpt-panel2: #1a2235; --rpt-line: #243049;
-  --rpt-text: #cbd5e1; --rpt-strong: #f1f5f9; --rpt-dim: #94a3b8; --rpt-faint: #64748b;
+  --rpt-text: #cbd5e1; --rpt-strong: #f1f5f9; --rpt-dim: #94a3b8; --rpt-faint: #8b98ad;
   --rpt-accent: #60a5fa; --rpt-pos: #34d399; --rpt-neg: #f87171; --rpt-warn: #fbbf24;
   --rpt-zebra: #ffffff06;
   --rpt-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', serif;
@@ -19,6 +21,9 @@
 .rpt strong { color: var(--rpt-strong); font-weight: 600; }
 .rpt .rpt-dim { color: var(--rpt-faint); }
 .rpt-print-only { display: none; }
+/* The page background otherwise comes only from Tailwind's bg-ink: without it (CDN blocked)
+   the report's light text would sit on white. Screen only; print swaps to white below. */
+@media screen { html.rpt-on, html.rpt-on body { background: #0b0f17; } }
 
 /* ---------------- list (#/reports) ---------------- */
 .rpt-list-head { margin: 4px 0 16px; }
@@ -84,10 +89,12 @@
 /* Main column + key-data sidebar on the right; on a phone the sidebar comes first. */
 .rpt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: 'main side'; gap: 28px; align-items: start; }
 .rpt-main { grid-area: main; min-width: 0; }
-.rpt-side { grid-area: side; min-width: 0; position: sticky; top: 12px; display: flex; flex-direction: column; gap: 14px; }
+.rpt-side { grid-area: side; min-width: 0; position: sticky; top: 12px; display: flex; flex-direction: column; gap: 14px;
+  /* taller than the viewport, a sticky box can never show its lower part: scroll it instead */
+  max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
 @media (max-width: 960px) {
   .rpt-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'side' 'main'; gap: 18px; }
-  .rpt-side { position: static; }
+  .rpt-side { position: static; max-height: none; overflow: visible; }
   .rpt-toc { display: none !important; }
 }
 .rpt-box { background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 12px; padding: 14px 16px; }
@@ -149,7 +156,9 @@
 .rpt-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .rpt-unit { margin-left: auto; color: var(--rpt-faint); font-size: 11px; }
 .rpt-barswrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 10px; padding: 6px 4px 0; }
-.rpt-bars { display: block; width: 100%; max-width: 700px; height: auto; min-width: 440px; }
+/* --rpt-bars-minw (set per chart by reports.js, 0.9 x its own width) keeps labels >= ~9px on a phone;
+   below it the chart scrolls inside .rpt-barswrap. Print resets it to 0 (fit the page). */
+.rpt-bars { display: block; margin: 0 auto; max-width: 100%; height: auto; min-width: var(--rpt-bars-minw, 440px); }
 .rpt-bars text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
 .rpt-bars .rpt-tick { fill: var(--rpt-faint); font-size: 10px; }
 .rpt-bars .rpt-val { fill: var(--rpt-text); font-size: 10px; font-weight: 600; }
@@ -174,6 +183,10 @@
 .rpt-scen-card { background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-top: 3px solid var(--rpt-accent); border-radius: 10px; padding: 12px 14px 4px; min-width: 0; }
 .rpt-scen-card.bear { border-top-color: var(--rpt-neg); }
 .rpt-scen-card.bull { border-top-color: var(--rpt-pos); }
+.rpt-scen-card.restructuring { border-top-color: var(--rpt-warn); }
+.rpt-scen.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .rpt-scen.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .rpt-scen.n4 { grid-template-columns: minmax(0, 1fr); } }
 .rpt-scen-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--rpt-dim); }
 .rpt-scen-val { font-family: var(--rpt-serif); font-size: 22px; font-weight: 600; color: var(--rpt-strong); font-variant-numeric: tabular-nums; margin: 2px 0; overflow-wrap: anywhere; }
 .rpt-scen-prob { font-size: 11px; color: var(--rpt-faint); margin-bottom: 6px; }
@@ -229,7 +242,7 @@ a.rpt-drawer-link:hover { background: #60a5fa26; }
   .rpt-title { font-size: 15pt; }
   .rpt-pill { color: #000 !important; background: none !important; border-color: #000 !important; }
   .rpt-layout { display: block; }
-  .rpt-side { position: static; margin-bottom: 10pt; }
+  .rpt-side { position: static; margin-bottom: 10pt; max-height: none; overflow: visible; }
   .rpt-stats dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18pt; }
   .rpt-stat:last-child { border-bottom: 1px solid #ccc; }
   .rpt-box, .rpt-summary, .rpt-callout, .rpt-scen-card, .rpt-barswrap, .rpt-empty { background: none !important; border-radius: 0; }
@@ -245,6 +258,7 @@ a.rpt-drawer-link:hover { background: #60a5fa26; }
   .rpt-bars .rpt-zero { stroke: #000; }
   .rpt-legend i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rpt-scen { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rpt-scen.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rpt-fig, .rpt-table tr, .rpt-callout, .rpt-scen-card, .rpt-stat, .rpt-kv > div, .rpt-srcs li, .rpt-cover { break-inside: avoid; page-break-inside: avoid; }
   .rpt-sec > h2, .rpt-cap, .rpt-disch { break-after: avoid; page-break-after: avoid; }
   .rpt-end { break-before: page; page-break-before: always; }

@@ -1020,6 +1020,40 @@ async function main() {
           assert.ok(await noHScroll(a.page), `crwv report scrolls horizontally at ${vp.width} px`);
           await shot(a.page, `report_crwv_${vp.width}`, { fullPage: true });
           if (vp.width > 400) {
+            // Bar charts: no two value labels overprint, and no chart is drawn past 1:1.
+            const bars = await a.page.$$eval('#view-reports svg.rpt-bars', svgs => svgs.map(svg => {
+              const r = [...svg.querySelectorAll('text.rpt-val')].map(t => t.getBoundingClientRect());
+              let over = 0;
+              for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+                const p = r[i], q = r[j];
+                if (p.left < q.right - 0.5 && q.left < p.right - 0.5 && p.top < q.bottom - 0.5 && q.top < p.bottom - 0.5) over++;
+              }
+              return { title: svg.querySelector('title').textContent, over, scale: svg.getBoundingClientRect().width / svg.viewBox.baseVal.width };
+            }));
+            for (const c of bars) {
+              assert.strictEqual(c.over, 0, `${c.title}: ${c.over} overlapping value labels`);
+              assert.ok(c.scale <= 1.001, `${c.title}: drawn at ${c.scale.toFixed(2)}x`);
+            }
+            // Back from a stock drawer opened over the report keeps the reader's place and
+            // does not refetch the report.
+            const fetched = [];
+            a.page.on('request', rq => { if (/\/reports\/crwv\.json$/.test(rq.url())) fetched.push(rq.url()); });
+            await a.page.evaluate(() => window.scrollTo(0, 4000));
+            await settle(a.page, 200);
+            const y0 = await a.page.evaluate(() => window.scrollY);
+            await go(a.page, '#/stock/CRWV');
+            await a.page.waitForSelector('#drawer .rpt-drawer-link');
+            await a.page.goBack();
+            await settle(a.page, 600);
+            assert.strictEqual(await a.page.evaluate(() => location.hash), '#/reports/crwv');
+            assert.ok(Math.abs((await a.page.evaluate(() => window.scrollY)) - y0) < 5, 'scroll position kept after Back');
+            assert.strictEqual(fetched.length, 0, 'report not refetched on Back');
+            // A short desktop window: the sticky sidebar scrolls inside itself, so Contents stays reachable.
+            await a.page.setViewportSize({ width: 1366, height: 650 });
+            await settle(a.page, 200);
+            const side = await a.page.$eval('.rpt-side', e => ({ h: e.getBoundingClientRect().height, oy: getComputedStyle(e).overflowY, vh: window.innerHeight }));
+            assert.ok(side.h <= side.vh && side.oy === 'auto', `sidebar ${side.h}px in a ${side.vh}px window (overflow ${side.oy})`);
+            await a.page.setViewportSize(vp);
             await a.page.emulateMedia({ media: 'print' });
             await a.page.pdf({ path: path.join(SHOTS, 'report_crwv.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
             await a.page.emulateMedia({ media: 'screen' });
@@ -1029,6 +1063,13 @@ async function main() {
           noErrors(a);
           await a.ctx.close();
         }
+        // Tailwind CDN blocked: the report still sits on its own dark background.
+        const c = await newCtx(browser, NEW, { cdn: false });
+        await boot(c, NEW, '#/reports/crwv');
+        await c.page.waitForSelector('#view-reports .rpt-report');
+        assert.strictEqual(await c.page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(11, 15, 23)', 'report background without Tailwind');
+        await shot(c.page, 'report_crwv_cdn_blocked');
+        await c.ctx.close();
       });
     } else console.log('skip  key reports: dashboard/reports/crwv.json not written yet');
   } finally {

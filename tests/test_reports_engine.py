@@ -64,6 +64,12 @@ FXR_ROWS = [
     _r("CashAndCashEquivalentsAtCarryingValue", "2025-03-31", "Q1", 80 * M, "2025-05-10"),
     _r("LongTermDebt", "2025-03-31", "Q1", 300 * M, "2025-05-10"),
     _r("StockholdersEquity", "2025-03-31", "Q1", 100 * M, "2025-05-10"),
+    # --- depreciation tagged to the nearest US$0.1bn after Q1 (CoreWeave's 2025-26
+    # pattern): a precise YTD3, then a coarse YTD6 and FY, so Q2 = YTD6 − YTD3 is
+    # good to only ±US$50m however many digits the subtraction prints.
+    _r("Depreciation", "2025-03-31", "Q1", 30_123_000, "2025-05-10"),
+    _r("Depreciation", "2025-06-30", "Q2", 1_200 * M, "2025-08-10"),
+    _r("Depreciation", "2025-12-31", "FY", 2_400 * M, "2026-02-15"),
 ]
 
 
@@ -157,6 +163,25 @@ def test_ttm_and_gaps():
     assert out["ttm"]["quarters"] == ["Q1 FY2025", "Q2 FY2025", "Q3 FY2025", "Q4 FY2025"]
     assert abs(out["ttm"]["values"]["revenue"] - 550 * M) < 1
     assert "interest_expense" in out["gaps"]
+
+
+def test_rounding_bounds_follow_the_inputs():
+    out = _build()
+    q2 = _q(out, "Q2 FY2025")
+    assert abs(q2["values"]["depreciation"] - 1_169_877_000) < 1
+    # YTD6 rounded to 0.1bn (±50m) minus a precise YTD3 (±500): the bound is published
+    assert abs(q2["uncertainty"]["depreciation"] - (50 * M + 500)) < 1, q2["uncertainty"]
+    flagged = {(c["period"], c["field"]) for c in out["checks"]["precision"]}
+    assert ("Q2 FY2025", "depreciation") in flagged
+    # Q4 = FY (filed in millions, ±0.5m) − YTD9 (filed to 0.1m, ±0.05m): mixed precision
+    q4 = _q(out, "Q4 FY2025")
+    assert abs(q4["uncertainty"]["revenue"] - 550_000) < 1, q4["uncertainty"]
+    assert ("Q4 FY2025", "revenue") not in flagged, "0.3% of the value: published, not flagged"
+    # precise quarters carry no bound at all (sub-US$0.5m noise is not published)
+    assert "revenue" not in _q(out, "Q1 FY2025")["uncertainty"]
+    # TTM = Q1..Q4 FY2025: the shared YTD facts cancel, leaving only the FY's ±0.5m
+    assert abs(out["ttm"]["uncertainty"]["revenue"] - 500_000) < 1, out["ttm"]["uncertainty"]
+    assert all("_terms" not in p for p in out["annual"] + out["quarterly"] + [out["ttm"]])
 
 
 def test_fiscal_calendar_helpers():
