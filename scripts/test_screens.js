@@ -267,7 +267,7 @@ check('dashboard/*.js: no duplicate top-level declarations across files', () => 
   const owner = new Map(), dups = [];
   for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort()) {
     const names = topLevelNames(fs.readFileSync(path.join(dir, f), 'utf8'));
-    if (f === 'screen-dsl.js') eq(names, [], 'screen-dsl.js must declare no top-level name (UMD only)');
+    if (f === 'screen-dsl.js' || f === 'reports.js') eq(names, [], `${f} must declare no top-level name (UMD only)`);
     if (ONE_BINDING[f]) eq(names, [ONE_BINDING[f]], `${f} must declare exactly one top-level binding`);
     const seen = new Set();
     for (const n of names) {

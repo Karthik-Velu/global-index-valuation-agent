@@ -1,0 +1,122 @@
+{
+  "v": 1,
+  "slug": "fxr",
+  "ticker": "FXR",
+  "exchange": "Nasdaq",
+  "company": "Fixture Corp",
+  "title": "Fixture Corp: synthetic capacity builder, fully funded but priced for perfection",
+  "subtitle": "A synthetic test report: every company, figure and source here is invented.",
+  "published": "2026-10-15",
+  "data_asof": "2026-10-01",
+  "author": "GIVA Research (AI-assisted)",
+  "sector": "Information Technology",
+  "report_type": "Initiation",
+  "stance": {
+    "label": "Neutral",
+    "risk": "High",
+    "horizon": "12 months",
+    "summary": "Revenue growth is **real and contracted** [s1], but the balance sheet carries the build-out [s1,s3]."
+  },
+  "key_stats": [
+    { "label": "Share price", "value": "$41.20", "note": "close, 30 Sep 2026", "src": "s2" },
+    { "label": "Market cap", "value": "$20.6bn", "src": "s2" },
+    { "label": "Revenue (TTM)", "value": "$3.1bn", "src": "s1" },
+    { "label": "Revenue growth (TTM, y/y)", "value": "+142%", "src": "s1" },
+    { "label": "Net income (TTM)", "value": "−$0.9bn", "src": "s1" },
+    { "label": "Backlog", "value": "$18.0bn", "note": "remaining performance obligations", "src": "s1" }
+  ],
+  "highlights": [
+    "**Fundamental growth is the story:** revenue rose 142% y/y on contracted capacity [s1].",
+    "Losses widen as depreciation on new capacity arrives ahead of revenue [s1].",
+    "Funding risk: debt-financed build-out with a single large customer [s1,s3]."
+  ],
+  "sections": [
+    {
+      "id": "thesis",
+      "title": "Investment thesis",
+      "blocks": [
+        { "type": "p", "text": "Fixture Corp rents synthetic capacity on multi-year contracts. Revenue is **largely contracted** [s1]; the open question is the cost of funding it [s3]." },
+        { "type": "bullets", "items": ["Contracted backlog covers ~6x TTM revenue [s1].", "Customer concentration: one customer was 61% of revenue [s1]."] },
+        { "type": "callout", "tone": "positive", "title": "What would make us more positive", "text": "A second large customer signing at similar terms [s3]." }
+      ]
+    },
+    {
+      "id": "financials",
+      "title": "Financials (EDGAR)",
+      "blocks": [
+        {
+          "type": "table",
+          "caption": "Income statement summary (US$ m, fiscal years)",
+          "columns": ["Line item", "FY2023", "FY2024", "FY2025"],
+          "align": ["l", "r", "r", "r"],
+          "rows": [
+            ["Revenue", 229, 1915, 3104.5],
+            ["Operating income", -14, 324, "**412**"],
+            ["Net income", -594, -863, null],
+            ["Revenue growth y/y", "n/m", "+736%", "+62%"]
+          ],
+          "note": "FY2025 net income not yet reported as a full year (shown as a dash, not zero).",
+          "src": ["s1"]
+        },
+        {
+          "type": "bars",
+          "title": "Revenue and net income",
+          "unit": "US$ m",
+          "labels": ["FY2023", "FY2024", "FY2025"],
+          "series": [
+            { "name": "Revenue", "values": [229, 1915, 3104.5] },
+            { "name": "Net income", "values": [-594, -863, null] }
+          ],
+          "src": ["s1"]
+        }
+      ]
+    },
+    {
+      "id": "valuation",
+      "title": "Valuation",
+      "blocks": [
+        { "type": "kv", "items": [ { "label": "EV / revenue (TTM)", "value": "9.8x [s2]" }, { "label": "Net debt", "value": "$9.9bn [s1]" } ] },
+        {
+          "type": "table",
+          "caption": "Peer multiples (market cap from the cited quote page)",
+          "columns": ["Company", "Market cap (US$ bn)", "EV / sales"],
+          "rows": [["Fixture Corp", 20.6, "9.8x"], ["Peer A (synthetic)", 55.1, "6.1x"]],
+          "src": ["s2"]
+        },
+        {
+          "type": "scenarios",
+          "rows": [
+            { "name": "Bull", "value": "Revenue $9bn by FY2028", "prob": "25%", "text": "Second anchor customer signs [s3]." },
+            { "name": "Bear", "value": "Revenue $4bn by FY2028", "prob": "30%", "text": "Customer concentration bites; refinancing at higher spreads." },
+            { "name": "Base", "value": "Revenue $6.5bn by FY2028", "prob": "45%", "text": "Backlog converts on schedule [s1]." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risks",
+      "title": "Key risks",
+      "blocks": [
+        { "type": "callout", "tone": "risk", "title": "Funding", "text": "Debt maturities of $2.1bn fall due in 2027 [s1]." },
+        { "type": "callout", "tone": "info", "title": "Data note", "text": "A synthetic note < 5% of anything; plain-text comparisons stay legal." }
+      ]
+    },
+    {
+      "id": "share-price",
+      "title": "Share-price performance",
+      "blocks": [
+        { "type": "chart", "symbol": "NASDAQ:FXR" },
+        { "type": "p", "text": "Shown for context only; share-price moves are not part of the growth assessment." }
+      ]
+    }
+  ],
+  "sources": [
+    { "id": "s1", "title": "Fixture Corp Form 10-K (synthetic)", "publisher": "SEC EDGAR", "date": "2026-03-01", "url": "https://www.example.com/fixture/10-k" },
+    { "id": "s2", "title": "FXR quote page (synthetic)", "publisher": "Example Exchange", "date": "2026-09-30", "url": "https://www.example.com/fixture/quote" },
+    { "id": "s3", "title": "Fixture Corp financing news (synthetic)", "publisher": "Example News", "date": "", "url": "https://www.example.com/fixture/news" }
+  ],
+  "disclosures": [
+    "Synthetic fixture for automated tests. **Not investment advice.**",
+    "Fundamentals are from SEC EDGAR (public domain) [s1]; market data is quoted from the cited public page [s2]."
+  ]
+}

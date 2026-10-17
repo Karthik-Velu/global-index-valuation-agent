@@ -148,7 +148,7 @@ async function announceData(ok, data) {
 }
 
 // Routes: #/overview · #/screener[?s=<base64url filter>|?id=<saved screen id>] · #/lists ·
-// #/alerts · #/stock/<TICKER> · #/market/<key>. Rules (design review, magic-link safety):
+// #/alerts · #/reports[/<slug>] · #/stock/<TICKER> · #/market/<key>. Rules (design review, magic-link safety):
 //  - the router does not touch location.hash until Auth.init has resolved (startRouter is
 //    called from announceData, after it);
 //  - a hash carrying access_token / refresh_token / error_code / error_description is
@@ -156,11 +156,12 @@ async function announceData(ok, data) {
 //  - unknown routes render Overview WITHOUT rewriting the URL;
 //  - the hash never carries free text and never triggers the AI screen builder.
 const ROUTER = { started: false, base: 'overview' };
-const VIEWS = ['overview', 'screener', 'lists', 'alerts'];
+const VIEWS = ['overview', 'screener', 'reports', 'lists', 'alerts'];
 const AUTH_HASH_RE = /(^|[#&?])(access_token|refresh_token|error_code|error_description)=/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROUTE_TICKER_RE = /^[A-Z0-9][A-Z0-9.\-]{0,15}$/;
 const ROUTE_KEY_RE = /^[A-Za-z0-9_.\-]{1,64}$/;
+const REPORT_SLUG_RE = /^[a-z0-9-]{1,40}$/;    // reports.js checks it again before fetching
 
 function parseRoute(hash) {
   const h = String(hash || '');
@@ -177,6 +178,13 @@ function parseRoute(hash) {
       return ROUTE_TICKER_RE.test(a) ? { view: null, drawer: { kind: 'stock', key: a } } : { view: 'overview', unknown: true };
     }
     return ROUTE_KEY_RE.test(a) ? { view: null, drawer: { kind: 'market', key: a } } : { view: 'overview', unknown: true };
+  }
+  // #/reports/<slug>: anything that isn't a well-formed slug gets the section's "report not
+  // found" (slug ''), never Overview — and the text is never shown or fetched.
+  if (name === 'reports' && arg) {
+    let a = '';
+    try { a = decodeURIComponent(arg).toLowerCase(); } catch { a = ''; }   // slugs are lower-case
+    return { view: 'reports', params: { slug: REPORT_SLUG_RE.test(a) ? a : '' } };
   }
   if (!VIEWS.includes(name) || arg) return { view: 'overview', unknown: true };
   const params = {};
@@ -225,10 +233,21 @@ function showView(view, params, { skipModule = false } = {}) {
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   if (changed) window.scrollTo(0, 0);
+  // Leaving Key reports drops its live chart and its print mode.
+  if (view !== 'reports' && typeof Reports !== 'undefined' && Reports.unmount) { try { Reports.unmount(); } catch { /* module's problem */ } }
   if (skipModule) return;
   if (view === 'screener') {
     if (typeof Screener !== 'undefined' && Screener.show) { try { Screener.show(params || {}); } catch (e) { moduleMissing(view, true); } }
     else moduleMissing(view);
+  } else if (view === 'reports') {
+    // Public (static JSON, no sign-in). params.slug present = one report, else the list.
+    const el = document.getElementById('view-reports');
+    if (typeof Reports !== 'undefined' && Reports.renderList) {
+      try {
+        const p = params && params.slug != null ? Reports.renderReport(el, params.slug) : Reports.renderList(el);
+        if (p && p.catch) p.catch(() => moduleMissing(view, true));
+      } catch (e) { moduleMissing(view, true); }
+    } else moduleMissing(view);
   } else if (view === 'lists' || view === 'alerts') {
     // Tabs are hidden without sign-in configured; a typed/bookmarked link still gets a reason.
     if (!Auth.available()) {
@@ -247,7 +266,7 @@ function showView(view, params, { skipModule = false } = {}) {
 function moduleMissing(view, crashed) {
   const el = document.getElementById(`view-${view}`);
   if (!el || el.childElementCount) return;
-  const what = { screener: 'The screener', lists: 'Watchlists', alerts: 'Alerts' }[view] || 'This view';
+  const what = { screener: 'The screener', reports: 'Key reports', lists: 'Watchlists', alerts: 'Alerts' }[view] || 'This view';
   el.innerHTML = `<div class="rounded-xl bg-panel border border-line p-6 text-sm text-slate-400">
     ${what} ${crashed ? 'hit an error' : "couldn't load"} &mdash; try reloading the page. The Overview works without it.</div>`;
 }
@@ -882,6 +901,7 @@ function mountChart(spec) {
 function drawerShell() {
   $('#drawer').innerHTML = `
     <div data-drw="head"></div>
+    <div data-drw="report"></div>
     <div data-drw="top"></div>
     <div data-drw="chart" class="chr-slot mb-4" hidden></div>
     <div data-drw="body" class="text-sm"></div>`;
@@ -1121,6 +1141,18 @@ function fillStockDrawer(t, s, opts = {}) {
   bindStar('stock', t);
   $$('#drawer [data-drw="body"] [data-mk]').forEach(b => b.onclick = () => openDrawer(b.dataset.mk));
 }
+// A key report on file for this ticker (reports/index.json, read once by reports.js) gets a
+// small link under the drawer head. No module, no index or no report: nothing is shown.
+function mountReportLink(t, seq) {
+  if (typeof Reports === 'undefined' || !Reports.findByTicker) return;
+  Reports.findByTicker(t).then(r => {
+    const el = drawerPart('report');
+    if (!r || !el || seq !== drawerSeq || !REPORT_SLUG_RE.test(String(r.slug))) return;
+    const meta = [r.report_type, r.published].filter(Boolean).map(esc).join(' · ');
+    el.innerHTML = `<a href="#/reports/${r.slug}" class="rpt-drawer-link" data-rpt-link="${r.slug}">
+      <span>Read the key report &rarr;</span>${meta ? `<span class="rpt-drawer-meta">${meta}</span>` : ''}</a>`;
+  }).catch(() => { /* silent: the drawer reads as before */ });
+}
 const stockChartSpec = (t, s) => ({ kind: 'stock', ticker: t, symbol: t, price: s?.price ?? null,
   discount_long: s?.discount_long ?? null, long_avg_years: s?.long_avg_years ?? null });
 
@@ -1137,6 +1169,7 @@ async function openStockDrawer(ticker, { fromRoute = false, keepBack = false } =
   const pub = publicStockRow(t);
   fillStockDrawer(t, pub, { loading: signedIn && !pub });
   showDrawer();
+  mountReportLink(t, seq);
   // The owner's snapshot may still be downloading on first open — wait a little for it so
   // the chart gets the snapshot's price/average, then carry on with what we have.
   let snapRow = null;

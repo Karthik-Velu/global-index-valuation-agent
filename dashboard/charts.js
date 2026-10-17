@@ -21,6 +21,7 @@
 //   const dispose = Charts.mount(el, spec)   // never throws; dispose() is idempotent
 //     spec = {kind: 'stock', ticker, symbol?, price?, discount_long?, long_avg_years?}
 //          | {kind: 'market', key, symbol, name?}
+//          | {kind: 'symbol', symbol: 'NASDAQ:CRWV', height?}   (key reports: TradingView only)
 //   Charts.ensureLib() -> Promise<LightweightCharts | null>
 const Charts = (() => {
   'use strict';
@@ -298,6 +299,16 @@ setTimeout(na,20000);</script>
           <span class="chr-dim">${sym ? `ETF proxy ${esc(sym)} · TradingView data` : ''}</span></div>
         <div data-chr-pane="tv"></div>`;
       mountTV(box.querySelector('[data-chr-pane="tv"]'), spec.symbol, 300);
+      return;
+    }
+    // An exchange-qualified symbol (reports.js "chart" block): the public widget, nothing else.
+    if (spec.kind === 'symbol') {
+      const sym = tvSymbol(spec.symbol);
+      box.innerHTML = `<div class="chr-head"><span class="chr-title">Chart</span>
+          <span class="chr-dim">${sym ? `${esc(sym)} · TradingView data` : ''}</span></div>
+        <div data-chr-pane="tv"></div>`;
+      const ht = Number(spec.height);
+      mountTV(box.querySelector('[data-chr-pane="tv"]'), spec.symbol, ht >= 200 && ht <= 800 ? ht : 300);
       return;
     }
     const t = String(spec.ticker ?? spec.symbol ?? '').trim().toUpperCase();

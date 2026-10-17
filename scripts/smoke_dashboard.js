@@ -12,7 +12,9 @@
 //     fetch stubbed (Supabase RPCs + canned model replies) — no keys, no network;
 //   - TradingView's embed script is a stand-in that reports what the sandbox lets it reach.
 // Fixtures are synthetic (tests/fixtures/screen_stocks.json, smoke_account.json,
-// smoke_screen_builder.json: fictitious tickers FXA.., a placeholder example.com user).
+// smoke_screen_builder.json: fictitious tickers FXA.., a placeholder example.com user;
+// tests/fixtures/reports/sample.json: the Key report for "Fixture Corp", FXR). A real
+// dashboard/reports/crwv.json, when present, is rendered too (it is public already).
 // The market scoreboard is dashboard/dashboard_data.json, which is public already.
 // Screenshots go to <work>/shots — never into the repo.
 //
@@ -66,6 +68,12 @@ const DATA = readJSON(path.join(DASH, 'dashboard_data.json'));
 const STOCKS = readJSON(path.join(REPO, 'tests/fixtures/screen_stocks.json'));
 const ACCOUNT = readJSON(path.join(REPO, 'tests/fixtures/smoke_account.json'));
 const MODEL = readJSON(path.join(REPO, 'tests/fixtures/smoke_screen_builder.json')).model_replies;
+// Key reports: the fixture is served as reports/fxr.json with a one-entry index (newCtx
+// {reports: 'fixture'}); otherwise the real dashboard/reports/ files are served as they are.
+const REPORT_FIX = readJSON(path.join(REPO, 'tests/fixtures/reports/sample.json'));
+const REPORT_FIX_INDEX = { v: 1, reports: [{ slug: REPORT_FIX.slug, ticker: REPORT_FIX.ticker, company: REPORT_FIX.company,
+  title: REPORT_FIX.title, published: REPORT_FIX.published, stance: { label: REPORT_FIX.stance.label, risk: REPORT_FIX.stance.risk },
+  summary: REPORT_FIX.stance.summary, report_type: REPORT_FIX.report_type, sector: REPORT_FIX.sector }] };
 const ScreenDSL = require(path.join(DASH, 'screen-dsl.js'));
 const SB_URL = (DATA.meta && DATA.meta.supabase && DATA.meta.supabase.url) || '';
 if (!SB_URL) { console.error('dashboard_data.json has no meta.supabase.url — sign-in cannot be exercised'); process.exit(2); }
@@ -409,7 +417,7 @@ async function serve(dir) {
 let LIB = {};
 const IGNORED_CONSOLE = /Failed to load resource|net::ERR_/;
 
-async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, user = null, trusted = false, cdn = true, db = null } = {}) {
+async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, user = null, trusted = false, cdn = true, db = null, reports = null } = {}) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC' });
   const page = await ctx.newPage();
   const errors = [];
@@ -424,6 +432,12 @@ async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, 
     if (u.origin === local) {
       if (u.pathname === '/api/screen-builder') return screenBuilderRoute(route, db);
       if (u.pathname.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
+      if (reports === 'fixture' && u.pathname.startsWith('/reports/')) {
+        db.reportFetches = (db.reportFetches || []).concat(u.pathname);
+        const body = u.pathname === '/reports/index.json' ? REPORT_FIX_INDEX : u.pathname === `/reports/${REPORT_FIX.slug}.json` ? REPORT_FIX : null;
+        return body ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+          : route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
+      }
       return route.continue();
     }
     if (u.origin === SB_ORIGIN) return supabaseStub(db, { userId: user })(route);
@@ -519,7 +533,7 @@ async function main() {
         await o.ctx.close();
       }
       assert.strictEqual(await a.page.evaluate(() => location.hash), '', 'the router must not add a hash on a plain load');
-      assert.deepStrictEqual(await a.page.$$eval('.view-tabs [data-view]', t => t.filter(x => !x.hidden).map(x => x.dataset.view)), ['overview', 'screener', 'lists', 'alerts']);
+      assert.deepStrictEqual(await a.page.$$eval('.view-tabs [data-view]', t => t.filter(x => !x.hidden).map(x => x.dataset.view)), ['overview', 'screener', 'reports', 'lists', 'alerts']);
       assert.strictEqual(await a.page.$eval('#alr-badge', b => b.hidden), true);
       await a.page.click('#signInBtn');
       await a.page.fill('#signinEmail', 'someone@example.com');
@@ -545,7 +559,7 @@ async function main() {
         sameOverview(await overviewSections(a.page), await overviewSections(o.page));
         await o.ctx.close();
       }
-      assert.deepStrictEqual(await a.page.$$eval('.view-tabs [data-view]', t => t.filter(x => !x.hidden).map(x => x.dataset.view)), ['overview', 'screener']);
+      assert.deepStrictEqual(await a.page.$$eval('.view-tabs [data-view]', t => t.filter(x => !x.hidden).map(x => x.dataset.view)), ['overview', 'screener', 'reports']);
       await a.page.click('#tbody tr[data-mk]');
       await a.page.waitForFunction(() => STATE.drawer && STATE.drawer.kind === 'market');
       await a.page.waitForSelector('#drawer iframe.chr-tv');
@@ -887,6 +901,136 @@ async function main() {
       noErrors(b);
       await b.ctx.close();
     });
+
+    // 12. Key reports (public): list, a report, citations, print / PDF, not found, drawer link.
+    await step('key reports: list, fixture report, citations scroll in place (hash untouched), print mode + A4 PDF, not found, drawer link', async () => {
+      const a = await newCtx(browser, NEW, { reports: 'fixture' });
+      await boot(a, NEW, '#/reports');
+      await a.page.waitForSelector('#view-reports .rpt-card');
+      assert.strictEqual(await a.page.$eval('.view-tab[data-view="reports"]', t => t.classList.contains('active')), true);
+      assert.deepStrictEqual(await a.page.$$eval('#view-reports .rpt-card', c => c.map(x => x.getAttribute('href'))), ['#/reports/fxr']);
+      assert.match(await text(a.page, '#view-reports .rpt-card'), /Fixture Corp.*Neutral.*Risk: High/);
+      await shot(a.page, 'reports_list_desktop');
+      await a.page.click('#view-reports .rpt-card');
+      await a.page.waitForSelector('#view-reports .rpt-report');
+      assert.strictEqual(await a.page.evaluate(() => location.hash), '#/reports/fxr');
+      assert.strictEqual(await a.page.$$eval('#view-reports .rpt-sec', s => s.length), REPORT_FIX.sections.length + 1);
+      assert.strictEqual(await a.page.$$eval('#view-reports .rpt-stat', s => s.length), REPORT_FIX.key_stats.length);
+      assert.ok(await a.page.$('#view-reports svg.rpt-bars title'), 'bar chart with an accessible title');
+      assert.match(await a.page.evaluate(() => document.title), /^Fixture Corp \(FXR\) — Key report/);
+      // The chart block is charts.js's sandboxed TradingView iframe.
+      await a.page.waitForSelector('#view-reports .rpt-chart-slot iframe.chr-tv');
+      assert.strictEqual(await a.page.$eval('#view-reports iframe.chr-tv', f => f.getAttribute('sandbox')), 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      await a.page.waitForFunction(() => window.__tv.some(t => t.symbol === 'NASDAQ:FXR'), null, { timeout: 10000 });
+      const tv = await a.page.evaluate(() => window.__tv.find(t => t.symbol === 'NASDAQ:FXR'));
+      assert.strictEqual(tv.ls, 'blocked'); assert.strictEqual(tv.par, 'blocked');
+      // Citations and the contents list scroll in place: no hashchange, no history entry.
+      const before = await a.page.evaluate(() => window.__hashes.length);
+      await a.page.click('#view-reports .rpt-summary [data-rpt-src="s1"]');
+      await a.page.waitForFunction(() => document.getElementById('src-s1').classList.contains('rpt-flash'));
+      await a.page.click('#view-reports .rpt-toc [data-rpt-sec="valuation"]');
+      await settle(a.page, 600);
+      assert.strictEqual(await a.page.evaluate(() => location.hash), '#/reports/fxr');
+      assert.strictEqual(await a.page.evaluate(() => window.__hashes.length), before, 'citation clicks must not touch the hash');
+      assert.ok(await a.page.$eval('#rpt-sec-valuation', s => Math.abs(s.getBoundingClientRect().top) < 120), 'contents link scrolled to its section');
+      const srcLinks = await a.page.$$eval('#view-reports .rpt-srcs a', l => l.map(x => [x.href, x.target, x.rel]));
+      assert.deepStrictEqual(srcLinks, REPORT_FIX.sources.map(s => [s.url, '_blank', 'noopener noreferrer']));
+      await shot(a.page, 'report_fxr_desktop', { fullPage: true });
+      // "Download PDF" opens the print dialog with a descriptive title (the PDF's file name).
+      await a.page.evaluate(() => { window.print = () => { window.__printed = document.title; }; });
+      await a.page.click('#view-reports [data-rpt-print]');
+      assert.match(await a.page.evaluate(() => window.__printed), /^FXR — Fixture Corp: .*\(GIVA Research, 2026-10-15\)$/);
+      assert.match(await a.page.evaluate(() => document.title), /Key report/, 'title restored after print');
+      // Print stylesheet: chrome + live chart hidden, the note shown, black on white, A4.
+      await a.page.emulateMedia({ media: 'print' });
+      const pr = await a.page.evaluate(() => {
+        const vis = s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none'; };
+        return { header: vis('#app > header'), tabs: vis('.view-tabs'), toolbar: vis('.rpt-toolbar'), chart: vis('.rpt-chart-slot'),
+          note: vis('.rpt-chart .rpt-print-only'), bg: getComputedStyle(document.body).backgroundColor, color: getComputedStyle(document.querySelector('.rpt-company')).color };
+      });
+      assert.deepStrictEqual(pr, { header: false, tabs: false, toolbar: false, chart: false, note: true, bg: 'rgb(255, 255, 255)', color: 'rgb(0, 0, 0)' });
+      await a.page.pdf({ path: path.join(SHOTS, 'report_fxr.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
+      await a.page.emulateMedia({ media: 'screen' });
+      // Unknown / malformed slugs: "Report not found" with a way back, nothing odd fetched.
+      for (const h of ['#/reports/nope', '#/reports/..%2F..%2Fsecrets', '#/reports/%E0%A4%A']) {
+        await go(a.page, h);
+        await a.page.waitForFunction(() => /Report not found/.test(document.getElementById('view-reports').textContent));
+        assert.ok(await a.page.$('#view-reports .rpt-empty a[href="#/reports"]'));
+      }
+      assert.ok(a.db.reportFetches.every(p => /^\/reports\/[a-z0-9-]+\.json$/.test(p)), a.db.reportFetches.join(' '));
+      await go(a.page, '#/reports/FXR');   // slugs are lower-cased
+      await a.page.waitForSelector('#view-reports .rpt-report');
+      // Leaving the section drops the live chart and print mode.
+      await go(a.page, '#/overview');
+      assert.strictEqual(await a.page.$('#view-reports iframe'), null);
+      assert.strictEqual(await a.page.evaluate(() => document.documentElement.classList.contains('rpt-on')), false);
+      // The stock drawer links to the report for its ticker.
+      await go(a.page, '#/stock/FXR');
+      await a.page.waitForSelector('#drawer .rpt-drawer-link');
+      assert.match(await text(a.page, '#drawer .rpt-drawer-link'), /Read the key report/);
+      await a.page.click('#drawer .rpt-drawer-link');
+      await a.page.waitForSelector('#view-reports .rpt-report');
+      assert.strictEqual(await a.page.evaluate(() => STATE.drawer), null, 'drawer closed');
+      assert.strictEqual(await a.page.evaluate(() => location.hash), '#/reports/fxr');
+      // A ticker without a report: no link.
+      await go(a.page, '#/stock/ZZZQ');
+      await settle(a.page, 400);
+      assert.strictEqual(await a.page.$('#drawer .rpt-drawer-link'), null);
+      noErrors(a);
+      await a.ctx.close();
+    });
+
+    // 13. Key reports at 360 px (and an empty index): no page-level horizontal scroll.
+    await step('key reports at 360 px: list, report, tables/charts scroll in their own box; empty index shows an empty state', async () => {
+      const a = await newCtx(browser, NEW, { viewport: { width: 360, height: 780 }, reports: 'fixture' });
+      await boot(a, NEW, '#/reports');
+      await a.page.waitForSelector('#view-reports .rpt-card');
+      assert.ok(await noHScroll(a.page), 'reports list scrolls horizontally at 360 px');
+      await shot(a.page, 'phone_reports_list');
+      await go(a.page, '#/reports/fxr');
+      await a.page.waitForSelector('#view-reports .rpt-report');
+      await settle(a.page, 400);
+      assert.ok(await noHScroll(a.page), 'report scrolls horizontally at 360 px');
+      const side = await a.page.$eval('.rpt-side', s => s.getBoundingClientRect().top), main = await a.page.$eval('.rpt-main', s => s.getBoundingClientRect().top);
+      assert.ok(side < main, 'key data comes before the body on a phone');
+      await shot(a.page, 'phone_report_fxr', { fullPage: true });
+      noErrors(a);
+      await a.ctx.close();
+      if (!fs.existsSync(path.join(DASH, 'reports', 'crwv.json'))) {
+        const b = await newCtx(browser, NEW, { viewport: { width: 360, height: 780 } });
+        await boot(b, NEW, '#/reports');
+        await b.page.waitForFunction(() => /No key reports are published yet/.test(document.getElementById('view-reports').textContent));
+        noErrors(b);
+        await b.ctx.close();
+      }
+    });
+
+    // 14. The real CoreWeave report, when it has been written (public content).
+    if (fs.existsSync(path.join(DASH, 'reports', 'crwv.json'))) {
+      await step('key reports: the real dashboard/reports/crwv.json renders (desktop + 360 px + A4 PDF), drawer link on #/stock/CRWV', async () => {
+        const crwv = readJSON(path.join(DASH, 'reports', 'crwv.json'));
+        for (const vp of [{ width: 1280, height: 900 }, { width: 360, height: 780 }]) {
+          const a = await newCtx(browser, NEW, { viewport: vp });
+          await boot(a, NEW, '#/reports');
+          await a.page.waitForSelector('#view-reports a.rpt-card[href="#/reports/crwv"]');
+          await go(a.page, '#/reports/crwv');
+          await a.page.waitForSelector('#view-reports .rpt-report');
+          await settle(a.page, 500);
+          assert.strictEqual(await a.page.$$eval('#view-reports .rpt-sec', s => s.length), crwv.sections.length + 1);
+          assert.ok(await noHScroll(a.page), `crwv report scrolls horizontally at ${vp.width} px`);
+          await shot(a.page, `report_crwv_${vp.width}`, { fullPage: true });
+          if (vp.width > 400) {
+            await a.page.emulateMedia({ media: 'print' });
+            await a.page.pdf({ path: path.join(SHOTS, 'report_crwv.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
+            await a.page.emulateMedia({ media: 'screen' });
+            await go(a.page, '#/stock/CRWV');
+            await a.page.waitForSelector('#drawer .rpt-drawer-link');
+          }
+          noErrors(a);
+          await a.ctx.close();
+        }
+      });
+    } else console.log('skip  key reports: dashboard/reports/crwv.json not written yet');
   } finally {
     await browser.close();
     srvNew.proc.kill();

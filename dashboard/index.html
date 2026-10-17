@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="screener.css" />
   <link rel="stylesheet" href="lists.css" />
+  <link rel="stylesheet" href="reports.css" />
   <!-- Supabase Auth + watchlist (Phase D) — no-build, UMD build exposes window.supabase.
        Loaded synchronously (like the Tailwind CDN script above) so it's defined
        before auth.js runs at the bottom of body; auth.js degrades gracefully
@@ -66,11 +67,13 @@
       </form>
     </div>
 
-    <!-- Views (hash router in app.js: #/overview, #/screener, #/lists, #/alerts,
-         #/stock/<TICKER>, #/market/<key>). Watchlists/Alerts only when sign-in is configured. -->
+    <!-- Views (hash router in app.js: #/overview, #/screener, #/reports[/<slug>], #/lists,
+         #/alerts, #/stock/<TICKER>, #/market/<key>). Watchlists/Alerts only when sign-in is
+         configured; Key reports are public. -->
     <nav class="view-tabs mb-4" aria-label="Views">
       <a href="#/overview" data-view="overview" class="view-tab active">Overview</a>
       <a href="#/screener" data-view="screener" class="view-tab">Screener</a>
+      <a href="#/reports" data-view="reports" class="view-tab">Key reports</a>
       <a href="#/lists" data-view="lists" class="view-tab" hidden>Watchlists</a>
       <a href="#/alerts" data-view="alerts" class="view-tab" hidden>Alerts <span id="alr-badge" class="tab-badge" hidden></span></a>
     </nav>
@@ -160,6 +163,7 @@
     </div><!-- /#view-overview -->
 
     <div id="view-screener" hidden></div>
+    <div id="view-reports" hidden></div>
     <div id="view-lists" hidden></div>
     <div id="view-alerts" hidden></div>
 
@@ -179,7 +183,7 @@
 
   <script src="auth.js"></script>
   <script src="app.js"></script>
-  <!-- Screener / charts / watchlists (ADR-037). Each declares exactly one global and
+  <!-- Screener / charts / watchlists (ADR-037) / key reports. Each declares exactly one global and
        none may throw when supabase-js, the chart library or the network is missing;
        app.js only calls them through typeof guards, so the Overview never depends on
        them. lightweight-charts is NOT loaded here — Charts.ensureLib() injects it on
@@ -189,5 +193,6 @@
   <script src="screener.js"></script>
   <script src="charts.js"></script>
   <script src="lists.js"></script>
+  <script src="reports.js"></script>
 </body>
 </html>

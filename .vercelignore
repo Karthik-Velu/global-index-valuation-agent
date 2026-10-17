@@ -3,7 +3,8 @@
 # Python engine, data, and tooling out of the upload so Vercel never tries to build
 # Python. Do NOT add api/ or dashboard/ here: api/screen-builder.js requires
 # dashboard/screen-dsl.js and dashboard/screen_fields.json at runtime
-# (scripts/test_screen_builder.js checks this file).
+# (scripts/test_screen_builder.js checks this file). dashboard/reports/*.json are the Key
+# reports, served as static files (scripts/test_reports.js checks they stay in).
 engine/
 scripts/
 data/
