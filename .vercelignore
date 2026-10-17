@@ -3,14 +3,18 @@
 # Python engine, data, and tooling out of the upload so Vercel never tries to build
 # Python. Do NOT add api/ or dashboard/ here: api/screen-builder.js requires
 # dashboard/screen-dsl.js and dashboard/screen_fields.json at runtime
-# (scripts/test_screen_builder.js checks this file).
-engine/
-scripts/
-data/
-tests/
-supabase/
-.github/
-.venv/
+# (scripts/test_screen_builder.js checks this file). dashboard/reports/*.json are the Key
+# reports, served as static files (scripts/test_reports.js checks they stay in, with real
+# gitignore matching). The root-level directories are ANCHORED with a leading slash: a bare
+# "data/" matches a directory named data at any depth, which would drop
+# dashboard/reports/data/ (the EDGAR financials behind each report, public domain).
+/engine/
+/scripts/
+/data/
+/tests/
+/supabase/
+/.github/
+/.venv/
 __pycache__/
 requirements.txt
 .env

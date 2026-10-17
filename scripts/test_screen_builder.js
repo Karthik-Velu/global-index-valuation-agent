@@ -149,7 +149,7 @@ async function main() {
   ok((vj.headers || []).some(h => h.source === '/dashboard_data.json'), 'vercel.json keeps the dashboard_data.json cache header');
 
   const vi = fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
-  ok(['engine/', 'scripts/', 'data/', '.env'].every(x => vi.includes(x)), '.vercelignore still excludes engine/ scripts/ data/ .env');
+  ok(['engine/', 'scripts/', 'data/'].every(x => vi.includes(x) || vi.includes('/' + x)) && vi.includes('.env'), '.vercelignore still excludes engine/ scripts/ data/ .env');
   // crude gitignore-style check: no pattern may match the function or the two DSL files
   const globRe = p => new RegExp('^(?:.*/)?' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*').replace(/\/$/, '(?:/.*)?') + '$');
   for (const f of ['api/screen-builder.js', 'dashboard/screen-dsl.js', 'dashboard/screen_fields.json']) {

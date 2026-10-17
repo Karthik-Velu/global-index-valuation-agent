@@ -1,0 +1,267 @@
+/* Key reports (rpt-*) — the #/reports list and the fund-house-style report page (reports.js).
+   Plain CSS on the dashboard's dark palette, held as custom properties on .rpt so the print
+   stylesheet can swap the whole page to black-on-white in one place; works with the
+   Tailwind CDN blocked (html.rpt-on gives the page its own dark background, which otherwise
+   comes only from Tailwind's bg-ink). --rpt-faint is the lowest-contrast text colour and still
+   clears WCAG AA (4.5:1) on every panel background. Headings use a book serif (the research-note look), body text the
+   dashboard's system sans. Every rule is scoped under .rpt / .rpt-* / html.rpt-on. */
+
+.rpt {
+  --rpt-ink: #0b0f17; --rpt-panel: #121826; --rpt-panel2: #1a2235; --rpt-line: #243049;
+  --rpt-text: #cbd5e1; --rpt-strong: #f1f5f9; --rpt-dim: #94a3b8; --rpt-faint: #8b98ad;
+  --rpt-accent: #60a5fa; --rpt-pos: #34d399; --rpt-neg: #f87171; --rpt-warn: #fbbf24;
+  --rpt-zebra: #ffffff06;
+  --rpt-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', serif;
+  color: var(--rpt-text); font-size: 14px; line-height: 1.6; min-width: 0;
+}
+.rpt a { color: var(--rpt-accent); text-decoration: none; }
+.rpt a:hover { text-decoration: underline; }
+.rpt a:focus-visible, .rpt button:focus-visible, .rpt [tabindex]:focus-visible { outline: 2px solid var(--rpt-accent); outline-offset: 2px; border-radius: 4px; }
+.rpt p { margin: 0 0 10px; max-width: 80ch; }
+.rpt strong { color: var(--rpt-strong); font-weight: 600; }
+.rpt .rpt-dim { color: var(--rpt-faint); }
+.rpt-print-only { display: none; }
+/* The page background otherwise comes only from Tailwind's bg-ink: without it (CDN blocked)
+   the report's light text would sit on white. Screen only; print swaps to white below. */
+@media screen { html.rpt-on, html.rpt-on body { background: #0b0f17; } }
+
+/* ---------------- list (#/reports) ---------------- */
+.rpt-list-head { margin: 4px 0 16px; }
+.rpt-list-head h2 { font-family: var(--rpt-serif); font-size: 24px; font-weight: 600; color: var(--rpt-strong); margin: 0 0 4px; }
+.rpt-list-head p { color: var(--rpt-dim); font-size: 13px; }
+.rpt-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
+.rpt a.rpt-card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--rpt-text); text-decoration: none;
+  background: linear-gradient(160deg, var(--rpt-panel), var(--rpt-panel2)); border: 1px solid var(--rpt-line);
+  border-top: 3px solid var(--rpt-accent); border-radius: 12px; padding: 14px 16px;
+}
+.rpt a.rpt-card:hover { border-color: #60a5fa80; border-top-color: var(--rpt-accent); text-decoration: none; }
+.rpt-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rpt-card-tk {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px;
+  background: #a78bfa22; color: #a78bfa; flex: 0 0 auto;
+}
+.rpt-card-co { color: var(--rpt-strong); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt-card-meta { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--rpt-faint); }
+.rpt-card-title { font-family: var(--rpt-serif); font-size: 18px; line-height: 1.3; font-weight: 600; color: var(--rpt-strong); margin: 2px 0 0; }
+.rpt-card-sum { font-size: 13px; color: var(--rpt-dim); margin: 0; }
+.rpt-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 6px; }
+.rpt-card-go { margin-left: auto; font-size: 12px; color: var(--rpt-accent); }
+.rpt-empty {
+  background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 12px; padding: 20px 22px; color: var(--rpt-dim);
+}
+.rpt-empty h2 { font-family: var(--rpt-serif); font-size: 20px; color: var(--rpt-strong); margin: 0 0 6px; font-weight: 600; }
+
+/* ---------------- report page ---------------- */
+.rpt-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.rpt-back { font-size: 13px; }
+.rpt .rpt-btn {
+  font: inherit; font-size: 12px; cursor: pointer; padding: 6px 12px; border-radius: 8px;
+  color: var(--rpt-accent); background: #60a5fa1f; border: 1px solid #60a5fa66;
+}
+.rpt .rpt-btn:hover { background: #60a5fa33; }
+
+.rpt-cover {
+  background: linear-gradient(135deg, var(--rpt-panel), var(--rpt-panel2)); border: 1px solid var(--rpt-line);
+  border-top: 4px solid var(--rpt-accent); border-radius: 12px; padding: 20px 24px 18px; margin-bottom: 20px;
+}
+.rpt-eyebrow {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--rpt-accent);
+}
+.rpt-eyebrow span + span { color: var(--rpt-dim); }
+.rpt-company { font-family: var(--rpt-serif); font-size: 32px; line-height: 1.15; font-weight: 600; color: #fff; margin: 12px 0 0; overflow-wrap: anywhere; }
+.rpt-tk { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; font-weight: 600; color: var(--rpt-dim); white-space: nowrap; }
+.rpt-title { font-family: var(--rpt-serif); font-size: 21px; line-height: 1.3; font-weight: 600; color: var(--rpt-strong); margin: 10px 0 4px; max-width: 60ch; }
+.rpt-subtitle { color: var(--rpt-dim); font-size: 14px; }
+.rpt-stance { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.rpt-horizon { font-size: 12px; color: var(--rpt-dim); }
+.rpt-stance-sum { margin-top: 10px !important; color: var(--rpt-strong); }
+.rpt-pill {
+  display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 10px; border-radius: 999px; border: 1px solid; white-space: nowrap;
+}
+.rpt-pill.pos { color: var(--rpt-pos); background: #34d3991a; border-color: #34d39966; }
+.rpt-pill.neu { color: var(--rpt-accent); background: #60a5fa1a; border-color: #60a5fa66; }
+.rpt-pill.cau { color: var(--rpt-warn); background: #fbbf241a; border-color: #fbbf2466; }
+.rpt-pill.neg { color: var(--rpt-neg); background: #f871711a; border-color: #f8717166; }
+
+/* Main column + key-data sidebar on the right; on a phone the sidebar comes first. */
+.rpt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: 'main side'; gap: 28px; align-items: start; }
+.rpt-main { grid-area: main; min-width: 0; }
+.rpt-side { grid-area: side; min-width: 0; position: sticky; top: 12px; display: flex; flex-direction: column; gap: 14px;
+  /* taller than the viewport, a sticky box can never show its lower part: scroll it instead */
+  max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 960px) {
+  .rpt-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'side' 'main'; gap: 18px; }
+  .rpt-side { position: static; max-height: none; overflow: visible; }
+  .rpt-toc { display: none !important; }
+}
+.rpt-box { background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 12px; padding: 14px 16px; }
+.rpt-boxt { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--rpt-dim); font-weight: 600; margin: 0 0 6px; }
+.rpt-stats dl { margin: 0; }
+.rpt-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid #24304980; }
+.rpt-stat:last-child { border-bottom: 0; }
+.rpt-stat dt { color: var(--rpt-dim); font-size: 12px; min-width: 0; }
+.rpt-stat dd { margin: 0; text-align: right; color: var(--rpt-strong); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rpt-stat-note { display: block; font-size: 11px; color: var(--rpt-faint); }
+.rpt-asof { font-size: 11px; color: var(--rpt-faint); margin-top: 8px; }
+.rpt-toc ol { list-style: decimal; padding-left: 20px; margin: 0; font-size: 13px; }
+.rpt-toc li { margin: 3px 0; color: var(--rpt-faint); }
+.rpt-toc a { color: var(--rpt-text); }
+.rpt-toc a:hover { color: var(--rpt-accent); }
+
+.rpt-summary {
+  background: #60a5fa0d; border: 1px solid #60a5fa40; border-left: 4px solid var(--rpt-accent);
+  border-radius: 10px; padding: 14px 18px 8px; margin-bottom: 8px;
+}
+.rpt-summary h2 { font-family: var(--rpt-serif); font-size: 18px; font-weight: 600; color: var(--rpt-strong); margin: 0 0 6px; }
+.rpt ul.rpt-bul { list-style: disc; padding-left: 20px; margin: 0 0 12px; }
+.rpt ul.rpt-bul li { margin: 5px 0; padding-left: 2px; max-width: 80ch; }
+.rpt ul.rpt-bul li::marker { color: var(--rpt-accent); }
+
+.rpt-sec { margin: 28px 0 0; }
+.rpt-sec > h2 {
+  display: flex; align-items: baseline; gap: 10px; font-family: var(--rpt-serif); font-size: 21px; line-height: 1.3;
+  font-weight: 600; color: var(--rpt-strong); margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--rpt-line);
+}
+.rpt-num {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700; color: var(--rpt-accent);
+  font-variant-numeric: tabular-nums; min-width: 1.4em;
+}
+.rpt-cite { font-size: 70%; line-height: 0; margin-left: 1px; color: var(--rpt-faint); white-space: nowrap; }
+.rpt-cite a { padding: 0 1px; }
+
+/* Exhibits: tables, bar charts, the live chart. */
+.rpt-fig { margin: 14px 0 18px; min-width: 0; }
+.rpt-cap { font-size: 13px; font-weight: 600; color: var(--rpt-strong); margin-bottom: 6px; }
+.rpt-exh { color: var(--rpt-accent); text-transform: uppercase; letter-spacing: .05em; font-size: 11px; margin-right: 2px; }
+.rpt-note { font-size: 12px; color: var(--rpt-dim); margin-top: 6px; }
+.rpt-srcline { font-size: 11px; color: var(--rpt-faint); margin-top: 4px; }
+.rpt-srcline a { color: var(--rpt-dim); }
+.rpt-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--rpt-line); border-radius: 10px; max-width: 100%; }
+.rpt-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.rpt-table thead th {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-dim);
+  background: var(--rpt-panel2); padding: 8px 10px; border-bottom: 1px solid var(--rpt-line); white-space: nowrap;
+}
+.rpt-table td, .rpt-table tbody th { padding: 7px 10px; border-bottom: 1px solid #24304966; vertical-align: top; }
+.rpt-table tbody th { font-weight: 500; color: var(--rpt-strong); min-width: 9em; }
+.rpt-table tbody tr:nth-child(even) { background: var(--rpt-zebra); }
+.rpt-table tbody tr:last-child td, .rpt-table tbody tr:last-child th { border-bottom: 0; }
+.rpt-table .l { text-align: left; }
+.rpt-table .r { text-align: right; white-space: nowrap; }
+
+.rpt-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; font-size: 12px; color: var(--rpt-dim); margin-bottom: 4px; }
+.rpt-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.rpt-unit { margin-left: auto; color: var(--rpt-faint); font-size: 11px; }
+.rpt-barswrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 10px; padding: 6px 4px 0; }
+/* --rpt-bars-minw (set per chart by reports.js, 0.9 x its own width) keeps labels >= ~9px on a phone;
+   below it the chart scrolls inside .rpt-barswrap. Print resets it to 0 (fit the page). */
+.rpt-bars { display: block; margin: 0 auto; max-width: 100%; height: auto; min-width: var(--rpt-bars-minw, 440px); }
+.rpt-bars text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
+.rpt-bars .rpt-tick { fill: var(--rpt-faint); font-size: 10px; }
+.rpt-bars .rpt-val { fill: var(--rpt-text); font-size: 10px; font-weight: 600; }
+.rpt-bars .rpt-xl { fill: var(--rpt-dim); font-size: 11px; }
+.rpt-bars .rpt-na { fill: var(--rpt-faint); font-size: 9px; font-style: italic; }
+.rpt-bars .rpt-grid { stroke: #24304999; stroke-width: 1; }
+.rpt-bars .rpt-zero { stroke: #64748b; stroke-width: 1.2; }
+
+.rpt-chart-slot { min-height: 120px; }
+.rpt-chart-na {
+  display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--rpt-faint); font-size: 12px;
+  background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-radius: 10px;
+}
+
+.rpt-callout { border: 1px solid var(--rpt-line); border-left: 4px solid var(--rpt-accent); border-radius: 10px; padding: 12px 16px 4px; margin: 14px 0; background: #60a5fa0d; }
+.rpt-callout.positive { border-left-color: var(--rpt-pos); background: #34d3990d; }
+.rpt-callout.risk { border-left-color: var(--rpt-neg); background: #f871710d; }
+.rpt-callout-t { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--rpt-strong); margin-bottom: 4px; }
+
+.rpt-scen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 18px; }
+@media (max-width: 720px) { .rpt-scen { grid-template-columns: minmax(0, 1fr); } }
+.rpt-scen-card { background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-top: 3px solid var(--rpt-accent); border-radius: 10px; padding: 12px 14px 4px; min-width: 0; }
+.rpt-scen-card.bear { border-top-color: var(--rpt-neg); }
+.rpt-scen-card.bull { border-top-color: var(--rpt-pos); }
+.rpt-scen-card.restructuring { border-top-color: var(--rpt-warn); }
+.rpt-scen.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .rpt-scen.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .rpt-scen.n4 { grid-template-columns: minmax(0, 1fr); } }
+.rpt-scen-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--rpt-dim); }
+.rpt-scen-val { font-family: var(--rpt-serif); font-size: 22px; font-weight: 600; color: var(--rpt-strong); font-variant-numeric: tabular-nums; margin: 2px 0; overflow-wrap: anywhere; }
+.rpt-scen-prob { font-size: 11px; color: var(--rpt-faint); margin-bottom: 6px; }
+.rpt-scen-card p { font-size: 13px; }
+
+.rpt-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px 16px; margin: 12px 0 16px; }
+.rpt-kv > div { border-top: 1px solid var(--rpt-line); padding-top: 6px; min-width: 0; }
+.rpt-kv dt { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--rpt-faint); }
+.rpt-kv dd { margin: 2px 0 0; color: var(--rpt-strong); font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.rpt-srcs { list-style: decimal; padding-left: 24px; margin: 0; font-size: 12px; color: var(--rpt-dim); }
+.rpt-srcs li { margin: 5px 0; padding: 2px 4px; border-radius: 6px; transition: background-color .4s; scroll-margin-top: 80px; }
+.rpt-srcs li.rpt-flash { background: #60a5fa2e; }
+.rpt-srcs a { overflow-wrap: anywhere; }
+.rpt-src-t { color: var(--rpt-text); }
+.rpt-disch { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--rpt-dim); font-weight: 600; margin: 20px 0 6px; }
+.rpt-disc p { font-size: 12px; line-height: 1.55; color: var(--rpt-faint); }
+.rpt-stamp { font-size: 11px; color: var(--rpt-faint); border-top: 1px solid var(--rpt-line); padding-top: 8px; margin-top: 14px !important; }
+.rpt-sec, .rpt-summary { scroll-margin-top: 16px; }
+
+@media (max-width: 520px) {
+  .rpt-cover { padding: 16px 16px 14px; }
+  .rpt-company { font-size: 26px; }
+  .rpt-title { font-size: 18px; }
+  .rpt-sec > h2 { font-size: 19px; }
+}
+
+/* Stock drawer: "Read the key report" (app.js mountReportLink). */
+a.rpt-drawer-link {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-bottom: 12px;
+  padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none;
+  color: #60a5fa; background: #60a5fa14; border: 1px solid #60a5fa4d;
+}
+a.rpt-drawer-link:hover { background: #60a5fa26; }
+.rpt-drawer-meta { font-weight: 400; color: #64748b; font-size: 11px; }
+
+/* ---------------- print / "Download PDF" (A4, black on white) ---------------- */
+@media print {
+  @page { size: A4; margin: 16mm 14mm 18mm; }
+  html.rpt-on, html.rpt-on body { background: #fff !important; color: #000 !important; }
+  html.rpt-on #app { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+  html.rpt-on #app > header, html.rpt-on .view-tabs, html.rpt-on #signinPanel, html.rpt-on #app > footer,
+  html.rpt-on #drawer, html.rpt-on #scrim, .rpt-toolbar, .rpt-chart-slot, .rpt-toc, .rpt-noprint { display: none !important; }
+  .rpt {
+    --rpt-panel: #fff; --rpt-panel2: #eef0f3; --rpt-line: #9aa3ad; --rpt-text: #000; --rpt-strong: #000;
+    --rpt-dim: #333; --rpt-faint: #444; --rpt-accent: #000; --rpt-zebra: #f3f4f6;
+    font-size: 10pt; line-height: 1.45; color: #000;
+  }
+  .rpt-print-only { display: block !important; }
+  .rpt a { color: #000; text-decoration: none; }
+  .rpt-cover { background: none; border: 0; border-top: 3pt solid #000; border-bottom: 1px solid #000; border-radius: 0; padding: 8pt 0 10pt; margin-bottom: 12pt; }
+  .rpt-company { color: #000; font-size: 24pt; }
+  .rpt-title { font-size: 15pt; }
+  .rpt-pill { color: #000 !important; background: none !important; border-color: #000 !important; }
+  .rpt-layout { display: block; }
+  .rpt-side { position: static; margin-bottom: 10pt; max-height: none; overflow: visible; }
+  .rpt-stats dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18pt; }
+  .rpt-stat:last-child { border-bottom: 1px solid #ccc; }
+  .rpt-box, .rpt-summary, .rpt-callout, .rpt-scen-card, .rpt-barswrap, .rpt-empty { background: none !important; border-radius: 0; }
+  .rpt-summary { border: 1px solid #000; border-left-width: 3pt; }
+  .rpt-tablewrap { overflow: visible; border-radius: 0; }
+  .rpt-table { font-size: 9pt; }
+  .rpt-table thead th { background: #eef0f3 !important; color: #000; }
+  .rpt-table thead th, .rpt-table tbody tr:nth-child(even) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rpt-bars { min-width: 0; }
+  .rpt-bars rect { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rpt-bars .rpt-tick, .rpt-bars .rpt-val, .rpt-bars .rpt-xl, .rpt-bars .rpt-na { fill: #000; }
+  .rpt-bars .rpt-grid { stroke: #ccc; }
+  .rpt-bars .rpt-zero { stroke: #000; }
+  .rpt-legend i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rpt-scen { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rpt-scen.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rpt-fig, .rpt-table tr, .rpt-callout, .rpt-scen-card, .rpt-stat, .rpt-kv > div, .rpt-srcs li, .rpt-cover { break-inside: avoid; page-break-inside: avoid; }
+  .rpt-sec > h2, .rpt-cap, .rpt-disch { break-after: avoid; page-break-after: avoid; }
+  .rpt-end { break-before: page; page-break-before: always; }
+  .rpt-srcs a { color: #000; text-decoration: underline; }
+  .rpt-cite { color: #000; }
+}

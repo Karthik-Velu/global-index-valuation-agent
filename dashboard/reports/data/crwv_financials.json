@@ -1,0 +1,1830 @@
+{
+ "meta": {
+  "security_id": 5913,
+  "ticker": null,
+  "name": "CoreWeave, Inc.",
+  "generated_at": "2026-10-17T09:33:08+00:00",
+  "job": "engine.reports financials (deterministic, no LLM)",
+  "source": "SEC EDGAR XBRL via Tier B fundamental_metrics (public domain)",
+  "latest_filing_used": "2026-08-12",
+  "units": "USD (per-share in USD/share); values unscaled",
+  "conventions": [
+   "Discrete quarters de-cumulated from YTD 10-Q facts: Q2=H1\u2212Q1, Q3=9M\u2212H1, Q4=FY\u22129M.",
+   "Latest filed vintage per period; later values that only round an earlier precise value keep the precise one.",
+   "Growth = fundamental YoY growth (revenue/earnings), never share-price performance; % growth only off a positive base, else absolute change.",
+   "gross_profit = revenue \u2212 cost_of_revenue as tagged; ebitda_derived = operating income + depreciation (GAAP proxy, not company adjusted EBITDA).",
+   "EPS is reported as filed (YTD) \u2014 only Q1 EPS is a discrete quarter.",
+   "uncertainty = worst-case rounding bound (USD) from the filed inputs' reporting units; shown only when >= US$0.5m. checks.precision lists bounds >= 1% of the value."
+  ]
+ },
+ "fiscal_year_end_month": 12,
+ "concept_by_field": {
+  "accounts_payable": [
+   "us-gaap:AccountsPayableCurrent"
+  ],
+  "accumulated_depreciation": [
+   "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment"
+  ],
+  "buybacks": [
+   "us-gaap:PaymentsForRepurchaseOfCommonStock"
+  ],
+  "capex": [
+   "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"
+  ],
+  "cash": [
+   "us-gaap:CashAndCashEquivalentsAtCarryingValue"
+  ],
+  "cash_incl_restricted": [
+   "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+  ],
+  "cost_of_revenue": [
+   "us-gaap:CostOfGoodsAndServicesSold"
+  ],
+  "deferred_revenue": [
+   "us-gaap:ContractWithCustomerLiability"
+  ],
+  "deferred_revenue_current": [
+   "us-gaap:ContractWithCustomerLiabilityCurrent"
+  ],
+  "depreciation": [
+   "us-gaap:Depreciation"
+  ],
+  "dps_declared": [
+   "us-gaap:CommonStockDividendsPerShareDeclared"
+  ],
+  "eps_basic": [
+   "us-gaap:EarningsPerShareBasic"
+  ],
+  "long_term_debt": [
+   "us-gaap:LongTermDebt"
+  ],
+  "net_income": [
+   "us-gaap:NetIncomeLoss"
+  ],
+  "operating_cash_flow": [
+   "us-gaap:NetCashProvidedByUsedInOperatingActivities"
+  ],
+  "operating_income": [
+   "us-gaap:OperatingIncomeLoss"
+  ],
+  "rd_expense": [
+   "us-gaap:ResearchAndDevelopmentExpense"
+  ],
+  "revenue": [
+   "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
+  ],
+  "rpo": [
+   "us-gaap:RevenueRemainingPerformanceObligation"
+  ],
+  "sbc": [
+   "us-gaap:ShareBasedCompensation"
+  ],
+  "total_assets": [
+   "us-gaap:Assets"
+  ],
+  "total_equity": [
+   "us-gaap:StockholdersEquity"
+  ]
+ },
+ "inventory": [
+  {
+   "metric_code": "capital_expenditures",
+   "concept": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "cash_and_investments",
+   "concept": "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+   "unit": "USD",
+   "rows": 18,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "cash_and_investments",
+   "concept": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+   "unit": "USD",
+   "rows": 6,
+   "first_period": "2022-12-31",
+   "last_period": "2024-12-31",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "deferred_revenue",
+   "concept": "us-gaap:ContractWithCustomerLiability",
+   "unit": "USD",
+   "rows": 12,
+   "first_period": "2024-03-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "deferred_revenue",
+   "concept": "us-gaap:ContractWithCustomerLiabilityCurrent",
+   "unit": "USD",
+   "rows": 1,
+   "first_period": "2024-12-31",
+   "last_period": "2024-12-31",
+   "filings": [
+    "2025-05-15"
+   ]
+  },
+  {
+   "metric_code": "depreciation_depletion_amortization",
+   "concept": "us-gaap:Depreciation",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "dividend_payout_and_coverage",
+   "concept": "us-gaap:CommonStockDividendsPerShareDeclared",
+   "unit": "USD/shares",
+   "rows": 12,
+   "first_period": "2024-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "dividends_and_buybacks",
+   "concept": "us-gaap:PaymentsForRepurchaseOfCommonStock",
+   "unit": "USD",
+   "rows": 2,
+   "first_period": "2024-09-30",
+   "last_period": "2025-09-30",
+   "filings": [
+    "2025-11-13"
+   ]
+  },
+  {
+   "metric_code": "eps_basic_diluted",
+   "concept": "us-gaap:EarningsPerShareBasic",
+   "unit": "USD/shares",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "inventory_and_days",
+   "concept": "us-gaap:CostOfGoodsAndServicesSold",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "net_income",
+   "concept": "us-gaap:NetIncomeLoss",
+   "unit": "USD",
+   "rows": 22,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-04-22",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "net_working_capital",
+   "concept": "us-gaap:AccountsPayableCurrent",
+   "unit": "USD",
+   "rows": 12,
+   "first_period": "2024-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "operating_cash_flow",
+   "concept": "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "operating_income",
+   "concept": "us-gaap:OperatingIncomeLoss",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "ppe_net",
+   "concept": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment",
+   "unit": "USD",
+   "rows": 12,
+   "first_period": "2024-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "rd_intensity",
+   "concept": "us-gaap:ResearchAndDevelopmentExpense",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "remaining_performance_obligation",
+   "concept": "us-gaap:RevenueRemainingPerformanceObligation",
+   "unit": "USD",
+   "rows": 6,
+   "first_period": "2025-03-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "stock_based_compensation",
+   "concept": "us-gaap:ShareBasedCompensation",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "total_assets",
+   "concept": "us-gaap:Assets",
+   "unit": "USD",
+   "rows": 12,
+   "first_period": "2024-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "total_debt",
+   "concept": "us-gaap:LongTermDebt",
+   "unit": "USD",
+   "rows": 10,
+   "first_period": "2024-12-31",
+   "last_period": "2026-03-31",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08"
+   ]
+  },
+  {
+   "metric_code": "total_equity",
+   "concept": "us-gaap:StockholdersEquity",
+   "unit": "USD",
+   "rows": 32,
+   "first_period": "2022-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  },
+  {
+   "metric_code": "total_revenue",
+   "concept": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+   "unit": "USD",
+   "rows": 13,
+   "first_period": "2023-12-31",
+   "last_period": "2026-06-30",
+   "filings": [
+    "2025-05-15",
+    "2025-08-13",
+    "2025-11-13",
+    "2026-03-02",
+    "2026-05-08",
+    "2026-08-12"
+   ]
+  }
+ ],
+ "annual": [
+  {
+   "fiscal_year": 2023,
+   "label": "FY2023",
+   "period_end": "2023-12-31",
+   "values": {
+    "cost_of_revenue": 69000000.0,
+    "depreciation": 101000000.0,
+    "operating_cash_flow": 1833000000.0,
+    "net_income": -594000000.0,
+    "operating_income": -14000000.0,
+    "capex": 2943000000.0,
+    "rd_expense": 21000000.0,
+    "revenue": 229000000.0,
+    "sbc": 15000000.0,
+    "eps_basic": -3.09,
+    "gross_profit": 160000000.0,
+    "ebitda_derived": 87000000.0,
+    "ebitda_plus_sbc_derived": 102000000.0,
+    "shares_basic_implied": 192233009.70873788,
+    "free_cash_flow": -1110000000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "depreciation": "us-gaap:Depreciation \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "eps_basic": "us-gaap:EarningsPerShareBasic \u00b7 FY 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 500000.0,
+    "ebitda_derived": 1000000.0,
+    "ebitda_plus_sbc_derived": 1500000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
+   "margins": {
+    "gross_margin": 0.6986899563318777,
+    "operating_margin": -0.0611353711790393,
+    "net_margin": -2.593886462882096,
+    "ebitda_margin": 0.3799126637554585,
+    "ocf_margin": 8.004366812227074,
+    "fcf_margin": -4.847161572052402,
+    "capex_to_revenue": 12.851528384279476,
+    "sbc_to_revenue": 0.06550218340611354,
+    "rd_to_revenue": 0.09170305676855896
+   },
+   "growth": {}
+  },
+  {
+   "fiscal_year": 2024,
+   "label": "FY2024",
+   "period_end": "2024-12-31",
+   "values": {
+    "cost_of_revenue": 493000000.0,
+    "depreciation": 861000000.0,
+    "operating_cash_flow": 2749000000.0,
+    "net_income": -863000000.0,
+    "operating_income": 324000000.0,
+    "capex": 8702000000.0,
+    "rd_expense": 56000000.0,
+    "revenue": 1915000000.0,
+    "sbc": 31000000.0,
+    "dps_declared": 0.0,
+    "eps_basic": -4.3,
+    "gross_profit": 1422000000.0,
+    "ebitda_derived": 1185000000.0,
+    "ebitda_plus_sbc_derived": 1216000000.0,
+    "shares_basic_implied": 200697674.41860467,
+    "free_cash_flow": -5953000000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "depreciation": "us-gaap:Depreciation \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "dps_declared": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "eps_basic": "us-gaap:EarningsPerShareBasic \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 500000.0,
+    "ebitda_derived": 1000000.0,
+    "ebitda_plus_sbc_derived": 1500000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
+   "margins": {
+    "gross_margin": 0.7425587467362924,
+    "operating_margin": 0.1691906005221932,
+    "net_margin": -0.4506527415143603,
+    "ebitda_margin": 0.618798955613577,
+    "ocf_margin": 1.435509138381201,
+    "fcf_margin": -3.108616187989556,
+    "capex_to_revenue": 4.544125326370757,
+    "sbc_to_revenue": 0.01618798955613577,
+    "rd_to_revenue": 0.029242819843342035
+   },
+   "growth": {
+    "revenue_yoy": 7.362445414847162,
+    "revenue_yoy_change": 1686000000.0,
+    "gross_profit_yoy": 7.887499999999999,
+    "gross_profit_yoy_change": 1262000000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": 338000000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -269000000.0,
+    "ebitda_derived_yoy": 12.620689655172415,
+    "ebitda_derived_yoy_change": 1098000000.0,
+    "ebitda_derived_yoy_range": [
+     12.454545454545455,
+     12.790697674418604
+    ],
+    "operating_cash_flow_yoy": 0.49972722313147844,
+    "operating_cash_flow_yoy_change": 916000000.0,
+    "eps_basic_yoy": null,
+    "eps_basic_yoy_change": -1.21
+   }
+  },
+  {
+   "fiscal_year": 2025,
+   "label": "FY2025",
+   "period_end": "2025-12-31",
+   "values": {
+    "cost_of_revenue": 1453000000.0,
+    "depreciation": 2400000000.0,
+    "operating_cash_flow": 3058000000.0,
+    "net_income": -1167000000.0,
+    "operating_income": -46000000.0,
+    "capex": 10309000000.0,
+    "rd_expense": 352000000.0,
+    "revenue": 5131000000.0,
+    "sbc": 630000000.0,
+    "dps_declared": 0.0,
+    "eps_basic": -2.75,
+    "gross_profit": 3678000000.0,
+    "ebitda_derived": 2354000000.0,
+    "ebitda_plus_sbc_derived": 2984000000.0,
+    "shares_basic_implied": 424363636.3636364,
+    "free_cash_flow": -7251000000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "depreciation": "us-gaap:Depreciation \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "dps_declared": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "eps_basic": "us-gaap:EarningsPerShareBasic \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 50000000.0,
+    "ebitda_derived": 50500000.0,
+    "ebitda_plus_sbc_derived": 51000000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
+   "margins": {
+    "gross_margin": 0.7168193334632625,
+    "operating_margin": -0.00896511401286299,
+    "net_margin": -0.22744104463067627,
+    "ebitda_margin": 0.4587799649191191,
+    "ocf_margin": 0.5959851880725004,
+    "fcf_margin": -1.4131748197232508,
+    "capex_to_revenue": 2.009160007795751,
+    "sbc_to_revenue": 0.12278308321964529,
+    "rd_to_revenue": 0.0686026115766907
+   },
+   "growth": {
+    "revenue_yoy": 1.679373368146214,
+    "revenue_yoy_change": 3216000000.0,
+    "gross_profit_yoy": 1.5864978902953588,
+    "gross_profit_yoy_change": 2256000000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": -370000000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -304000000.0,
+    "ebitda_derived_yoy": 0.9864978902953587,
+    "ebitda_derived_yoy_change": 1169000000.0,
+    "ebitda_derived_yoy_range": [
+     0.9422428330522765,
+     1.0308277027027026
+    ],
+    "operating_cash_flow_yoy": 0.11240451073117508,
+    "operating_cash_flow_yoy_change": 309000000.0,
+    "eps_basic_yoy": null,
+    "eps_basic_yoy_change": 1.5499999999999998
+   }
+  }
+ ],
+ "quarterly": [
+  {
+   "fiscal_year": 2024,
+   "quarter": 3,
+   "label": "Q3 FY2024",
+   "period_end": "2024-09-30",
+   "values": {
+    "cost_of_revenue": 143134000.0,
+    "depreciation": 253000000.0,
+    "operating_cash_flow": 641222000.0,
+    "net_income": -359807000.0,
+    "operating_income": 117116000.0,
+    "capex": 1215155000.0,
+    "rd_expense": 14000000.0,
+    "revenue": 583941000.0,
+    "sbc": 7617000.0,
+    "eps_basic_ytd": -4.06,
+    "gross_profit": 440807000.0,
+    "ebitda_derived": 370116000.0,
+    "ebitda_plus_sbc_derived": 377733000.0,
+    "free_cash_flow": -573933000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:Depreciation \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD6 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "eps_basic_ytd": "us-gaap:EarningsPerShareBasic \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1001000.0,
+    "ebitda_plus_sbc_derived": 1002000.0,
+    "rd_expense": 1000000.0
+   },
+   "margins": {
+    "gross_margin": 0.7548827706908746,
+    "operating_margin": 0.20056135808240902,
+    "net_margin": -0.6161701267765065,
+    "ebitda_margin": 0.6338243075927191,
+    "ocf_margin": 1.0980938142723322,
+    "fcf_margin": -0.9828612822185803,
+    "capex_to_revenue": 2.0809550964909125,
+    "sbc_to_revenue": 0.01304412603328076,
+    "rd_to_revenue": 0.023975024874088306
+   },
+   "growth": {}
+  },
+  {
+   "fiscal_year": 2024,
+   "quarter": 4,
+   "label": "Q4 FY2024",
+   "period_end": "2024-12-31",
+   "values": {
+    "cost_of_revenue": 181808000.0,
+    "depreciation": 365000000.0,
+    "operating_cash_flow": 186564000.0,
+    "net_income": -50924000.0,
+    "operating_income": 112316000.0,
+    "capex": 3497749000.0,
+    "rd_expense": 21000000.0,
+    "revenue": 747004000.0,
+    "sbc": 7534000.0,
+    "gross_profit": 565196000.0,
+    "ebitda_derived": 477316000.0,
+    "ebitda_plus_sbc_derived": 484850000.0,
+    "free_cash_flow": -3311185000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "depreciation": "us-gaap:Depreciation \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:Depreciation \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 FY 2024-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD9 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500500.0,
+    "cost_of_revenue": 500500.0,
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1500500.0,
+    "ebitda_plus_sbc_derived": 2001000.0,
+    "free_cash_flow": 1001000.0,
+    "gross_profit": 1001000.0,
+    "net_income": 500500.0,
+    "operating_cash_flow": 500500.0,
+    "operating_income": 500500.0,
+    "rd_expense": 1000000.0,
+    "revenue": 500500.0,
+    "sbc": 500500.0
+   },
+   "margins": {
+    "gross_margin": 0.7566170997745661,
+    "operating_margin": 0.15035528591547034,
+    "net_margin": -0.06817098703621399,
+    "ebitda_margin": 0.6389738207559799,
+    "ocf_margin": 0.24974966666845158,
+    "fcf_margin": -4.432620173385953,
+    "capex_to_revenue": 4.682369840054404,
+    "sbc_to_revenue": 0.010085622031475066,
+    "rd_to_revenue": 0.02811229926479644
+   },
+   "growth": {}
+  },
+  {
+   "fiscal_year": 2025,
+   "quarter": 1,
+   "label": "Q1 FY2025",
+   "period_end": "2025-03-31",
+   "values": {
+    "cost_of_revenue": 262394000.0,
+    "depreciation": 443000000.0,
+    "operating_cash_flow": 61168000.0,
+    "net_income": -314641000.0,
+    "operating_income": -27470000.0,
+    "capex": 1407359000.0,
+    "rd_expense": 70000000.0,
+    "revenue": 981632000.0,
+    "sbc": 183973000.0,
+    "dps_declared": 0.0,
+    "eps_basic": -1.4,
+    "gross_profit": 719238000.0,
+    "ebitda_derived": 415530000.0,
+    "ebitda_plus_sbc_derived": 599503000.0,
+    "shares_basic_implied": 224743571.42857143,
+    "free_cash_flow": -1346191000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2026-05-08",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "dps_declared": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "eps_basic": "us-gaap:EarningsPerShareBasic \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2026-05-08",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 500000.0,
+    "ebitda_derived": 505000.0,
+    "ebitda_plus_sbc_derived": 505500.0,
+    "rd_expense": 500000.0
+   },
+   "margins": {
+    "gross_margin": 0.7326961631242666,
+    "operating_margin": -0.027984010301212673,
+    "net_margin": -0.3205284668796453,
+    "ebitda_margin": 0.42330527122180206,
+    "ocf_margin": 0.062312557047855,
+    "fcf_margin": -1.371380517342548,
+    "capex_to_revenue": 1.4336930743904028,
+    "sbc_to_revenue": 0.18741544692919546,
+    "rd_to_revenue": 0.07130981875081496
+   },
+   "growth": {
+    "revenue_yoy": 4.202518496533887,
+    "revenue_yoy_change": 792948000.0,
+    "gross_profit_yoy": 4.555505777667923,
+    "gross_profit_yoy_change": 589774000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": -44317000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -185393000.0,
+    "ebitda_derived_yoy": 3.335346959216251,
+    "ebitda_derived_yoy_change": 319683000.0,
+    "operating_cash_flow_yoy": -0.9700015399418745,
+    "operating_cash_flow_yoy_change": -1977870000.0,
+    "eps_basic_yoy": null,
+    "eps_basic_yoy_change": -0.7799999999999999
+   }
+  },
+  {
+   "fiscal_year": 2025,
+   "quarter": 2,
+   "label": "Q2 FY2025",
+   "period_end": "2025-06-30",
+   "values": {
+    "cost_of_revenue": 312667000.0,
+    "depreciation": 553000000.0,
+    "operating_cash_flow": -251251000.0,
+    "net_income": -290509000.0,
+    "operating_income": 19209000.0,
+    "capex": 2452992000.0,
+    "rd_expense": 80000000.0,
+    "revenue": 1212788000.0,
+    "sbc": 145005000.0,
+    "dps_declared_ytd": 0.0,
+    "eps_basic_ytd": -1.73,
+    "gross_profit": 900121000.0,
+    "ebitda_derived": 572209000.0,
+    "ebitda_plus_sbc_derived": 717214000.0,
+    "free_cash_flow": -2704243000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:Depreciation \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2026-05-08",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD3 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "dps_declared_ytd": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "eps_basic_ytd": "us-gaap:EarningsPerShareBasic \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2026-08-12",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 1000000.0,
+    "ebitda_derived": 1005500.0,
+    "ebitda_plus_sbc_derived": 1006500.0,
+    "rd_expense": 1000000.0
+   },
+   "margins": {
+    "gross_margin": 0.7421915454308585,
+    "operating_margin": 0.015838712124460336,
+    "net_margin": -0.239538155060901,
+    "ebitda_margin": 0.47181288073430805,
+    "ocf_margin": -0.2071681118216869,
+    "fcf_margin": -2.2297738763905977,
+    "capex_to_revenue": 2.022605764568911,
+    "sbc_to_revenue": 0.119563353199405,
+    "rd_to_revenue": 0.06596371336127996
+   },
+   "growth": {
+    "revenue_yoy": 2.067468276631316,
+    "revenue_yoy_change": 817417000.0,
+    "gross_profit_yoy": 2.1414217559583015,
+    "gross_profit_yoy_change": 613588000.0,
+    "operating_income_yoy": -0.7528467209634462,
+    "operating_income_yoy_change": -58512000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": 32512000.0,
+    "ebitda_derived_yoy": 1.3672291608921028,
+    "ebitda_derived_yoy_change": 330488000.0,
+    "operating_cash_flow_yoy": null,
+    "operating_cash_flow_yoy_change": -133427000.0
+   }
+  },
+  {
+   "fiscal_year": 2025,
+   "quarter": 3,
+   "label": "Q3 FY2025",
+   "period_end": "2025-09-30",
+   "values": {
+    "cost_of_revenue": 368824000.0,
+    "depreciation": 604000000.0,
+    "operating_cash_flow": 1689134000.0,
+    "net_income": -110124000.0,
+    "operating_income": 51850000.0,
+    "capex": 2388888000.0,
+    "rd_expense": 93000000.0,
+    "revenue": 1364676000.0,
+    "sbc": 144431000.0,
+    "dps_declared_ytd": 0.0,
+    "eps_basic_ytd": -1.81,
+    "gross_profit": 995852000.0,
+    "ebitda_derived": 655850000.0,
+    "ebitda_plus_sbc_derived": 800281000.0,
+    "free_cash_flow": -699754000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:Depreciation \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2026-08-12",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2026-08-12",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD6 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "dps_declared_ytd": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "eps_basic_ytd": "us-gaap:EarningsPerShareBasic \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "depreciation": 50500000.0,
+    "ebitda_derived": 50501000.0,
+    "ebitda_plus_sbc_derived": 50502000.0,
+    "rd_expense": 1000000.0
+   },
+   "margins": {
+    "gross_margin": 0.7297351166137603,
+    "operating_margin": 0.03799436642836834,
+    "net_margin": -0.08069607731065835,
+    "ebitda_margin": 0.48059026464889837,
+    "ocf_margin": 1.2377546025576767,
+    "fcf_margin": -0.5127620035818026,
+    "capex_to_revenue": 1.7505166061394792,
+    "sbc_to_revenue": 0.10583537777465127,
+    "rd_to_revenue": 0.06814804393130677
+   },
+   "growth": {
+    "revenue_yoy": 1.3370100746479525,
+    "revenue_yoy_change": 780735000.0,
+    "gross_profit_yoy": 1.2591565015982051,
+    "gross_profit_yoy_change": 555045000.0,
+    "operating_income_yoy": -0.5572765463301342,
+    "operating_income_yoy_change": -65266000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": 249683000.0,
+    "ebitda_derived_yoy": 0.7720120178538621,
+    "ebitda_derived_yoy_change": 285734000.0,
+    "ebitda_derived_yoy_range": [
+     0.6311540565374263,
+     0.9136339623152676
+    ],
+    "operating_cash_flow_yoy": 1.634242118954122,
+    "operating_cash_flow_yoy_change": 1047912000.0
+   }
+  },
+  {
+   "fiscal_year": 2025,
+   "quarter": 4,
+   "label": "Q4 FY2025",
+   "period_end": "2025-12-31",
+   "values": {
+    "cost_of_revenue": 509115000.0,
+    "depreciation": 800000000.0,
+    "operating_cash_flow": 1558949000.0,
+    "net_income": -451726000.0,
+    "operating_income": -89589000.0,
+    "capex": 4059761000.0,
+    "rd_expense": 109000000.0,
+    "revenue": 1571904000.0,
+    "sbc": 156591000.0,
+    "gross_profit": 1062789000.0,
+    "ebitda_derived": 710411000.0,
+    "ebitda_plus_sbc_derived": 867002000.0,
+    "free_cash_flow": -2500812000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "depreciation": "us-gaap:Depreciation \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:Depreciation \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 FY 2025-12-31 \u00b7 10-K filed 2026-03-02 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD9 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500500.0,
+    "cost_of_revenue": 500500.0,
+    "depreciation": 100000000.0,
+    "ebitda_derived": 100500500.0,
+    "ebitda_plus_sbc_derived": 101001000.0,
+    "free_cash_flow": 1001000.0,
+    "gross_profit": 1001000.0,
+    "net_income": 500500.0,
+    "operating_cash_flow": 500500.0,
+    "operating_income": 500500.0,
+    "rd_expense": 1000000.0,
+    "revenue": 500500.0,
+    "sbc": 500500.0
+   },
+   "margins": {
+    "gross_margin": 0.6761157169903506,
+    "operating_margin": -0.0569939385611335,
+    "net_margin": -0.28737505598306257,
+    "ebitda_margin": 0.45194299397418675,
+    "ocf_margin": 0.9917584025487561,
+    "fcf_margin": -1.590944485159399,
+    "capex_to_revenue": 2.5827028877081553,
+    "sbc_to_revenue": 0.0996186790032979,
+    "rd_to_revenue": 0.06934265705793738
+   },
+   "growth": {
+    "revenue_yoy": 1.1042778887395515,
+    "revenue_yoy_change": 824900000.0,
+    "gross_profit_yoy": 0.8803901655354958,
+    "gross_profit_yoy_change": 497593000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": -201905000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -400802000.0,
+    "ebitda_derived_yoy": 0.48834524717378014,
+    "ebitda_derived_yoy_change": 233095000.0,
+    "ebitda_derived_yoy_range": [
+     0.27378755744632866,
+     0.7042561665183249
+    ],
+    "operating_cash_flow_yoy": 7.356108359597778,
+    "operating_cash_flow_yoy_change": 1372385000.0
+   }
+  },
+  {
+   "fiscal_year": 2026,
+   "quarter": 1,
+   "label": "Q1 FY2026",
+   "period_end": "2026-03-31",
+   "values": {
+    "cost_of_revenue": 716000000.0,
+    "depreciation": 1100000000.0,
+    "operating_cash_flow": 2984000000.0,
+    "net_income": -740000000.0,
+    "operating_income": -144000000.0,
+    "capex": 7695000000.0,
+    "rd_expense": 104000000.0,
+    "revenue": 2078000000.0,
+    "sbc": 153000000.0,
+    "dps_declared": 0.0,
+    "eps_basic": -1.4,
+    "gross_profit": 1362000000.0,
+    "ebitda_derived": 956000000.0,
+    "ebitda_plus_sbc_derived": 1109000000.0,
+    "shares_basic_implied": 528571428.5714286,
+    "free_cash_flow": -4711000000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "dps_declared": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "eps_basic": "us-gaap:EarningsPerShareBasic \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "shares_basic_implied": "net_income \u00f7 eps_basic (implied weighted-average basic shares)",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 500000.0,
+    "cost_of_revenue": 500000.0,
+    "depreciation": 50000000.0,
+    "ebitda_derived": 50500000.0,
+    "ebitda_plus_sbc_derived": 51000000.0,
+    "free_cash_flow": 1000000.0,
+    "gross_profit": 1000000.0,
+    "net_income": 500000.0,
+    "operating_cash_flow": 500000.0,
+    "operating_income": 500000.0,
+    "rd_expense": 500000.0,
+    "revenue": 500000.0,
+    "sbc": 500000.0
+   },
+   "margins": {
+    "gross_margin": 0.6554379210779596,
+    "operating_margin": -0.06929740134744947,
+    "net_margin": -0.35611164581328203,
+    "ebitda_margin": 0.4600577478344562,
+    "ocf_margin": 1.4359961501443697,
+    "fcf_margin": -2.2670837343599617,
+    "capex_to_revenue": 3.703079884504331,
+    "sbc_to_revenue": 0.07362848893166506,
+    "rd_to_revenue": 0.05004812319538017
+   },
+   "growth": {
+    "revenue_yoy": 1.1168829052027642,
+    "revenue_yoy_change": 1096368000.0,
+    "gross_profit_yoy": 0.8936708015983583,
+    "gross_profit_yoy_change": 642762000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": -116530000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -425359000.0,
+    "ebitda_derived_yoy": 1.300676244795803,
+    "ebitda_derived_yoy_change": 540470000.0,
+    "ebitda_derived_yoy_range": [
+     1.1764995733532033,
+     1.425155111137883
+    ],
+    "operating_cash_flow_yoy": 47.783677739994765,
+    "operating_cash_flow_yoy_change": 2922832000.0,
+    "eps_basic_yoy": null,
+    "eps_basic_yoy_change": 0.0
+   }
+  },
+  {
+   "fiscal_year": 2026,
+   "quarter": 2,
+   "label": "Q2 FY2026",
+   "period_end": "2026-06-30",
+   "values": {
+    "cost_of_revenue": 879000000.0,
+    "depreciation": 1400000000.0,
+    "operating_cash_flow": 679000000.0,
+    "net_income": -626000000.0,
+    "operating_income": -49000000.0,
+    "capex": 6422000000.0,
+    "rd_expense": 117000000.0,
+    "revenue": 2575000000.0,
+    "sbc": 165000000.0,
+    "dps_declared_ytd": 0.0,
+    "eps_basic_ytd": -2.53,
+    "gross_profit": 1696000000.0,
+    "ebitda_derived": 1351000000.0,
+    "ebitda_plus_sbc_derived": 1516000000.0,
+    "free_cash_flow": -5743000000.0
+   },
+   "sources": {
+    "cost_of_revenue": "us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:CostOfGoodsAndServicesSold \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "depreciation": "us-gaap:Depreciation \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:Depreciation \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_cash_flow": "us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:NetCashProvidedByUsedInOperatingActivities \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "net_income": "us-gaap:NetIncomeLoss \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:NetIncomeLoss \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "operating_income": "us-gaap:OperatingIncomeLoss \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:OperatingIncomeLoss \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "capex": "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:PaymentsToAcquirePropertyPlantAndEquipment \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "rd_expense": "us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:ResearchAndDevelopmentExpense \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "revenue": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "sbc": "us-gaap:ShareBasedCompensation \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12 \u2212 us-gaap:ShareBasedCompensation \u00b7 YTD3 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "dps_declared_ytd": "us-gaap:CommonStockDividendsPerShareDeclared \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "eps_basic_ytd": "us-gaap:EarningsPerShareBasic \u00b7 YTD6 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+    "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+    "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+    "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+   },
+   "uncertainty": {
+    "capex": 1000000.0,
+    "cost_of_revenue": 1000000.0,
+    "depreciation": 100000000.0,
+    "ebitda_derived": 101000000.0,
+    "ebitda_plus_sbc_derived": 102000000.0,
+    "free_cash_flow": 2000000.0,
+    "gross_profit": 2000000.0,
+    "net_income": 1000000.0,
+    "operating_cash_flow": 1000000.0,
+    "operating_income": 1000000.0,
+    "rd_expense": 1000000.0,
+    "revenue": 1000000.0,
+    "sbc": 1000000.0
+   },
+   "margins": {
+    "gross_margin": 0.6586407766990291,
+    "operating_margin": -0.019029126213592235,
+    "net_margin": -0.24310679611650485,
+    "ebitda_margin": 0.5246601941747573,
+    "ocf_margin": 0.2636893203883495,
+    "fcf_margin": -2.2302912621359225,
+    "capex_to_revenue": 2.493980582524272,
+    "sbc_to_revenue": 0.06407766990291262,
+    "rd_to_revenue": 0.04543689320388349
+   },
+   "growth": {
+    "revenue_yoy": 1.1232070238161986,
+    "revenue_yoy_change": 1362212000.0,
+    "gross_profit_yoy": 0.8841911254153609,
+    "gross_profit_yoy_change": 795879000.0,
+    "operating_income_yoy": null,
+    "operating_income_yoy_change": -68209000.0,
+    "net_income_yoy": null,
+    "net_income_yoy_change": -335491000.0,
+    "ebitda_derived_yoy": 1.3610254295196333,
+    "ebitda_derived_yoy_change": 778791000.0,
+    "ebitda_derived_yoy_range": [
+     1.1806845430462767,
+     1.5420012307347557
+    ],
+    "operating_cash_flow_yoy": null,
+    "operating_cash_flow_yoy_change": 930251000.0
+   }
+  }
+ ],
+ "ttm": {
+  "label": "TTM to 2026-06-30",
+  "quarters": [
+   "Q3 FY2025",
+   "Q4 FY2025",
+   "Q1 FY2026",
+   "Q2 FY2026"
+  ],
+  "values": {
+   "cost_of_revenue": 2472939000.0,
+   "depreciation": 3904000000.0,
+   "operating_cash_flow": 6911083000.0,
+   "net_income": -1927850000.0,
+   "operating_income": -230739000.0,
+   "capex": 20565649000.0,
+   "rd_expense": 423000000.0,
+   "revenue": 7589580000.0,
+   "sbc": 619022000.0,
+   "gross_profit": 5116641000.0,
+   "ebitda_derived": 3673261000.0,
+   "ebitda_plus_sbc_derived": 4292283000.0,
+   "free_cash_flow": -13654566000.0
+  },
+  "sources": {
+   "gross_profit": "revenue \u2212 cost_of_revenue (as tagged)",
+   "ebitda_derived": "operating_income + depreciation (GAAP proxy, not adj. EBITDA)",
+   "ebitda_plus_sbc_derived": "operating_income + depreciation + sbc",
+   "free_cash_flow": "operating_cash_flow \u2212 capex (PP&E purchases only)"
+  },
+  "uncertainty": {
+   "capex": 1000500.0,
+   "cost_of_revenue": 1000500.0,
+   "depreciation": 100500000.0,
+   "ebitda_derived": 101500500.0,
+   "ebitda_plus_sbc_derived": 102501000.0,
+   "free_cash_flow": 2001000.0,
+   "gross_profit": 2005500.0,
+   "net_income": 1005000.0,
+   "operating_cash_flow": 1000500.0,
+   "operating_income": 1000500.0,
+   "rd_expense": 1500000.0,
+   "revenue": 1005000.0,
+   "sbc": 1000500.0
+  },
+  "margins": {
+   "gross_margin": 0.6741665546710095,
+   "operating_margin": -0.030402077585320927,
+   "net_margin": -0.2540127385178099,
+   "ebitda_margin": 0.4839873879714029,
+   "ocf_margin": 0.9106015089109015,
+   "fcf_margin": -1.799120109413169,
+   "capex_to_revenue": 2.7097216183240707,
+   "sbc_to_revenue": 0.08156208907475776,
+   "rd_to_revenue": 0.05573430940842576
+  }
+ },
+ "balance_sheet": [
+  {
+   "period_end": "2022-12-31",
+   "fiscal_year": 2022,
+   "label": "FY2022",
+   "values": {
+    "cash_incl_restricted": 7000000.0,
+    "total_equity": -11000000.0
+   },
+   "sources": {
+    "cash_incl_restricted": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents \u00b7 2022-12-31 \u00b7 10-K filed 2026-03-02",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2022-12-31 \u00b7 10-K filed 2026-03-02"
+   }
+  },
+  {
+   "period_end": "2023-12-31",
+   "fiscal_year": 2023,
+   "label": "FY2023",
+   "values": {
+    "cash": 217000000.0,
+    "cash_incl_restricted": 480075000.0,
+    "total_equity": -596591000.0
+   },
+   "sources": {
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2023-12-31 \u00b7 10-K filed 2026-03-02",
+    "cash_incl_restricted": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents \u00b7 2023-12-31 \u00b7 10-Q filed 2025-11-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2023-12-31 \u00b7 10-Q filed 2025-11-13"
+   }
+  },
+  {
+   "period_end": "2024-03-31",
+   "fiscal_year": 2024,
+   "label": "Q1 FY2024",
+   "values": {
+    "cash": 1306872000.0,
+    "deferred_revenue": 4100000000.0,
+    "total_equity": -715555000.0
+   },
+   "sources": {
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2024-03-31 \u00b7 10-Q filed 2025-05-15",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2024-03-31 \u00b7 10-Q filed 2025-05-15",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2024-03-31 \u00b7 10-Q filed 2025-11-13"
+   }
+  },
+  {
+   "period_end": "2024-06-30",
+   "fiscal_year": 2024,
+   "label": "Q2 FY2024",
+   "values": {
+    "cash": 1028044000.0,
+    "total_equity": -1043940000.0
+   },
+   "sources": {
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2024-06-30 \u00b7 10-Q filed 2025-08-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2024-06-30 \u00b7 10-Q filed 2025-11-13"
+   }
+  },
+  {
+   "period_end": "2024-09-30",
+   "fiscal_year": 2024,
+   "label": "Q3 FY2024",
+   "values": {
+    "cash": 1355216000.0,
+    "total_equity": -344027000.0
+   },
+   "sources": {
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2024-09-30 \u00b7 10-Q filed 2025-11-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2024-09-30 \u00b7 10-Q filed 2025-11-13"
+   }
+  },
+  {
+   "period_end": "2024-12-31",
+   "fiscal_year": 2024,
+   "label": "FY2024",
+   "values": {
+    "accounts_payable": 868259000.0,
+    "accumulated_depreciation": 965231000.0,
+    "total_assets": 17832599000.0,
+    "cash": 1361083000.0,
+    "cash_incl_restricted": 2035000000.0,
+    "deferred_revenue": 4100000000.0,
+    "deferred_revenue_current": 768927000.0,
+    "long_term_debt": 7926340000.0,
+    "total_equity": -413598000.0,
+    "net_debt": 6565257000.0
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "total_assets": "us-gaap:Assets \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "cash_incl_restricted": "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents \u00b7 2024-12-31 \u00b7 10-Q filed 2026-08-12",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2024-12-31 \u00b7 10-K filed 2026-03-02",
+    "deferred_revenue_current": "us-gaap:ContractWithCustomerLiabilityCurrent \u00b7 2024-12-31 \u00b7 10-Q filed 2025-05-15",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2024-12-31 \u00b7 10-Q filed 2025-11-13",
+    "net_debt": "long_term_debt \u2212 cash"
+   }
+  },
+  {
+   "period_end": "2025-03-31",
+   "fiscal_year": 2025,
+   "label": "Q1 FY2025",
+   "values": {
+    "accounts_payable": 1242100000.0,
+    "accumulated_depreciation": 1399557000.0,
+    "total_assets": 21860383000.0,
+    "cash": 1276456000.0,
+    "deferred_revenue": 4000000000.0,
+    "long_term_debt": 8711666000.0,
+    "rpo": 14700000000.0,
+    "total_equity": 1906123000.0,
+    "net_debt": 7435210000.0,
+    "debt_to_equity": 4.570358785870586
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "total_assets": "us-gaap:Assets \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2025-03-31 \u00b7 10-Q filed 2025-05-15",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2025-03-31 \u00b7 10-Q filed 2025-11-13",
+    "net_debt": "long_term_debt \u2212 cash",
+    "debt_to_equity": "long_term_debt \u00f7 total_equity"
+   }
+  },
+  {
+   "period_end": "2025-06-30",
+   "fiscal_year": 2025,
+   "label": "Q2 FY2025",
+   "values": {
+    "accounts_payable": 1226579000.0,
+    "accumulated_depreciation": 1953607000.0,
+    "total_assets": 26241363000.0,
+    "cash": 1152883000.0,
+    "deferred_revenue": 4800000000.0,
+    "long_term_debt": 11051501000.0,
+    "rpo": 30100000000.0,
+    "total_equity": 2657647000.0,
+    "net_debt": 9898618000.0,
+    "debt_to_equity": 4.1583780690212055
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "total_assets": "us-gaap:Assets \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2025-06-30 \u00b7 10-Q filed 2025-08-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2025-06-30 \u00b7 10-Q filed 2025-11-13",
+    "net_debt": "long_term_debt \u2212 cash",
+    "debt_to_equity": "long_term_debt \u00f7 total_equity"
+   }
+  },
+  {
+   "period_end": "2025-09-30",
+   "fiscal_year": 2025,
+   "label": "Q3 FY2025",
+   "values": {
+    "accounts_payable": 1156978000.0,
+    "accumulated_depreciation": 2574578000.0,
+    "total_assets": 32910498000.0,
+    "cash": 1894399000.0,
+    "deferred_revenue": 5300000000.0,
+    "long_term_debt": 14034934000.0,
+    "rpo": 50000000000.0,
+    "total_equity": 3878014000.0,
+    "net_debt": 12140535000.0,
+    "debt_to_equity": 3.619103489569661
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "total_assets": "us-gaap:Assets \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2025-09-30 \u00b7 10-Q filed 2025-11-13",
+    "net_debt": "long_term_debt \u2212 cash",
+    "debt_to_equity": "long_term_debt \u00f7 total_equity"
+   }
+  },
+  {
+   "period_end": "2025-12-31",
+   "fiscal_year": 2025,
+   "label": "FY2025",
+   "values": {
+    "accounts_payable": 1623000000.0,
+    "accumulated_depreciation": 3384000000.0,
+    "total_assets": 49302000000.0,
+    "cash": 3127000000.0,
+    "deferred_revenue": 8200000000.0,
+    "long_term_debt": 21373000000.0,
+    "rpo": 60700000000.0,
+    "total_equity": 3335000000.0,
+    "net_debt": 18246000000.0,
+    "debt_to_equity": 6.408695652173913
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "total_assets": "us-gaap:Assets \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2025-12-31 \u00b7 10-Q filed 2026-05-08",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2025-12-31 \u00b7 10-K filed 2026-03-02",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2025-12-31 \u00b7 10-Q filed 2026-08-12",
+    "net_debt": "long_term_debt \u2212 cash",
+    "debt_to_equity": "long_term_debt \u00f7 total_equity"
+   }
+  },
+  {
+   "period_end": "2026-03-31",
+   "fiscal_year": 2026,
+   "label": "Q1 FY2026",
+   "values": {
+    "accounts_payable": 3371000000.0,
+    "accumulated_depreciation": 4509000000.0,
+    "total_assets": 55573000000.0,
+    "cash": 2244000000.0,
+    "deferred_revenue": 7500000000.0,
+    "long_term_debt": 24859000000.0,
+    "rpo": 98800000000.0,
+    "total_equity": 4759000000.0,
+    "net_debt": 22615000000.0,
+    "debt_to_equity": 5.223576381592771
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "total_assets": "us-gaap:Assets \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "long_term_debt": "us-gaap:LongTermDebt \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2026-03-31 \u00b7 10-Q filed 2026-05-08",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2026-03-31 \u00b7 10-Q filed 2026-08-12",
+    "net_debt": "long_term_debt \u2212 cash",
+    "debt_to_equity": "long_term_debt \u00f7 total_equity"
+   }
+  },
+  {
+   "period_end": "2026-06-30",
+   "fiscal_year": 2026,
+   "label": "Q2 FY2026",
+   "values": {
+    "accounts_payable": 3633000000.0,
+    "accumulated_depreciation": 5886000000.0,
+    "total_assets": 77070000000.0,
+    "cash": 5524000000.0,
+    "deferred_revenue": 9700000000.0,
+    "rpo": 103700000000.0,
+    "total_equity": 5024000000.0
+   },
+   "sources": {
+    "accounts_payable": "us-gaap:AccountsPayableCurrent \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "accumulated_depreciation": "us-gaap:AccumulatedDepreciationDepletionAndAmortizationPropertyPlantAndEquipment \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "total_assets": "us-gaap:Assets \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "cash": "us-gaap:CashAndCashEquivalentsAtCarryingValue \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "deferred_revenue": "us-gaap:ContractWithCustomerLiability \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "rpo": "us-gaap:RevenueRemainingPerformanceObligation \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12",
+    "total_equity": "us-gaap:StockholdersEquity \u00b7 2026-06-30 \u00b7 10-Q filed 2026-08-12"
+   }
+  }
+ ],
+ "restatements": [],
+ "checks": {
+  "misaligned_rows_corroborated": 8,
+  "misaligned_rows_uncorroborated": [],
+  "warnings": [],
+  "precision": [
+   {
+    "period": "FY2023",
+    "field": "ebitda_derived",
+    "value": 87000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 102000000.0,
+    "bound": 1500000.0,
+    "note": "\u00b11.5m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "operating_income",
+    "value": -14000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (4% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "rd_expense",
+    "value": 21000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2023",
+    "field": "sbc",
+    "value": 15000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "FY2024",
+    "field": "sbc",
+    "value": 31000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "depreciation",
+    "value": 2400000000.0,
+    "bound": 50000000.0,
+    "note": "\u00b150.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "ebitda_derived",
+    "value": 2354000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 2984000000.0,
+    "bound": 51000000.0,
+    "note": "\u00b151.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "FY2025",
+    "field": "operating_income",
+    "value": -46000000.0,
+    "bound": 500000.0,
+    "note": "\u00b10.5m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q3 FY2024",
+    "field": "rd_expense",
+    "value": 14000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q4 FY2024",
+    "field": "rd_expense",
+    "value": 21000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q4 FY2024",
+    "field": "sbc",
+    "value": 7534000.0,
+    "bound": 500500.0,
+    "note": "\u00b10.5m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2025",
+    "field": "rd_expense",
+    "value": 80000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "depreciation",
+    "value": 604000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (8% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "ebitda_derived",
+    "value": 655850000.0,
+    "bound": 50501000.0,
+    "note": "\u00b150.5m from rounded filed inputs (8% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 800281000.0,
+    "bound": 50502000.0,
+    "note": "\u00b150.5m from rounded filed inputs (6% of the value)"
+   },
+   {
+    "period": "Q3 FY2025",
+    "field": "rd_expense",
+    "value": 93000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (1% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "depreciation",
+    "value": 800000000.0,
+    "bound": 100000000.0,
+    "note": "\u00b1100.0m from rounded filed inputs (12% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "ebitda_derived",
+    "value": 710411000.0,
+    "bound": 100500500.0,
+    "note": "\u00b1100.5m from rounded filed inputs (14% of the value)"
+   },
+   {
+    "period": "Q4 FY2025",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 867002000.0,
+    "bound": 101001000.0,
+    "note": "\u00b1101.0m from rounded filed inputs (12% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "depreciation",
+    "value": 1100000000.0,
+    "bound": 50000000.0,
+    "note": "\u00b150.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "ebitda_derived",
+    "value": 956000000.0,
+    "bound": 50500000.0,
+    "note": "\u00b150.5m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q1 FY2026",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 1109000000.0,
+    "bound": 51000000.0,
+    "note": "\u00b151.0m from rounded filed inputs (5% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "depreciation",
+    "value": 1400000000.0,
+    "bound": 100000000.0,
+    "note": "\u00b1100.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "ebitda_derived",
+    "value": 1351000000.0,
+    "bound": 101000000.0,
+    "note": "\u00b1101.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 1516000000.0,
+    "bound": 102000000.0,
+    "note": "\u00b1102.0m from rounded filed inputs (7% of the value)"
+   },
+   {
+    "period": "Q2 FY2026",
+    "field": "operating_income",
+    "value": -49000000.0,
+    "bound": 1000000.0,
+    "note": "\u00b11.0m from rounded filed inputs (2% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "depreciation",
+    "value": 3904000000.0,
+    "bound": 100500000.0,
+    "note": "\u00b1100.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "ebitda_derived",
+    "value": 3673261000.0,
+    "bound": 101500500.0,
+    "note": "\u00b1101.5m from rounded filed inputs (3% of the value)"
+   },
+   {
+    "period": "TTM to 2026-06-30",
+    "field": "ebitda_plus_sbc_derived",
+    "value": 4292283000.0,
+    "bound": 102501000.0,
+    "note": "\u00b1102.5m from rounded filed inputs (2% of the value)"
+   }
+  ]
+ },
+ "ignored_forms": {
+  "DEF 14A": 1
+ },
+ "unmapped_concepts": {},
+ "gaps": [
+  "interest_expense",
+  "eps_diluted",
+  "shares_diluted_wavg",
+  "finance_lease_liability",
+  "shares_outstanding",
+  "long_term_debt@2026-06-30 (not tagged in latest filing)"
+ ]
+}

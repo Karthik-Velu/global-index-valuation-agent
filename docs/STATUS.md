@@ -1,7 +1,8 @@
 # Project status & handoff
 
 🔗 **Live app: <https://global-index-valuation-agent.vercel.app>** · Screener:
-<https://global-index-valuation-agent.vercel.app/#/screener> · Watchlists `#/lists` · Alerts `#/alerts`
+<https://global-index-valuation-agent.vercel.app/#/screener> · Watchlists `#/lists` · Alerts `#/alerts` ·
+Key reports <https://global-index-valuation-agent.vercel.app/#/reports>
 (production = `main`, deployed by Vercel's Git integration on every merge).
 
 > Snapshot of where the build is, so work can resume cleanly — **including from a fresh
@@ -9,7 +10,7 @@
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-10-14.
+> Last updated: 2026-10-17.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -31,6 +32,14 @@ secrets — a dev cloud session needs its own copy):
 
 ✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
 pasted into chat during setup).
+
+## Latest (2026-10-17): Key reports + CoreWeave initiation (ADR-038, PLAN Phase G)
+- `#/reports` is live with its first report, CoreWeave (CRWV): Neutral, Very high risk.
+  `engine/reports.py financials <T> --security-id N --tierb PATH` regenerates the EDGAR
+  tables.
+- **Audit result:** no module flagged CRWV's October slide. The gaps (missing-input value
+  scoring, multi-class shares, no credit-risk score, no events, no drawdown alerts) are ranked
+  in PLAN Phase G.
 
 ## Live / working now
 

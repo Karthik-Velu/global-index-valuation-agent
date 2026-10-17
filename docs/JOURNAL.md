@@ -8,6 +8,32 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-17 — Key reports section + CoreWeave initiation + "why didn't we flag it?" audit
+- **Built:**
+  - The `#/reports` section, with a JSON report format, an XSS-safe renderer, print-to-PDF and
+    CI validation.
+  - `engine/reports.py`, a deterministic EDGAR statements job.
+  - The CoreWeave report. It took 5 research agents and 5 adversarial reviewers; 71 findings
+    were raised, 2 of them blockers (a soft bear case, and a stance not reconciled with the
+    scenario weights), and both were fixed.
+- **Learned:**
+  - CRWV's metric codes hold mislabelled lines (`ppe_net` holds accumulated depreciation,
+    `inventory_and_days` holds cost of revenue). Key report tables on the XBRL concept.
+  - CoreWeave switched from thousands to millions in 2026 filings, so prefer the earlier,
+    more precise vintage when a later filing only rounds.
+  - XBRL cash capex is well below the company's headline capex, which includes accrued and
+    vendor-financed additions.
+  - **Why nothing flagged CRWV:** it was never in a stock list. Short history kept it out of
+    picks, and with no share count (multi-class) there are no multiples. Missing valuation
+    then scores as "Cheap". There is no credit or news signal, and market-level views were
+    generic "Nasdaq/semis rich".
+  - The sandbox cannot reach sec.gov or the company IR site (proxy 403), and Firecrawl ran out
+    of credits. Primary-document sourcing therefore relied on mirrors and is flagged in PLAN.
+- **Open:** the Phase G follow-ups in PLAN, the link click-through, and the filings
+  `period_end` backfill (needs a go-ahead).
+
+---
+
 ## 2026-10-14 — TradingView-style screener, AI screen builder, charts, watchlists, alerts
 
 **Asked:** "ensure some key features of trader view is available… ensure filters and
