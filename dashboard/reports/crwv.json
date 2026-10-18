@@ -122,7 +122,7 @@
     },
     {
      "type": "p",
-     "text": "**Why Neutral.** Our weighted value is about 14% above the share price, but the distribution is close to binary: 55% of the weight sits in a restructuring or in a funding-constrained bear case worth about US$5, and 45% in cases worth about US$120–260. Which side CoreWeave lands on turns on funding roughly US$50bn of cash needs through end-2027 (Section 8), and the answer will largely be known inside our horizon, once the FY2027 capex and funding plan is out. We have no edge over the credit market on that outcome, and small changes in our weights move the weighted value by about as much as the gap to the price: each 5 points moved from the bear to the base case adds about US$6. **Why not Cautious.** Reported results have not missed: Q2 beat consensus revenue, guidance went up and the backlog grew [s8,s24]. A successful investment-grade financing of the 2027 plan would cut the cost of capital sharply (DDTL 4.0 priced at SOFR + 225bp [s17])."
+     "text": "**Why Neutral.** Our weighted value is about 14% above the share price, but the distribution is close to binary: 55% of the weight sits in a restructuring or in a funding-constrained bear case worth about US$5, and 45% in cases worth about US$120–260. Which side CoreWeave lands on turns on funding roughly US$50bn of cash needs through end-2027 (Section 8), and the answer will largely be known inside our horizon, once the FY2027 capex and funding plan is out. We have no edge over the credit market on that outcome, and small changes in our weights move the weighted value by about as much as the gap to the price: each 5 points moved from the bear to the base case adds about US$6. To stress-test these assumptions, including the interest-rate path, use the interactive model in Section 9. **Why not Cautious.** Reported results have not missed: Q2 beat consensus revenue, guidance went up and the backlog grew [s8,s24]. A successful investment-grade financing of the 2027 plan would cut the cost of capital sharply (DDTL 4.0 priced at SOFR + 225bp [s17])."
     },
     {
      "type": "callout",
@@ -1919,7 +1919,7 @@
     },
     {
      "type": "p",
-     "text": "**Method.** We value the company at end-2027 on a one-year-forward multiple of FY2028 adjusted EBITDA, roll net debt forward with guidance and consensus cash flows, and discount the per-share value back 1.2 years at an **18% cost of equity**. That rate is a stated premium (roughly the 3.75–4.00% policy rate [s111] plus about 14 points for a single-B, pre-profit, highly levered equity), not a read-across from the bond yield: a 15% yield on near-distressed bonds is a promised yield, not an expected return. Default risk sits in the scenario weights, so the high rate is partly a second, conservative haircut; at 15% or 21% the weighted value would be about US$72 or US$68. Step 1 is common to all cases: from US$29.8bn at 30 June, H2 FY2026 company-defined capex of about US$19.9bn (guide midpoint US$37bn less H1 about US$17.1bn [s9,s83,s8]), H2 adjusted EBITDA of about US$4.7bn (consensus FY US$7.4bn [s65] less H1 US$2.67bn [s8,s11]), interest of about US$1.9bn and US$1.5bn of prepayments take **net debt to about US$45.3bn by end-2026**. After that, any equity raised is credited against net debt, so new shares are not counted twice."
+     "text": "**Method.** We value the company at end-2027 on a one-year-forward multiple of FY2028 adjusted EBITDA, roll net debt forward with guidance and consensus cash flows, and discount the per-share value back 1.2 years at an **18% cost of equity**. That rate is a stated premium (roughly the 3.75–4.00% policy rate [s111] plus about 14 points for a single-B, pre-profit, highly levered equity), not a read-across from the bond yield: a 15% yield on near-distressed bonds is a promised yield, not an expected return. Default risk sits in the scenario weights, so the high rate is partly a second, conservative haircut; at 15% or 21% the weighted value would be about US$72 or US$68. Step 1 is common to all cases: from US$29.8bn at 30 June, H2 FY2026 company-defined capex of about US$19.9bn (guide midpoint US$37bn less H1 about US$17.1bn [s9,s83,s8]), H2 adjusted EBITDA of about US$4.7bn (consensus FY US$7.4bn [s65] less H1 US$2.67bn [s8,s11]), interest of about US$1.9bn and US$1.5bn of prepayments take **net debt to about US$45.3bn by end-2026**. After that, any equity raised is credited against net debt, so new shares are not counted twice. Section 9 puts these inputs on sliders; its base case gives about US$118 a share."
     },
     {
      "type": "table",
@@ -2366,6 +2366,36 @@
       "s68",
       "s69"
      ]
+    }
+   ]
+  },
+  {
+   "id": "stress-test",
+   "title": "Stress test & projections",
+   "blocks": [
+    {
+     "type": "p",
+     "text": "This section turns the report’s assumptions into a working model. Pick a scenario or move a slider, and the FY2026E–FY2030E P&L, funding need, debt, interest, forward multiples and value per share recalculate in the browser; **Copy link** keeps the exact settings. FY2026E is the reported first half [s2] plus the model’s second half. The base case uses FY2026 guidance [s9], consensus-like FY2027 [s64,s65] and Section 8’s FY2028, passes every check against guidance (Calibration tab) and gives **about US$118 a share**, within rounding of Section 8’s ≈US$120. Its end-2027 net debt (US$77.8bn) and share count (608m) are a little above Section 8’s US$77.0bn and 600m, because the model sells new shares at the current price rather than about US$70 and books issue-cost amortisation in interest. The Bear, Bull and Restructuring presets reproduce Section 8’s cases at about US$5, US$261 and US$0; three more presets stress interest rates and credit."
+    },
+    {
+     "type": "p",
+     "text": "**What moves the P&L most.** At base, FY2027E net income is about −US$4.5bn (−US$7.74 a share, against consensus EPS of −US$4.33 [s64]) and FY2028E about −US$8.5bn (consensus about −US$2.6bn [s140]): the model carries depreciation and interest on new debt in full, and Section 8’s FY2028 EBITDA of US$23.6bn sits below the US$28.7bn consensus [s65]. Across each driver’s plausible range, FY2027E net income swings most with **capex** (−30% to +25%: about break-even to −US$8.5bn), **GPU depreciation life** (4 to 7 years: −US$11.2bn to −US$2.6bn, with no change in cash), **revenue growth** (−20 to +10 points: −US$7.2bn to −US$3.1bn), the **cost of new debt** (8% to 14%: −US$4.1bn to −US$6.1bn) and **credit spreads** (−100 to +300bp: −US$4.1bn to −US$5.8bn). **Interest rates:** each +100bp on SOFR adds about US$0.42bn to FY2027E and US$0.81bn to FY2028E interest, because by then most of the debt is new borrowing priced off SOFR. The Rates +150bp preset (spreads +100bp too) lifts FY2027E interest from US$5.6bn to US$6.6bn and cuts interest cover from 2.8x to 2.4x, yet moves value by only about −US$2 a share: the exit multiple is struck on EBITDA, before interest, so rates hurt the equity through refinancing and covenants rather than through the valuation. Value per share swings most with the exit multiple (5x to 9x: US$54 to US$181), revenue growth (US$48 to US$158) and capex (US$159 to US$86)."
+    },
+    {
+     "type": "model",
+     "src": "crwv"
+    },
+    {
+     "type": "callout",
+     "tone": "info",
+     "title": "How interest expense is projected",
+     "text": "**Rate path.** SOFR follows market forwards as of 15 October 2026: 3.85% for H2 2026, then 4.45%, 4.65%, 4.60% and 4.45% (2030 extrapolated) [s122,s111]. The Fed’s September projections imply about 75bp less from 2027 [s119,s120,s121]; the “Fed projections path” preset applies them. **Fixed vs floating.** Of US$39.8bn of principal (30 June 2026, pro forma for September’s US$4.2bn 2.875% convertible [s2,s14]), US$11.1bn (28%) floats over SOFR: DDTL 1.0, 2.0, 2.1 and 3.0 and the DDTL 4.0 floating tranche [s127,s128,s129,s103,s17]. DDTL 5.0 must be at least 95% swapped and is treated as fixed [s104]; the rest is fixed: senior notes at 8.5–9.75% [s130,s131,s132,s133,s134], convertibles at 1.75–2.875% and OEM financing at about 9–11% [s2]. Each tranche pays its rate on its average balance, including issue-cost and discount amortisation as the income statement does. **Refinancing.** Amortising loans repay straight-line to maturity, maturing notes roll over, and any funding gap (capex and repayments not covered by operating cash flow, keeping US$4bn of cash) is borrowed at the new-debt rate: 9.5% at base, moving one-for-one with the SOFR and spread sliders, with half a year’s interest in the year it is raised. New borrowing reaches about US$49bn by end-2027 and US$84bn by end-2028, so most of the rate risk sits in debt not yet raised. The unsecured notes reportedly cap total leverage at 6.0x and secured leverage at 4.0x [s137]; base net debt is 4.9x FY2027E EBITDA, the bear case 6.1x."
+    },
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "What the model leaves out",
+     "text": "Presets shift every year by the same amount, so the bear case also trims the second half of 2026. Revenue does not follow capex: cutting capex without cutting revenue growth flatters the result. There are no tax-loss carry-forwards, no interest on cash, no conversion of the convertibles (treated as debt, as in Section 8) and no default mechanics: below zero, the equity value simply floors at nothing. It is a tool for testing assumptions, not a forecast."
     }
    ]
   },
@@ -3508,6 +3538,160 @@
    "publisher": "The Motley Fool",
    "date": "2026-09-17",
    "url": "https://www.fool.com/investing/2026/09/17/why-coreweave-stock-dived-by-more-than-5-today/"
+  },
+  {
+   "id": "s119",
+   "title": "FOMC Summary of Economic Projections, September 2026",
+   "publisher": "FRED Blog, Federal Reserve Bank of St. Louis",
+   "date": "2026-09",
+   "url": "https://fred.stlouisfed.org/blog/2026/09/fomc-summary-of-economic-projections-september-2026"
+  },
+  {
+   "id": "s120",
+   "title": "FOMC Summary of Economic Projections for the Fed Funds Rate, Median (FEDTARMD)",
+   "publisher": "FRED, Federal Reserve Bank of St. Louis",
+   "date": "2026-09-16",
+   "url": "https://fred.stlouisfed.org/series/FEDTARMD"
+  },
+  {
+   "id": "s121",
+   "title": "FOMC Statement: September 2026",
+   "publisher": "J.P. Morgan Asset Management",
+   "date": "2026-09-16",
+   "url": "https://am.jpmorgan.com/us/en/asset-management/adv/insights/portfolio-insights/fixed-income/fixed-income-perspectives/fomc-statement-september-2026/"
+  },
+  {
+   "id": "s122",
+   "title": "SOFR Forward Curve Today (3M term SOFR forwards; last update 15 Oct 2026, read 18 Oct 2026)",
+   "publisher": "BlueGamma",
+   "date": "2026-10-15",
+   "url": "https://www.bluegamma.io/sofr-forward-curve"
+  },
+  {
+   "id": "s123",
+   "title": "Market Yield on U.S. Treasury Securities at 2-Year Constant Maturity (DGS2): 4.77% on 15 Oct 2026",
+   "publisher": "FRED / Federal Reserve H.15",
+   "date": "2026-10-15",
+   "url": "https://fred.stlouisfed.org/series/dgs2"
+  },
+  {
+   "id": "s124",
+   "title": "Will the Fed hike on 28 October? What the odds did after a 3.7% CPI",
+   "publisher": "FinanceFeeds",
+   "date": "2026-10-14",
+   "url": "https://financefeeds.com/will-the-fed-hike-on-28-october-what-the-odds-did-after-a-3-7-cpi/"
+  },
+  {
+   "id": "s125",
+   "title": "Fed rate hike probability rises to 43.7% in October following CPI release (CME FedWatch)",
+   "publisher": "KuCoin News",
+   "date": "2026-10-14",
+   "url": "https://www.kucoin.com/news/flash/fed-rate-hike-probability-rises-to-43-7-in-october-after-cpi-release"
+  },
+  {
+   "id": "s126",
+   "title": "Fed outlook 2026: rate forecasts and fixed income strategies",
+   "publisher": "iShares (BlackRock)",
+   "date": "2026-09",
+   "url": "https://www.ishares.com/us/insights/portfolio-insights/fed-outlook-rates-kevin-warsh-fixed-income-2026"
+  },
+  {
+   "id": "s127",
+   "title": "CoreWeave secures US$2.3 billion debt financing facility led by Magnetar Capital and Blackstone (DDTL 1.0)",
+   "publisher": "Blackstone",
+   "date": "2023-08-03",
+   "url": "https://www.blackstone.com/news/press/coreweave-secures-2-3-billion-debt-financing-facility-led-by-magnetar-capital-and-blackstone-to-meet-surging-demand-and-ongoing-expansion-of-specialized-cloud-infrastructure-to-power-ai/"
+  },
+  {
+   "id": "s128",
+   "title": "CoreWeave secures US$7.5 billion debt financing facility led by Blackstone and Magnetar (DDTL 2.0)",
+   "publisher": "Blackstone",
+   "date": "2024-05-17",
+   "url": "https://www.blackstone.com/news/press/coreweave-secures-7-5-billion-debt-financing-facility-led-by-blackstone-and-magnetar/"
+  },
+  {
+   "id": "s129",
+   "title": "CoreWeave Form 8-K: Fifth Amendment to the DDTL 2.0 credit agreement (incremental US$3.0bn tranche, Term SOFR + 4.25%)",
+   "publisher": "SEC EDGAR",
+   "date": "2025-10-02",
+   "url": "https://www.sec.gov/Archives/edgar/data/1769628/000119312525227562/d910811d8k.htm"
+  },
+  {
+   "id": "s130",
+   "title": "CoreWeave announces upsize and pricing of US$2,000 million of senior notes (9.250% due 2030)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2025-05-21",
+   "url": "https://investors.coreweave.com/news/news-details/2025/CoreWeave-Announces-Upsize-and-Pricing-of-2000-million-of-Senior-Notes/default.aspx"
+  },
+  {
+   "id": "s131",
+   "title": "CoreWeave press release on pricing of 9.000% senior notes due 2031 (Form 8-K exhibit)",
+   "publisher": "SEC EDGAR",
+   "date": "2025-07-22",
+   "url": "https://www.sec.gov/Archives/edgar/data/0001769628/000176962825000030/coreweave-pressreleasepric.htm"
+  },
+  {
+   "id": "s132",
+   "title": "CoreWeave announces upsize and pricing of US$1,750 million of senior notes (9.750% due 2031)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-04-09",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-Upsize-and-Pricing-of-1750-million-of-Senior-Notes/default.aspx"
+  },
+  {
+   "id": "s133",
+   "title": "CoreWeave announces pricing of US$1,000 million of 9.750% senior notes due 2031 (add-on at 102.0%)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-04-16",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-Pricing-of-1000-million-of-9-750-Senior-Notes-due-2031/default.aspx"
+  },
+  {
+   "id": "s134",
+   "title": "CoreWeave announces pricing of US$1.25 billion of senior notes and €2 billion of senior notes (9.625% and 8.500% due 2032)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2026-06-11",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-Pricing-of-1-25-Billion-of-Senior-Notes-and-2-Billion-of-Senior-Notes/default.aspx"
+  },
+  {
+   "id": "s135",
+   "title": "CoreWeave expands revolving credit facility to US$2.5 billion to support growth",
+   "publisher": "CoreWeave investor relations",
+   "date": "2025-11-12",
+   "url": "https://investors.coreweave.com/news/news-details/2025/CoreWeave-Expands-Revolving-Credit-Facility-to-2-5-Billion-to-Support-Growth/default.aspx"
+  },
+  {
+   "id": "s136",
+   "title": "CoreWeave announces US$650 million credit facility to support ongoing growth (Term SOFR + 1.75%)",
+   "publisher": "CoreWeave investor relations",
+   "date": "2024-10-11",
+   "url": "https://investors.coreweave.com/news/news-details/2024/CoreWeave-Announces-650-Million-Credit-Facility-to-Support-Ongoing-Growth/default.aspx"
+  },
+  {
+   "id": "s137",
+   "title": "CoreWeave debt: a not-so-basic overview (covenant caps of 4.0x secured / 6.0x total leverage)",
+   "publisher": "Preferred/Hybrid Capital Substack",
+   "date": "2026-10-17",
+   "url": "https://preferredincome.substack.com/p/coreweave-debt-a-not-so-basic-overview"
+  },
+  {
+   "id": "s138",
+   "title": "CoreWeave Q1 2026 earnings: revenue guidance and capex (annualised revenue above US$30bn by end-2027)",
+   "publisher": "Quartz",
+   "date": "2026-05-08",
+   "url": "https://qz.com/coreweave-stock-earnings-revenue-guidance-capex-050826"
+  },
+  {
+   "id": "s139",
+   "title": "CoreWeave Q1 FY 2026: capacity constraints amid accelerating AI demand (adj. operating income US$21m; adj. EBITDA US$1.16bn)",
+   "publisher": "Futurum Group",
+   "date": "2026-05",
+   "url": "https://futurumgroup.com/insights/coreweave-q1-fy-2026-capacity-constraints-amid-accelerating-ai-demand/"
+  },
+  {
+   "id": "s140",
+   "title": "CoreWeave future growth (FY2028 earnings estimate −US$2,615m; updated 29 Jul 2026)",
+   "publisher": "Simply Wall St",
+   "date": "2026-07-29",
+   "url": "https://simplywall.st/stocks/de/software/etr-i1v/coreweave-shares/future"
   }
  ],
  "disclosures": [

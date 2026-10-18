@@ -11,7 +11,7 @@
     "label": "Neutral",
     "risk": "Very high"
    },
-   "summary": "Initiation at Neutral, Very high risk. Revenue +112% y/y and a US$103.7bn backlog, but about US$30bn of net debt, interest heading to about US$900m a quarter and bonds yielding about 15%. Four scenarios, from a restructuring (about US$0) to about US$259 a share, weight to about US$70, with 55% odds of losing three-quarters of the equity or more. An appendix explains why none of our systematic screens flagged the slide.",
+   "summary": "Initiation at Neutral, Very high risk. Revenue +112% y/y and a US$103.7bn backlog, but about US$30bn of net debt, interest heading to about US$900m a quarter and bonds yielding about 15%. Four scenarios, from a restructuring (about US$0) to about US$259 a share, weight to about US$70, with 55% odds of losing three-quarters of the equity or more. An interactive stress test lets readers change SOFR, credit spreads, growth, margins and capex and see the P&L, interest and value move. An appendix explains why none of our systematic screens flagged the slide.",
    "report_type": "Initiation",
    "sector": "Information Technology (AI cloud infrastructure)"
   }

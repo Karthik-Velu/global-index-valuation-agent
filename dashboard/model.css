@@ -1,0 +1,192 @@
+/* Stress test & projections (mdl-*) — the interactive model block of a key report (model.js).
+   Loaded on demand by reports.js. It sits inside .rpt, so it uses the report's custom
+   properties (--rpt-*) and the report's print swap to black-on-white comes for free. Layout
+   follows the block's own width (a container query), not the viewport: in the report's main
+   column the drivers stack above the tabs; full-width (#/reports/<slug>/model) they sit in a
+   sticky panel on the left. Nothing here may widen the page at 360 px: tables and charts
+   scroll inside their own boxes. Every rule is scoped under .mdl / .mdl-* / .rpt-model*. */
+
+.rpt-model { margin: 16px 0 20px; }
+.rpt-model-slot { min-height: 120px; }
+.mdl {
+  container: mdl / inline-size; min-width: 0;
+  background: var(--rpt-panel); border: 1px solid var(--rpt-line); border-top: 3px solid var(--rpt-accent);
+  border-radius: 12px; padding: 14px 16px 12px;
+}
+.mdl, .mdl table, .mdl input, .mdl select, .mdl button { font-variant-numeric: tabular-nums; }
+.mdl-print { display: none; }
+.mdl-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; }
+.mdl-title { font-family: var(--rpt-serif); font-size: 20px; font-weight: 600; color: var(--rpt-strong); margin: 0; }
+.mdl-sub { font-size: 12px; color: var(--rpt-faint); margin: 2px 0 0 !important; }
+.rpt a.mdl-full { font-size: 12px; white-space: nowrap; }
+.mdl-h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--rpt-dim); font-weight: 600; margin: 16px 0 6px; }
+.mdl-panel > .mdl-h4:first-child, .mdl-panel > .mdl-row:first-child .mdl-h4 { margin-top: 4px; }
+.mdl-note { font-size: 12px; color: var(--rpt-dim); margin: 4px 0 8px !important; max-width: 90ch; }
+.mdl-src { font-size: 11px; color: var(--rpt-faint); margin: 2px 0 8px !important; }
+.mdl-dim { color: var(--rpt-faint); font-size: 11px; margin: 4px 0 0 !important; }
+.mdl-hint { font-size: 11px; color: var(--rpt-faint); margin: 0 0 8px !important; }
+.mdl-disc { font-size: 11px; color: var(--rpt-faint); border-top: 1px solid var(--rpt-line); padding-top: 8px; margin: 14px 0 0 !important; max-width: none; }
+
+/* scenario bar */
+.mdl-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 4px; }
+.mdl-chips, .mdl-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.mdl .mdl-chip {
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 12px; border-radius: 999px;
+  color: var(--rpt-text); background: var(--rpt-panel2); border: 1px solid var(--rpt-line);
+}
+.mdl .mdl-chip:hover { border-color: #60a5fa80; }
+.mdl .mdl-chip[aria-pressed="true"] { color: #0b0f17; background: var(--rpt-accent); border-color: var(--rpt-accent); }
+.mdl .mdl-chip.bear[aria-pressed="true"] { background: var(--rpt-neg); border-color: var(--rpt-neg); }
+.mdl .mdl-chip.bull[aria-pressed="true"] { background: var(--rpt-pos); border-color: var(--rpt-pos); }
+.mdl .mdl-chip.restructuring[aria-pressed="true"] { background: var(--rpt-warn); border-color: var(--rpt-warn); }
+.mdl .mdl-chip.custom { cursor: default; color: var(--rpt-strong); background: #a78bfa33; border-color: #a78bfa; }
+.mdl-scen-note { font-size: 12px; color: var(--rpt-dim); margin: 2px 0 0 !important; min-height: 1.2em; }
+.mdl-status { font-size: 12px; color: var(--rpt-accent); margin: 2px 0 0 !important; min-height: 1.2em; }
+.mdl-copybox { width: 100%; margin-top: 6px; font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 8px; color: var(--rpt-text); background: var(--rpt-ink); border: 1px solid var(--rpt-line); }
+
+/* KPI strip */
+.mdl-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); gap: 8px; margin: 10px 0 12px; }
+.mdl-kpi { background: var(--rpt-panel2); border: 1px solid var(--rpt-line); border-left: 3px solid var(--rpt-line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.mdl-kpi.pos { border-left-color: var(--rpt-pos); }
+.mdl-kpi.neg { border-left-color: var(--rpt-neg); }
+.mdl-kpi-l { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--rpt-dim); line-height: 1.3; }
+.mdl-kpi-v { font-size: 20px; font-weight: 700; color: var(--rpt-strong); line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
+.mdl-kpi-s { font-size: 11px; color: var(--rpt-faint); line-height: 1.35; }
+.mdl-kpi-d { font-size: 11px; font-weight: 600; margin-top: 3px; color: var(--rpt-faint); }
+.mdl-kpi-d.pos { color: var(--rpt-pos); }
+.mdl-kpi-d.neg { color: var(--rpt-neg); }
+.mdl-keyd { margin: 0 0 14px; }
+.mdl-keyd .rpt-bul { margin-bottom: 6px; }
+
+/* body: drivers + tabs */
+.mdl-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.mdl-side, .mdl-main { min-width: 0; }
+@container mdl (min-width: 560px) { .mdl-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container mdl (min-width: 1000px) { .mdl-kpis { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+@container mdl (min-width: 900px) {
+  .mdl-body { grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+  .mdl-side { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+}
+@container mdl (min-width: 560px) and (max-width: 899.98px) {
+  .mdl-drivers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+}
+.mdl-side > .mdl-h4 { margin-top: 0; }
+.mdl-group { border-top: 1px solid var(--rpt-line); padding: 4px 0 2px; min-width: 0; }
+.mdl-group summary {
+  display: flex; justify-content: space-between; gap: 8px; cursor: pointer; list-style-position: inside;
+  font-size: 12px; font-weight: 700; color: var(--rpt-strong); padding: 6px 0;
+}
+.mdl-gcount { font-weight: 600; color: var(--rpt-accent); font-size: 11px; }
+.mdl-drv { padding: 6px 0 8px; min-width: 0; }
+.mdl-drv + .mdl-drv { border-top: 1px dashed #24304999; }
+.mdl-drv-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mdl-lab { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--rpt-text); }
+.mdl .mdl-help, .mdl .mdl-rs {
+  flex: 0 0 auto; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; width: 20px; height: 20px; padding: 0;
+  border-radius: 999px; color: var(--rpt-dim); background: transparent; border: 1px solid var(--rpt-line); line-height: 1;
+}
+.mdl .mdl-help[aria-expanded="true"], .mdl .mdl-help:hover, .mdl .mdl-rs:hover { color: var(--rpt-accent); border-color: var(--rpt-accent); }
+.mdl-in { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
+.mdl .mdl-num {
+  width: 76px; font: inherit; font-size: 12px; text-align: right; padding: 3px 6px; border-radius: 6px;
+  color: var(--rpt-strong); background: var(--rpt-ink); border: 1px solid var(--rpt-line);
+}
+.mdl .mdl-num:focus { outline: 2px solid var(--rpt-accent); outline-offset: 1px; }
+.mdl-unit { font-size: 11px; color: var(--rpt-faint); min-width: 2.6em; }
+/* the track: base tick (--b) and the tornado's stress band (--l..--h) under a native range */
+.mdl-track { position: relative; height: 22px; margin: 2px 7px 0; }
+.mdl-band { position: absolute; top: 8px; height: 6px; left: var(--l); width: calc(var(--h) - var(--l)); background: #fbbf2433; border-radius: 3px; }
+.mdl-base { position: absolute; top: 3px; height: 16px; width: 2px; left: var(--b); margin-left: -1px; background: var(--rpt-dim); border-radius: 1px; }
+.mdl .mdl-range { position: absolute; inset: 0 -7px; width: calc(100% + 14px); margin: 0; background: transparent; accent-color: var(--rpt-accent); cursor: pointer; }
+.mdl .mdl-range:focus-visible { outline: 2px solid var(--rpt-accent); outline-offset: 2px; border-radius: 4px; }
+.mdl-drv-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 10px; font-size: 11px; color: var(--rpt-faint); }
+.mdl-dd.on { color: var(--rpt-accent); font-weight: 600; }
+.mdl-helpbox { font-size: 12px; color: var(--rpt-dim); background: var(--rpt-ink); border: 1px solid var(--rpt-line); border-radius: 8px; padding: 6px 9px; margin-top: 6px; }
+.mdl-helpbox p { margin: 0 0 4px; }
+
+/* tabs */
+.mdl-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--rpt-line); -webkit-overflow-scrolling: touch; }
+.mdl .mdl-tab {
+  flex: 0 0 auto; font: inherit; font-size: 13px; cursor: pointer; padding: 7px 12px; color: var(--rpt-dim);
+  background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.mdl .mdl-tab:hover { color: var(--rpt-strong); }
+.mdl .mdl-tab[aria-selected="true"] { color: var(--rpt-strong); border-bottom-color: var(--rpt-accent); font-weight: 600; }
+.mdl-panel { padding-top: 10px; min-width: 0; }
+.mdl-row, .mdl-gridctl { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.mdl-gridctl { justify-content: flex-start; margin-bottom: 8px; }
+.mdl-sel-l { font-size: 12px; color: var(--rpt-dim); display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.mdl .mdl-sel { max-width: 220px; min-width: 0; font-size: 12px; color: var(--rpt-text); background: var(--rpt-ink); border: 1px solid var(--rpt-line); border-radius: 8px; padding: 4px 6px; }
+
+/* tables */
+.mdl-table { font-size: 12.5px; }
+.mdl-table thead th { white-space: nowrap; }
+.mdl-th-note { display: block; font-size: 10px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--rpt-faint); }
+.mdl-table tbody tr.mdl-strong th, .mdl-table tbody tr.mdl-strong td { color: var(--rpt-strong); font-weight: 600; }
+.mdl-table tbody tr.mdl-sub-row th { font-weight: 400; color: var(--rpt-dim); }
+.mdl-cd { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.2; }
+.mdl-cd.pos { color: var(--rpt-pos); }
+.mdl-cd.neg { color: var(--rpt-neg); }
+.mdl-sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.mdl-grid2 td.mdl-heat { color: var(--rpt-strong); min-width: 4.2em; }
+.mdl-grid2 td.now { outline: 2px solid var(--rpt-strong); outline-offset: -2px; font-weight: 700; }
+.mdl-grid2 .mdl-corner { font-size: 10px; white-space: normal; min-width: 8em; }
+.mdl-cap { caption-side: top; text-align: left; font-size: 12px; font-weight: 600; color: var(--rpt-strong); padding: 6px 10px; }
+.mdl-pass { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.mdl-pass.ok { color: var(--rpt-pos); border-color: #34d39966; background: #34d3991a; }
+.mdl-pass.miss { color: var(--rpt-neg); border-color: #f8717166; background: #f871711a; }
+.mdl-pass.na { color: var(--rpt-faint); border-color: var(--rpt-line); }
+.mdl-guides { font-size: 12px; }
+.mdl-warn li { font-size: 12px; color: var(--rpt-dim); }
+
+/* charts */
+.mdl-chart { margin: 4px 0 10px; min-width: 0; }
+.mdl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--rpt-ink); border: 1px solid var(--rpt-line); border-radius: 10px; padding: 6px 4px 0; }
+.mdl-svg { display: block; margin: 0 auto; max-width: 100%; height: auto; min-width: 440px; }
+.mdl-tornado { min-width: 520px; }
+.mdl-svg text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
+.mdl-svg .mdl-tick { fill: var(--rpt-faint); font-size: 10px; }
+.mdl-svg .mdl-xl { fill: var(--rpt-dim); font-size: 11px; }
+.mdl-svg .mdl-tl { fill: var(--rpt-text); font-size: 11.5px; }
+.mdl-svg .mdl-val, .mdl-svg .mdl-end { fill: var(--rpt-text); font-size: 10.5px; font-weight: 600; }
+.mdl-svg .mdl-markt { fill: var(--rpt-strong); font-size: 10px; font-weight: 700; }
+.mdl-svg .mdl-grid { stroke: #24304999; stroke-width: 1; }
+.mdl-svg .mdl-zero { stroke: #64748b; stroke-width: 1.2; }
+.mdl-svg .mdl-mark { fill: none; stroke: var(--rpt-strong); stroke-width: 1.5; }
+.mdl-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; color: var(--rpt-dim); margin-bottom: 4px; }
+.mdl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.mdl-legend i.dash { height: 0; width: 14px; border-top: 2px dashed; border-radius: 0; vertical-align: 3px; background: none; }
+
+/* valuation bridge: steps that wrap on a phone */
+.mdl-bridge { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 6px; }
+.mdl-step { background: var(--rpt-panel2); border: 1px solid var(--rpt-line); border-radius: 8px; padding: 6px 9px; min-width: 0; display: flex; flex-direction: column; }
+.mdl-step:last-child { border-color: var(--rpt-accent); }
+.mdl-step-l { font-size: 11px; color: var(--rpt-dim); }
+.mdl-step-v { font-size: 15px; font-weight: 700; color: var(--rpt-strong); overflow-wrap: anywhere; }
+.mdl-step-n { font-size: 11px; color: var(--rpt-faint); }
+
+/* the full-width route (#/reports/<slug>/model) */
+.rpt-modelpage .rpt-strip { padding: 14px 20px 12px; margin-bottom: 14px; }
+.rpt-modelpage .rpt-strip .rpt-company { font-size: 26px; margin-top: 8px; }
+.rpt-modelpage .rpt-model { margin-top: 0; }
+
+@media (max-width: 520px) {
+  .mdl { padding: 12px 10px 10px; }
+  .mdl-kpi-v { font-size: 17px; }
+  .mdl .mdl-num { width: 68px; }
+}
+
+/* print: the controls give way to a static snapshot of the scenario on screen */
+@media print {
+  .mdl { border: 0; border-top: 2pt solid #000; border-radius: 0; padding: 6pt 0 0; background: none; }
+  .mdl-live { display: none !important; }
+  .mdl-print { display: block !important; }
+  .mdl-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mdl-kpi, .mdl-scroll { background: none !important; border-radius: 0; }
+  .mdl-kpi { break-inside: avoid; page-break-inside: avoid; }
+  .mdl-svg { min-width: 0; }
+  .mdl-svg rect { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mdl-svg .mdl-tick, .mdl-svg .mdl-tl, .mdl-svg .mdl-val, .mdl-svg .mdl-xl { fill: #000; }
+  .mdl-legend i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mdl-chart { break-inside: avoid; page-break-inside: avoid; }
+}

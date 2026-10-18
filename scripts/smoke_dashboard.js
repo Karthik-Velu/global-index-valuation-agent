@@ -71,6 +71,8 @@ const MODEL = readJSON(path.join(REPO, 'tests/fixtures/smoke_screen_builder.json
 // Key reports: the fixture is served as reports/fxr.json with a one-entry index (newCtx
 // {reports: 'fixture'}); otherwise the real dashboard/reports/ files are served as they are.
 const REPORT_FIX = readJSON(path.join(REPO, 'tests/fixtures/reports/sample.json'));
+// ...and its stress-test model (synthetic), served as reports/models/fxr.json.
+const MODEL_FIX = readJSON(path.join(REPO, 'tests/fixtures/models/fxr.json'));
 const REPORT_FIX_INDEX = { v: 1, reports: [{ slug: REPORT_FIX.slug, ticker: REPORT_FIX.ticker, company: REPORT_FIX.company,
   title: REPORT_FIX.title, published: REPORT_FIX.published, stance: { label: REPORT_FIX.stance.label, risk: REPORT_FIX.stance.risk },
   summary: REPORT_FIX.stance.summary, report_type: REPORT_FIX.report_type, sector: REPORT_FIX.sector }] };
@@ -434,7 +436,8 @@ async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, 
       if (u.pathname.startsWith('/api/')) return route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
       if (reports === 'fixture' && u.pathname.startsWith('/reports/')) {
         db.reportFetches = (db.reportFetches || []).concat(u.pathname);
-        const body = u.pathname === '/reports/index.json' ? REPORT_FIX_INDEX : u.pathname === `/reports/${REPORT_FIX.slug}.json` ? REPORT_FIX : null;
+        const body = u.pathname === '/reports/index.json' ? REPORT_FIX_INDEX : u.pathname === `/reports/${REPORT_FIX.slug}.json` ? REPORT_FIX
+          : u.pathname === `/reports/models/${MODEL_FIX.slug}.json` ? MODEL_FIX : null;
         return body ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
           : route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
       }
@@ -957,7 +960,7 @@ async function main() {
         await a.page.waitForFunction(() => /Report not found/.test(document.getElementById('view-reports').textContent));
         assert.ok(await a.page.$('#view-reports .rpt-empty a[href="#/reports"]'));
       }
-      assert.ok(a.db.reportFetches.every(p => /^\/reports\/[a-z0-9-]+\.json$/.test(p)), a.db.reportFetches.join(' '));
+      assert.ok(a.db.reportFetches.every(p => /^\/reports\/(models\/)?[a-z0-9-]+\.json$/.test(p)), a.db.reportFetches.join(' '));
       await go(a.page, '#/reports/FXR');   // slugs are lower-cased
       await a.page.waitForSelector('#view-reports .rpt-report');
       // Leaving the section drops the live chart and print mode.
@@ -1003,6 +1006,175 @@ async function main() {
         noErrors(b);
         await b.ctx.close();
       }
+    });
+
+    // 13b. The stress-test model block (fixture model on the fixture report).
+    const kpi = (page, k) => page.$eval(`.mdl [data-mdl-kpi="${k}"] .mdl-kpi-v`, e => e.textContent);
+    const money = t => { const m = /(−?)US\$([\d,.]+)(m|bn)?/.exec(t); return m ? (m[1] ? -1 : 1) * parseFloat(m[2].replace(/,/g, '')) * (m[3] === 'bn' ? 1000 : 1) : NaN; };
+    await step('stress-test model: lazy mount, SOFR slider moves FY2027E interest + value/share, URL state round-trips, tabs, tornado, grid, print, model route', async () => {
+      const a = await newCtx(browser, NEW, { reports: 'fixture' });
+      await a.ctx.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+      await boot(a, NEW, '#/reports/fxr');
+      await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]', { timeout: 10000 });
+      assert.deepStrictEqual(await a.page.evaluate(() => [typeof ModelEngine, typeof ReportModel, document.querySelectorAll('script[src="model.js"]').length,
+        document.querySelectorAll('link[href="model.css"]').length]), ['object', 'object', 1, 1], 'assets loaded once');
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-chip[aria-pressed="true"]', c => c.map(x => x.textContent).join()), 'Base');
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-kpi', k => k.length), 7, 'seven headline KPIs');
+      assert.match(await text(a.page, '.mdl-keyd'), /Key P&L drivers.*(cuts|lifts) FY2027E net income by US\$/);
+      const i0 = money(await kpi(a.page, 'interest')), v0 = money(await kpi(a.page, 'value_per_share'));
+      assert.ok(i0 > 0 && v0 > 0, `${i0} ${v0}`);
+      await shot(a.page, 'model_fxr_base', { fullPage: true });
+      // SOFR slider by keyboard: 4 steps of 25 bp = +100 bp
+      await a.page.focus('.mdl input[data-mdl-driver="sofr_shift"]');
+      for (let i = 0; i < 4; i++) await a.page.keyboard.press('ArrowRight');
+      await settle(a.page, 300);
+      assert.strictEqual(await a.page.$eval('.mdl input[data-mdl-num="sofr_shift"]', e => e.value), '100');
+      const i1 = money(await kpi(a.page, 'interest')), v1 = money(await kpi(a.page, 'value_per_share'));
+      assert.ok(i1 > i0, `FY2027E interest rises with SOFR (${i0} -> ${i1})`);
+      assert.ok(v1 < v0, `value per share falls with SOFR (${v0} -> ${v1})`);
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="interest"] .mdl-kpi-d'), /▼ \+US\$[\d.]+m vs base/);
+      assert.strictEqual(await a.page.$eval('.mdl .mdl-chip.custom', c => c.hidden), false, 'Custom chip shown when edited');
+      // the state is in the route's query, written in place (replaceState, no hashchange)
+      const hash = await a.page.evaluate(() => location.hash);
+      assert.match(hash, /^#\/reports\/fxr\?m=[A-Za-z0-9_-]+$/);
+      assert.deepStrictEqual(await a.page.evaluate(h => fetch('reports/models/fxr.json').then(r => r.json())
+        .then(spec => ModelEngine.decodeState(spec, h.split('?m=')[1]).overrides), hash), { sofr_shift: 100 });
+      assert.ok(!(await a.page.evaluate(() => window.__hashes)).some(x => /^#\/reports\/fxr\?m=/.test(x)), 'no hashchange for model state');
+      // typed value in the numeric input
+      await a.page.fill('.mdl input[data-mdl-num="exit_ev_ebitda"]', '12');
+      await settle(a.page, 300);
+      const v2 = money(await kpi(a.page, 'value_per_share'));
+      assert.ok(v2 > v1, 'a higher exit multiple raises value per share');
+      const hash2 = await a.page.evaluate(() => location.hash);
+      // round trip: a fresh page on that link shows the same state
+      const b = await newCtx(browser, NEW, { reports: 'fixture' });
+      await boot(b, NEW, hash2);
+      await b.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
+      assert.strictEqual(await b.page.$eval('.mdl input[data-mdl-driver="sofr_shift"]', e => e.value), '100');
+      assert.strictEqual(await b.page.$eval('.mdl input[data-mdl-num="exit_ev_ebitda"]', e => e.value), '12');
+      assert.strictEqual(money(await kpi(b.page, 'value_per_share')), v2, 'same value per share from the link');
+      assert.strictEqual(await b.page.evaluate(() => location.hash), hash2, 'link kept as is');
+      // a tampered link is clamped / ignored, never applied raw, never an error
+      const evil = Buffer.from(JSON.stringify({ v: 1, m: 'fxr', o: { sofr_shift: 99999, __proto__x: 1, tax_rate: 'x' } })).toString('base64url');
+      await go(b.page, `#/reports/fxr?m=${evil}`);
+      await settle(b.page, 400);
+      assert.strictEqual(await b.page.$eval('.mdl input[data-mdl-driver="sofr_shift"]', e => e.value), '500', 'out-of-range value clamped');
+      assert.match(await text(b.page, '.mdl-status'), /adjusted/);
+      noErrors(b);
+      await b.ctx.close();
+      // scenario chip, reset
+      await a.page.click('.mdl .mdl-chip[data-mdl-scen="bear"]');
+      await settle(a.page, 300);
+      assert.strictEqual(await a.page.$eval('.mdl .mdl-chip[data-mdl-scen="bear"]', c => c.getAttribute('aria-pressed')), 'true');
+      assert.strictEqual(await a.page.$eval('.mdl input[data-mdl-driver="spread_shift"]', e => e.value), '200');
+      // copy link (clipboard or the fallback box)
+      await a.page.click('.mdl [data-mdl-copy]');
+      await a.page.waitForFunction(() => /copied|Copy the link/.test(document.querySelector('.mdl-status').textContent));
+      // every tab draws; the tornado + grid render on the Sensitivity tab
+      for (const t of ['debt', 'sens', 'val', 'cal', 'pl']) {
+        await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
+        await settle(a.page, 150);
+        assert.strictEqual(await a.page.$eval(`.mdl [data-mdl-panel="${t}"]`, p => !p.hidden && p.childElementCount > 0), true, `tab ${t}`);
+        if (t === 'debt') {
+          assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] svg title'), 'rate chart');
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Predicted rate path.*Interest expense by tranche.*Q3 2026 interest expense guide.*Debt maturity ladder.*Debt stack/);
+          assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] path.mdl-mark'), 'guide marker on the stub year');
+          await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_debt.png') });
+        }
+        if (t === 'sens') {
+          const bars = await a.page.$$eval('.mdl svg.mdl-tornado rect', r => r.length);
+          assert.ok(bars >= 20, `tornado bars (${bars})`);
+          assert.strictEqual(await a.page.$$eval('.mdl table.mdl-grid2 td.now', c => c.length), 1, 'current cell outlined');
+          const cells = await a.page.$$eval('.mdl table.mdl-grid2 tbody td', c => c.length);
+          assert.ok(cells >= 49, `grid cells (${cells})`);
+          await a.page.selectOption('.mdl select[aria-label="Grid metric"]', 'interest');
+          await settle(a.page, 200);
+          assert.strictEqual(await a.page.$eval('.mdl select[aria-label="Grid columns driver"]', s => s.value), 'sofr_shift');
+          assert.strictEqual(await a.page.$eval('.mdl select[aria-label="Grid rows driver"]', s => s.value), 'spread_shift');
+          await a.page.selectOption('.mdl select[aria-label="Tornado metric"]', 'interest');
+          await settle(a.page, 200);
+          assert.match(await a.page.$eval('.mdl svg.mdl-tornado title', t => t.textContent), /interest/);
+          await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_sens.png') });
+        }
+        if (t === 'val') {
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="val"]'), /Implied forward multiples.*at US\$20\.00 price.*model value.*Exit valuation bridge.*value per share today/);
+          await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_val.png') });
+        }
+        if (t === 'cal') assert.match(await text(a.page, '.mdl [data-mdl-panel="cal"]'), /✗ outside/, 'the deliberate miss shows');
+      }
+      // keyboard tab navigation
+      await a.page.focus('.mdl [data-mdl-tab="pl"]');
+      await a.page.keyboard.press('ArrowRight');
+      assert.strictEqual(await a.page.evaluate(() => document.activeElement.getAttribute('data-mdl-tab')), 'debt');
+      await a.page.click('.mdl [data-mdl-reset]');
+      await settle(a.page, 300);
+      assert.strictEqual(await a.page.evaluate(() => location.hash), '#/reports/fxr', 'reset clears ?m');
+      // a help expander cites the report's sources; the citation scrolls in place
+      await a.page.click('.mdl .mdl-drv[data-mdl-row="share_price"] .mdl-help');
+      await a.page.click('.mdl .mdl-drv[data-mdl-row="share_price"] .mdl-helpbox [data-rpt-src="s2"]');
+      await a.page.waitForFunction(() => document.getElementById('src-s2').classList.contains('rpt-flash'));
+      // print: a static snapshot replaces the controls
+      await a.page.click('.mdl input[data-mdl-driver="sofr_shift"]');
+      await a.page.evaluate(() => { const r = document.querySelector('.mdl input[data-mdl-driver="sofr_shift"]'); r.value = '200'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+      await settle(a.page, 900);
+      await a.page.emulateMedia({ media: 'print' });
+      const pr = await a.page.evaluate(() => {
+        const vis = s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none'; };
+        return { live: vis('.mdl-live'), print: vis('.mdl-print'), tornado: !!document.querySelector('.mdl-print svg.mdl-tornado'),
+          table: !!document.querySelector('.mdl-print table'), note: /Scenario as of print/.test(document.querySelector('.mdl-print').textContent),
+          sofr: /SOFR shift \+200 bp/.test(document.querySelector('.mdl-print').textContent) };
+      });
+      assert.deepStrictEqual(pr, { live: false, print: true, tornado: true, table: true, note: true, sofr: true });
+      await a.page.pdf({ path: path.join(SHOTS, 'report_fxr_model.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
+      await a.page.emulateMedia({ media: 'screen' });
+      // the full-width route keeps the state
+      const enc = (await a.page.evaluate(() => location.hash)).split('?m=')[1];
+      await a.page.click('.mdl a.mdl-full');
+      await a.page.waitForSelector('#view-reports .rpt-modelpage .mdl [data-mdl-kpi="interest"]');
+      assert.strictEqual(await a.page.evaluate(() => location.hash), `#/reports/fxr/model?m=${enc}`);
+      assert.strictEqual(await a.page.$eval('.mdl input[data-mdl-driver="sofr_shift"]', e => e.value), '200');
+      assert.match(await text(a.page, '.rpt-modelpage .rpt-strip'), /Fixture Corp.*Stance: Neutral/);
+      assert.strictEqual(await a.page.$$eval('#view-reports .rpt-sec', s => s.length), 1, 'only the sources section');
+      assert.strictEqual(await a.page.$eval('.view-tab[data-view="reports"]', t => t.classList.contains('active')), true);
+      await shot(a.page, 'model_fxr_fullwidth', { fullPage: true });
+      // SOFR moves interest on this route too
+      const iA = money(await kpi(a.page, 'interest'));
+      await a.page.evaluate(() => { const r = document.querySelector('.mdl input[data-mdl-driver="sofr_shift"]'); r.value = '-100'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+      await settle(a.page, 300);
+      assert.ok(money(await kpi(a.page, 'interest')) < iA, 'lower SOFR, lower interest');
+      // a stock drawer opened over the model page restores the current state on close
+      const hNow = await a.page.evaluate(() => location.hash);
+      await go(a.page, '#/stock/FXR');
+      await a.page.waitForSelector('#drawer .rpt-drawer-link');
+      await a.page.evaluate(() => closeDrawer());
+      await settle(a.page, 300);
+      assert.strictEqual(await a.page.evaluate(() => location.hash), hNow, 'drawer close restores the model state');
+      await a.page.click('.rpt-modelpage .rpt-back');
+      await a.page.waitForSelector('#view-reports .rpt-report:not(.rpt-modelpage) .mdl [data-mdl-kpi="interest"]');
+      await go(a.page, '#/reports/fxr/oops');
+      await a.page.waitForFunction(() => /Report not found/.test(document.getElementById('view-reports').textContent));
+      noErrors(a);
+      await a.ctx.close();
+    });
+    await step('stress-test model at 360 px: no page-level horizontal scroll on any tab (report + full-width route)', async () => {
+      const a = await newCtx(browser, NEW, { viewport: { width: 360, height: 780 }, reports: 'fixture' });
+      await boot(a, NEW, '#/reports/fxr');
+      await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
+      for (const route of ['#/reports/fxr', '#/reports/fxr/model']) {
+        await go(a.page, route);
+        await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
+        for (const t of ['pl', 'debt', 'sens', 'val', 'cal']) {
+          await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
+          await settle(a.page, 200);
+          assert.ok(await noHScroll(a.page), `${route} tab ${t} scrolls horizontally at 360 px`);
+        }
+        // the SOFR slider is usable by touch-width: within the viewport
+        const r = await a.page.$eval('.mdl input[data-mdl-driver="sofr_shift"]', e => { const b = e.getBoundingClientRect(); return [b.left, b.right]; });
+        assert.ok(r[0] >= 0 && r[1] <= 360, `slider inside the viewport ${r}`);
+        await shot(a.page, `phone_model_${route.endsWith('model') ? 'fullwidth' : 'report'}`, { fullPage: true });
+      }
+      noErrors(a);
+      await a.ctx.close();
     });
 
     // 14. The real CoreWeave report, when it has been written (public content).

@@ -8,6 +8,10 @@
 //  - dashboard/reports.js: the inline-markup parser, and the renderer driven through a
 //    minimal fake DOM whose innerHTML setter throws — so report text can only ever reach
 //    the page as text nodes, and only whitelisted attributes / https: links come out;
+//  - the stress-test model behind a {"type":"model","src":"<slug>"} block: its file
+//    (dashboard/reports/models/<src>.json; the fixture's in tests/fixtures/models/) against
+//    MODEL SPEC v1 + the template's driver ids, citations against the PARENT report's sources;
+//    the lazy mount wiring (assets loaded once, model fetched, state passed through);
 //  - wiring: index.html loads it, .vercelignore does not drop dashboard/reports.
 //
 //   node scripts/test_reports.js
@@ -20,7 +24,10 @@ const ROOT = path.resolve(__dirname, '..');
 const DASH = path.join(ROOT, 'dashboard');
 const RDIR = path.join(DASH, 'reports');
 const FIXTURE = path.join(ROOT, 'tests', 'fixtures', 'reports', 'sample.json');
+const MDIR = path.join(RDIR, 'models');
+const FIX_MDIR = path.join(ROOT, 'tests', 'fixtures', 'models');
 const R = require(path.join(DASH, 'reports.js'));
+const ME = require(path.join(DASH, 'model-engine.js'));
 
 // Checks run one at a time, in order (the DOM tests swap globals, so none may overlap).
 let passed = 0, failed = 0;
@@ -64,6 +71,7 @@ const BLOCK_KEYS = {
   scenarios: { req: ['rows'], opt: [] },
   kv: { req: ['items'], opt: [] },
   chart: { req: ['symbol'], opt: [] },
+  model: { req: ['src'], opt: [] },
 };
 
 // A source page that gives only a month ('2025-09') is dated by month; never a bare year.
@@ -252,7 +260,183 @@ function validateBlock(b, w, { err, isStr, isObj, keysOnly, srcRef }) {
     case 'chart':
       if (!isStr(b.symbol) || !TV_SYMBOL_RE.test(b.symbol)) err(w, 'symbol must look like NASDAQ:CRWV');
       break;
+    case 'model':
+      if (!isStr(b.src) || !SLUG_RE.test(b.src)) err(w, 'src must be a model slug (reports/models/<src>.json)');
+      break;
   }
+}
+const modelBlocks = r => (Array.isArray(r && r.sections) ? r.sections : []).flatMap(s => (s && Array.isArray(s.blocks) ? s.blocks : []))
+  .filter(b => b && b.type === 'model');
+
+// ---------------------------------------------------------------- MODEL SPEC v1
+// The model file behind a "model" block. The engine (model-engine.js) is lenient — it fills
+// gaps from template defaults and warns — so the publishing bar is stricter here: every
+// template driver present with the template's kind, ranges coherent, scenarios on known
+// drivers, every citation in the PARENT report's sources, and a share price that cites one.
+const MODEL_KEYS = ['v', 'slug', 'template', 'currency', 'unit', 'asof', 'years', 'prior', 'stub', 'opening', 'debt', 'rates',
+  'drivers', 'scenarios', 'valuation', 'checks', 'guides', '_comment'];
+const DRIVER_KEYS = ['id', 'label', 'group', 'kind', 'unit', 'base', 'min', 'max', 'step', 'path', 'low', 'high', 'help', 'src', 'dp'];
+const TRANCHE_KEYS = ['id', 'name', 'balance', 'kind', 'coupon_pct', 'spread_bp', 'maturity', 'amort', 'secured', 'recourse', 'src', 'note'];
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+function validateModel(m, report, { file } = {}) {
+  const errs = [];
+  const err = (where, msg) => errs.push(`${where}: ${msg}`);
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const isNum = v => typeof v === 'number' && isFinite(v);
+  const isStr = v => typeof v === 'string' && v.trim().length > 0;
+  if (!isObj(m)) return ['model: not an object'];
+  for (const k of Object.keys(m)) if (!MODEL_KEYS.includes(k)) err('model', `unknown key "${k}"`);
+  if (m.v !== 1) err('v', 'must be 1');
+  if (!isStr(m.slug) || !SLUG_RE.test(m.slug)) err('slug', 'must match /^[a-z0-9-]{1,40}$/');
+  if (file && m.slug !== path.basename(file, '.json')) err('slug', `"${m.slug}" does not match the file name ${path.basename(file)}`);
+  const tpl = ME.template(m.template);
+  if (!tpl) { err('template', `unknown template "${m.template}"`); return errs; }
+  if (!isStr(m.asof) || !validDate(m.asof)) err('asof', 'must be a real YYYY-MM-DD date');
+  const years = Array.isArray(m.years) ? m.years : [];
+  if (!years.length || !years.every((y, i) => Number.isInteger(y) && (!i || y === years[i - 1] + 1))) err('years', 'must be consecutive ascending integer years');
+  const ys = years.map(String);
+
+  // citations: src arrays + inline [sN] anywhere resolve against the parent report's sources
+  const ids = new Set((report && Array.isArray(report.sources) ? report.sources : []).map(s => s && s.id));
+  const walk = (v, where) => {
+    if (typeof v === 'string') {
+      if (HTML_TAG_RE.test(v)) err(where, 'contains a raw HTML tag');
+      if ((v.match(/\*\*/g) || []).length % 2) err(where, 'unbalanced **');
+      const good = new Set();
+      for (const mm of v.matchAll(CITE_RE)) {
+        good.add(mm.index);
+        for (const id of mm[1].split(',').map(x => x.trim())) if (!ids.has(id)) err(where, `citation [${id}] is not in the report's sources`);
+      }
+      for (const mm of v.matchAll(LOOSE_CITE_RE)) if (!good.has(mm.index)) err(where, `malformed citation ${mm[0]}`);
+      if (PRICE_GROWTH_RE.test(v)) err(where, 'growth means fundamentals — not a price move');
+      return;
+    }
+    if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${where}[${i}]`));
+    else if (isObj(v)) for (const k of Object.keys(v)) {
+      if (k === 'src') {
+        if (!Array.isArray(v.src) || !v.src.length) err(`${where}.src`, 'must be a non-empty array of source ids');
+        else for (const id of v.src) if (!ids.has(id)) err(`${where}.src`, `"${id}" is not in the report's sources`);
+      } else walk(v[k], `${where}.${k}`);
+    }
+  };
+  walk(m, 'model');
+  const path0 = (p, where, { pct } = {}) => {
+    if (!isObj(p)) { err(where, 'path must be {"<year>": number} covering every model year'); return; }
+    for (const y of ys) if (!isNum(p[y])) err(where, `path: ${y} missing or not a number`);
+    for (const k of Object.keys(p)) if (!ys.includes(k)) err(where, `path: ${k} is not a model year`);
+    if (pct) for (const y of ys) if (isNum(p[y]) && (p[y] < -100 || p[y] > 1000)) err(where, `path: ${y} = ${p[y]} looks wrong`);
+  };
+
+  // drivers: exactly the template's, with its kind; ranges coherent
+  const tplById = new Map(tpl.drivers.map(d => [d.id, d]));
+  const seen = new Set();
+  (Array.isArray(m.drivers) ? m.drivers : []).forEach((d, i) => {
+    const w = `drivers[${i}]${d && d.id ? ` (${d.id})` : ''}`;
+    if (!isObj(d)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(d)) if (!DRIVER_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    const t = tplById.get(d.id);
+    if (!t) { err(w, `"${d.id}" is not a ${tpl.id} driver`); return; }
+    if (seen.has(d.id)) err(w, 'duplicate id');
+    seen.add(d.id);
+    if (d.kind !== t.kind) err(w, `kind must be ${t.kind} (the template's semantics)`);
+    if (!tpl.groups.includes(d.group)) err(w, `group must be one of ${tpl.groups.join(' | ')}`);
+    if (!['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m'].includes(d.unit)) err(w, 'unit must be pp | bp | % | x | yrs | US$ | US$m');
+    if (!isStr(d.label) || !isStr(d.help)) err(w, 'label and help required');
+    for (const k of ['base', 'min', 'max', 'step']) if (!isNum(d[k])) err(w, `${k} must be a number`);
+    if (isNum(d.min) && isNum(d.max)) {
+      if (d.min >= d.max) err(w, 'min must be < max');
+      if (isNum(d.base) && (d.base < d.min || d.base > d.max)) err(w, `base ${d.base} outside [${d.min}, ${d.max}]`);
+      for (const k of ['low', 'high']) if (d[k] != null && (!isNum(d[k]) || d[k] < d.min || d[k] > d.max)) err(w, `${k} ${d[k]} outside [${d.min}, ${d.max}]`);
+    }
+    if (!(d.step > 0)) err(w, 'step must be > 0');
+    if (d.id !== 'share_price' && (!isNum(d.low) || !isNum(d.high))) err(w, 'low and high (the tornado stress range) required');
+    if (isNum(d.low) && isNum(d.high) && d.low >= d.high) err(w, 'low must be < high');
+    if (t.kind === 'shift_pp' || t.kind === 'scale_pct') path0(d.path, w, { pct: t.kind === 'shift_pp' });
+    else if (d.path !== undefined) err(w, `a ${t.kind} driver takes no path`);
+  });
+  for (const t of tpl.drivers) if (t.required && !seen.has(t.id)) err('drivers', `missing ${t.id}`);
+  const sp = (Array.isArray(m.drivers) ? m.drivers : []).find(d => d && d.id === 'share_price');
+  if (sp && (!Array.isArray(sp.src) || !sp.src.length)) err('drivers (share_price)', 'a published price must cite a public source (src)');
+  if (sp && !(sp.base > 0)) err('drivers (share_price)', 'base must be the cited close (> 0)');
+
+  // scenarios
+  const sIds = new Set();
+  if (!Array.isArray(m.scenarios) || !m.scenarios.length) err('scenarios', 'required non-empty array');
+  else m.scenarios.forEach((s, i) => {
+    const w = `scenarios[${i}]`;
+    if (!isObj(s)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(s)) if (!['id', 'name', 'values', 'note'].includes(k)) err(w, `unknown key "${k}"`);
+    if (!isStr(s.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(s.id)) err(w, 'id must be lower-case');
+    else if (sIds.has(s.id)) err(w, `duplicate id ${s.id}`);
+    else sIds.add(s.id);
+    if (!isStr(s.name)) err(w, 'name required');
+    if (!isObj(s.values)) { err(w, 'values must be an object'); return; }
+    for (const [k, v] of Object.entries(s.values)) {
+      const d = (m.drivers || []).find(x => x && x.id === k);
+      if (!d) { err(w, `values: "${k}" is not a driver`); continue; }
+      if (!isNum(v) || v < d.min || v > d.max) err(w, `values: ${k} = ${v} outside [${d.min}, ${d.max}]`);
+    }
+  });
+  if (!sIds.has('base')) err('scenarios', 'a "base" scenario is required');
+
+  // opening balance sheet, stub, prior
+  const op = m.opening;
+  if (!isObj(op)) err('opening', 'required object');
+  else {
+    if (!validDate(op.date || '')) err('opening', 'date must be a real YYYY-MM-DD');
+    for (const k of ['cash', 'gross_ppe', 'net_ppe', 'shares_m']) if (!isNum(op[k])) err('opening', `${k} must be a number`);
+    if (isNum(op.gross_ppe) && isNum(op.net_ppe) && op.net_ppe > op.gross_ppe) err('opening', 'net_ppe exceeds gross_ppe');
+    if (op.dep_base != null && (!isNum(op.dep_base) || op.dep_base < 0 || (isNum(op.gross_ppe) && op.dep_base > op.gross_ppe))) err('opening', 'dep_base (depreciable base) must be a number in [0, gross_ppe]');
+  }
+  if (!isObj(m.prior) || !isNum(m.prior.revenue) || m.prior.year !== years[0] - 1) err('prior', `{year: ${years[0] - 1}, revenue} required (the growth base)`);
+  if (m.stub != null && (!isObj(m.stub) || m.stub.year !== years[0] || !isObj(m.stub.actuals))) err('stub', 'must be {year: <first model year>, actual_months, actuals}');
+
+  // debt
+  const tIds = new Set();
+  (Array.isArray(m.debt) ? m.debt : []).forEach((t, i) => {
+    const w = `debt[${i}]${t && t.id ? ` (${t.id})` : ''}`;
+    if (!isObj(t)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(t)) if (!TRANCHE_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    if (!isStr(t.id) || !ID_RE.test(t.id) || t.id === ME.NEW_DEBT_ID) err(w, 'id must be kebab-case (not "new-debt")');
+    else if (tIds.has(t.id)) err(w, 'duplicate id');
+    else tIds.add(t.id);
+    if (!isStr(t.name)) err(w, 'name required');
+    if (!isNum(t.balance) || t.balance < 0) err(w, 'balance must be a number >= 0');
+    if (t.kind === 'fixed') { if (!isNum(t.coupon_pct) || t.coupon_pct < 0 || t.coupon_pct > 40) err(w, 'fixed: coupon_pct (0–40) required'); }
+    else if (t.kind === 'floating') { if (!isNum(t.spread_bp) || t.spread_bp < 0 || t.spread_bp > 3000) err(w, 'floating: spread_bp (0–3000) required'); }
+    else err(w, 'kind must be fixed | floating');
+    if (!MONTH_RE.test(String(t.maturity))) err(w, 'maturity must be YYYY-MM');
+    if (!['bullet', 'straight', 'cashsweep'].includes(t.amort)) err(w, 'amort must be bullet | straight | cashsweep');
+    if (typeof t.secured !== 'boolean' || typeof t.recourse !== 'boolean') err(w, 'secured and recourse must be booleans');
+    if (!Array.isArray(t.src)) err(w, 'src required (where the balance comes from)');
+  });
+  if (!isObj(m.rates)) err('rates', 'required object');
+  else { path0(m.rates.path, 'rates'); if (!isStr(m.rates.note)) err('rates', 'note required (how the path was derived, dated)'); }
+
+  // valuation, checks, guides
+  const v = m.valuation;
+  if (!isObj(v) || v.method !== 'exit_multiple' || !years.includes(v.exit_year) || !validDate(v.valuation_date || '')) err('valuation', '{method: "exit_multiple", exit_year: <a model year>, valuation_date} required');
+  const metricOk = k => tpl.row_names.includes(k) || tpl.valuation_metrics.includes(k);
+  (Array.isArray(m.checks) ? m.checks : []).forEach((c, i) => {
+    const w = `checks[${i}]`;
+    if (!isObj(c) || !isStr(c.label) || !metricOk(c.metric)) { err(w, 'label + a known metric required'); return; }
+    if (tpl.row_names.includes(c.metric) && !years.includes(c.year)) err(w, 'year must be a model year');
+    if (c.lo == null && c.hi == null) err(w, 'lo or hi required');
+    if (isNum(c.lo) && isNum(c.hi) && c.lo > c.hi) err(w, 'lo > hi');
+  });
+  (Array.isArray(m.guides) ? m.guides : []).forEach((g, i) => {
+    const w = `guides[${i}]`;
+    if (!isObj(g) || !isStr(g.label) || !tpl.row_names.includes(g.metric)) { err(w, 'label + a known row metric required'); return; }
+    if (!/^\d{4}(-Q[1-4])?$/.test(String(g.period)) || !years.includes(+String(g.period).slice(0, 4))) err(w, 'period must be YYYY or YYYY-Qn inside the model years');
+    if (!isNum(g.lo) || !isNum(g.hi) || g.lo > g.hi) err(w, 'lo <= hi required');
+  });
+
+  // and the engine must accept it without falling back to template defaults
+  const vs = ME.validateSpec(m);
+  for (const e of vs.errors) err('engine', e);
+  for (const x of vs.warnings) err('engine warning', x);
+  if (vs.ok) { const r = ME.project(m, {}); if (r.error) err('engine', r.error); }
+  return errs;
 }
 
 function validateIndex(idx, reports) {
@@ -302,7 +486,63 @@ check('dashboard/reports/index.json: present, matches the report files', () => {
   assert.strictEqual(errs.length, 0, errs.join('\n'));
 });
 
+// Every model block of every published report has its model file, valid against the report.
+for (const f of reportFiles) {
+  let r = null;
+  try { r = readJSON(path.join(RDIR, f)); } catch { continue; }
+  for (const b of modelBlocks(r)) {
+    check(`dashboard/reports/models/${b.src}.json (model block of ${f}): MODEL SPEC v1`, () => {
+      const mf = path.join(MDIR, `${b.src}.json`);
+      assert.ok(fs.existsSync(mf), `${f} has a model block but dashboard/reports/models/${b.src}.json is missing`);
+      const errs = validateModel(readJSON(mf), r, { file: mf });
+      assert.strictEqual(errs.length, 0, errs.join('\n'));
+    });
+  }
+}
+
 const FIX = readJSON(FIXTURE);
+const FIX_MODEL = readJSON(path.join(FIX_MDIR, 'fxr.json'));
+check('fixture model fxr.json against the fixture report: MODEL SPEC v1', () => {
+  eq(modelBlocks(FIX).map(b => b.src), ['fxr'], 'the fixture report carries the fixture model');
+  const errs = validateModel(FIX_MODEL, FIX, { file: 'fxr.json' });
+  assert.strictEqual(errs.length, 0, errs.join('\n'));
+});
+const brokenModels = [
+  ['unknown driver id', m => { m.drivers.push({ ...m.drivers[0], id: 'fx_rate' }); }, /"fx_rate" is not a levered_growth_v1 driver/],
+  ['missing template driver', m => { m.drivers = m.drivers.filter(d => d.id !== 'sofr_shift'); }, /missing sofr_shift/],
+  ['driver kind changed', m => { m.drivers.find(d => d.id === 'sofr_shift').kind = 'scalar'; }, /kind must be shift_bp/],
+  ['base outside the range', m => { m.drivers.find(d => d.id === 'tax_rate').base = 80; }, /base 80 outside/],
+  ['stress low outside the range', m => { m.drivers.find(d => d.id === 'sofr_shift').low = -900; }, /low -900 outside/],
+  ['low above high', m => { const d = m.drivers.find(d => d.id === 'capex'); d.low = 20; d.high = 10; }, /low must be < high/],
+  ['path missing a year', m => { delete m.drivers.find(d => d.id === 'revenue_growth').path['2029']; }, /path: 2029 missing/],
+  ['scenario on an unknown driver', m => { m.scenarios[1].values.oil_price = 90; }, /"oil_price" is not a driver/],
+  ['scenario value out of range', m => { m.scenarios[1].values.sofr_shift = 5000; }, /sofr_shift = 5000 outside/],
+  ['no base scenario', m => { m.scenarios = m.scenarios.filter(s => s.id !== 'base'); }, /a "base" scenario is required/],
+  ['citation not in the report', m => { m.debt[0].src = ['s9']; }, /"s9" is not in the report's sources/],
+  ['inline citation not in the report', m => { m.drivers[0].help += ' [s42]'; }, /citation \[s42\]/],
+  ['share price without a source', m => { delete m.drivers.find(d => d.id === 'share_price').src; }, /must cite a public source/],
+  ['years not ascending', m => { m.years = [2026, 2028, 2027, 2029, 2030]; }, /consecutive ascending/],
+  ['fixed tranche without a coupon', m => { m.debt[1].coupon_pct = null; }, /coupon_pct/],
+  ['tranche maturity format', m => { m.debt[0].maturity = '2031'; }, /maturity must be YYYY-MM/],
+  ['reserved tranche id', m => { m.debt[0].id = 'new-debt'; }, /not "new-debt"/],
+  ['raw HTML in help', m => { m.drivers[0].help = '<img src=x onerror=alert(1)>'; }, /raw HTML/],
+  ['slug vs file name', m => { m.slug = 'other'; }, /does not match the file name/],
+  ['check on an unknown metric', m => { m.checks[0].metric = 'magic'; }, /known metric/],
+  ['guide period outside the model', m => { m.guides[0].period = '2040-Q1'; }, /period must be/],
+];
+for (const [name, mutate, re] of brokenModels) {
+  check(`model validator rejects: ${name}`, () => {
+    const m = clone(FIX_MODEL);
+    mutate(m);
+    const errs = validateModel(m, FIX, { file: 'fxr.json' });
+    assert.ok(errs.some(e => re.test(e)), `expected ${re} in:\n${errs.join('\n') || '(no errors)'}`);
+  });
+}
+check('validator: a model block needs a slug src', () => {
+  const r = clone(FIX);
+  r.sections.find(s => s.id === 'stress-test').blocks[1].src = '../x';
+  assert.ok(validateReport(r, { file: 'fxr.json' }).some(e => /src must be a model slug/.test(e)));
+});
 check('fixture sample.json (Fixture Corp, FXR): schema v1', () => {
   const errs = validateReport(FIX, { file: 'fxr.json' });
   assert.strictEqual(errs.length, 0, errs.join('\n'));
@@ -332,7 +572,7 @@ const broken = [
   ['price move called growth', r => { r.highlights[2] = 'Share-price growth of 40% this year.'; }, /growth means fundamentals/],
   ['too few key stats', r => { r.key_stats = r.key_stats.slice(0, 3); }, /6-10 entries/],
   ['scenario names', r => { r.sections[2].blocks[2].rows[0].name = 'Blue sky'; }, /Bear, Base, Bull/],
-  ['chart symbol', r => { r.sections[4].blocks[0].symbol = 'CRWV"><script>'; }, /symbol must look like/],
+  ['chart symbol', r => { r.sections.find(s => s.id === 'share-price').blocks[0].symbol = 'CRWV"><script>'; }, /symbol must look like/],
   ['slug vs file name', r => { r.slug = 'other'; }, /does not match the file name/],
   ['data_asof after published', r => { r.data_asof = '2026-12-01'; }, /after published/],
   ['source dated by a bare year', r => { r.sources[0].date = '2026'; }, /date must be YYYY-MM-DD, YYYY-MM/],
@@ -406,7 +646,7 @@ check('helpers: plainText, safeUrl, fmtDate, fmtCell, barsScale', () => {
 // Just enough DOM for reports.js. innerHTML ASSIGNMENT throws: reports.js must build every
 // node with createElement / createTextNode.
 const ALLOWED_ATTRS = new Set(['class', 'href', 'target', 'rel', 'id', 'title', 'aria-label', 'aria-labelledby', 'role', 'tabindex',
-  'scope', 'type', 'style', 'data-rpt-src', 'data-rpt-sec', 'data-rpt-print', 'data-rpt-slug',
+  'scope', 'type', 'style', 'data-rpt-src', 'data-rpt-sec', 'data-rpt-print', 'data-rpt-slug', 'data-rpt-view',
   'viewBox', 'preserveAspectRatio', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'width', 'height', 'fill', 'rx', 'text-anchor']);
 function fakeDocument() {
   class Node {
@@ -490,7 +730,7 @@ function assertSafeTree(F, root) {
     for (const [k, v] of el.attrs) {
       assert.ok(ALLOWED_ATTRS.has(k), `unexpected attribute ${k}="${v}" on <${el.localName}>`);
       assert.ok(!/^on/i.test(k), `event-handler attribute ${k}`);
-      if (k === 'href') assert.ok(/^https:\/\//.test(v) || /^#\/reports(\/[a-z0-9-]+)?$/.test(v), `unsafe href ${v}`);
+      if (k === 'href') assert.ok(/^https:\/\//.test(v) || /^#\/reports(\/[a-z0-9-]+(\/model)?)?$/.test(v), `unsafe href ${v}`);
       if (k === 'style') assert.match(v, el.localName === 'svg' ? /^--rpt-bars-minw:\d{3,4}px$/ : /^background:#[0-9a-f]{6}$/, `unexpected style ${v}`);
       if (k === 'target') assert.strictEqual(el.getAttribute('rel'), 'noopener noreferrer', 'target=_blank without rel');
     }
@@ -512,7 +752,10 @@ check('render: fixture builds a complete report through createElement/textConten
   // investment summary, numbered sections, sources last
   assert.match(text, /Investment summary/);
   const heads = F.all(el).filter(e => e.localName === 'h2' && e.parentNode.getAttribute('class') && /rpt-sec/.test(e.parentNode.getAttribute('class'))).map(e => e.textContent);
-  eq(heads, ['1Investment thesis', '2Financials (EDGAR)', '3Valuation', '4Key risks', '5Share-price performance', '6Sources']);
+  eq(heads, ['1Investment thesis', '2Financials (EDGAR)', '3Valuation', '4Stress test & projections', '5Key risks', '6Share-price performance', '7Sources']);
+  // the model block is a slot until the page is attached (renderReport mounts it)
+  const slot = F.all(el).find(e => e.getAttribute('class') === 'rpt-model-slot');
+  assert.ok(slot && /Loading the stress-test model/.test(slot.textContent), 'model slot rendered');
   // bold + citations
   const strongs = F.all(el).filter(e => e.localName === 'strong').map(e => e.textContent);
   assert.ok(strongs.includes('Fundamental growth is the story:'), strongs.join('|'));
@@ -671,6 +914,11 @@ check('index.html: nav tab, view container, stylesheet and script', () => {
   assert.match(html, /<link rel="stylesheet" href="reports\.css" \/>/);
   assert.match(html, /<script src="reports\.js"><\/script>/);
   assert.ok(html.indexOf('src="charts.js"') < html.indexOf('src="reports.js"'), 'reports.js after charts.js');
+  // the model's files load on demand (reports.js), not with the page
+  for (const f of ['model.js', 'model-engine.js', 'model.css']) {
+    assert.ok(!html.includes(f), `${f} must not load with the page`);
+    assert.ok(fs.existsSync(path.join(DASH, f)), `dashboard/${f} missing`);
+  }
 });
 // gitignore semantics, as Vercel applies them: a pattern with no slash except a trailing one
 // matches a file or directory of that name at ANY depth ('data/' drops dashboard/reports/data);
@@ -695,6 +943,7 @@ function ignoreMatcher(pattern) {
 check('.vercelignore does not drop dashboard/reports (the JSON is served statically)', () => {
   const lines = fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
   const served = ['dashboard/reports.js', 'dashboard/reports.css', 'dashboard/reports/index.json',
+    'dashboard/model.js', 'dashboard/model.css', 'dashboard/model-engine.js', 'dashboard/reports/models/crwv.json',
     ...reportFiles.map(f => `dashboard/reports/${f}`), 'dashboard/reports/data/crwv_financials.json'];
   for (const l of lines) {
     if (l.startsWith('!')) continue;
@@ -746,8 +995,102 @@ check('browser load defines only window.Reports', () => {
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(DASH, 'reports.js'), 'utf8'), ctx, { filename: 'reports.js' });
   eq(Object.keys(ctx).filter(k => k !== 'self'), ['Reports']);
-  eq(Object.keys(ctx.Reports).sort(), ['_internal', 'findByTicker', 'renderList', 'renderReport', 'unmount']);
+  eq(Object.keys(ctx.Reports).sort(), ['_internal', 'findByTicker', 'renderList', 'renderReport', 'richText', 'unmount']);
 });
+check('browser load: model.js defines only window.ReportModel, model-engine.js only window.ModelEngine', () => {
+  const vm = require('vm');
+  for (const [f, name] of [['model.js', 'ReportModel'], ['model-engine.js', 'ModelEngine']]) {
+    const ctx = {};
+    ctx.self = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(DASH, f), 'utf8'), ctx, { filename: f });
+    eq(Object.keys(ctx).filter(k => k !== 'self'), [name], f);
+  }
+});
+check('model.js: never assigns innerHTML / outerHTML / insertAdjacentHTML, never evals', () => {
+  const src = fs.readFileSync(path.join(DASH, 'model.js'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  for (const re of [/\.innerHTML\s*=/, /\.outerHTML\s*=/, /insertAdjacentHTML/, /\beval\s*\(/, /new Function/, /document\.write/]) assert.ok(!re.test(src), `model.js matches ${re}`);
+});
+check('model.js helpers: formatting, axis values, plain-English driver lines, quarterly guide', () => {
+  const MI = require(path.join(DASH, 'model.js'))._internal;
+  eq(MI.fmt(1234.5, 'US$m', 0), 'US$1,235m');
+  eq(MI.fmt(-0.04, '%', 1, true), '0.0%', 'no −0');
+  eq(MI.fmt(-12.3, 'bp', 0), '−12 bp');
+  eq(MI.fmt(25, 'bp', 0, true), '+25 bp');
+  eq(MI.fmt(null, 'x', 1), '—');
+  eq(MI.money(12850), 'US$12.9bn');
+  eq(MI.money(1234), 'US$1.23bn');
+  eq(MI.money(-450), '−US$450m');
+  eq(MI.tone(5, -1), 'neg'); eq(MI.tone(5, 1), 'pos'); eq(MI.tone(0, 1), 'flat');
+  const d = { min: -300, max: 500, step: 25, low: -100, high: 200 };
+  eq(MI.axisValues(d, 30, 7), [-100, -50, 0, 30, 50, 100, 150, 200]);
+  eq(MI.driverNoun('SOFR shift'), 'SOFR'); eq(MI.driverNoun('Capex'), 'capex');
+  eq(MI.moveText({ kind: 'shift_bp', unit: 'bp', label: 'SOFR shift', dp: 0 }, 0, 100), 'A 100 bp rise in SOFR');
+  eq(MI.moveText({ kind: 'scale_pct', unit: '%', label: 'Capex', dp: 0 }, 0, -25), '25% less capex');
+  const sens = ME.sensitivity(FIX_MODEL, {}, { metric: 'net_income', year: 2027 });
+  const lines = MI.keyDriverLines(sens, ME.drivers(FIX_MODEL), 'FY2027E net income', 'US$m');
+  assert.ok(lines.length === 5, `5 lines (${lines.length})`);
+  assert.ok(lines.every(l => /(cuts|lifts) FY2027E net income by US\$[\d,.]+(m|bn) \(to /.test(l.text)), lines.map(l => l.text).join('\n'));
+  const res = ME.project(FIX_MODEL, {});
+  const q3 = MI.guideValue(res, FIX_MODEL, { metric: 'interest', period: '2026-Q3' });
+  assert.ok(Math.abs(q3 - (res.rows.interest[0] - FIX_MODEL.stub.actuals.interest) / 2) < 1e-9, 'Q3 inside the stub = projected remainder / 2 quarters');
+  eq(MI.guideValue(res, FIX_MODEL, { metric: 'interest', period: '2026-Q1' }), null, 'a reported quarter has no model value');
+  assert.ok(Math.abs(MI.guideValue(res, FIX_MODEL, { metric: 'interest', period: '2027-Q2' }) - res.rows.interest[1] / 4) < 1e-9);
+});
+check('renderReport: a model block lazy-mounts ReportModel with the model, the report, the route state; model page view', () => withDOM(async F => {
+  const calls = [];
+  global.fetch = url => {
+    calls.push(url);
+    const body = url === 'reports/fxr.json' ? clone(FIX) : url === 'reports/models/fxr.json' ? clone(FIX_MODEL) : null;
+    return Promise.resolve(body ? { ok: true, status: 200, json: () => Promise.resolve(body) } : { ok: false, status: 404, json: () => Promise.reject(new Error('404')) });
+  };
+  const el = F.doc.createElement('div');
+  F.doc.body.appendChild(el);
+  // No browser (no window/head) and no preloaded modules: the slot says so, nothing throws.
+  await R.renderReport(el, 'fxr');
+  await new Promise(res => setImmediate(res));
+  assert.match(F.all(el).find(e => e.getAttribute('class') === 'rpt-model-slot').textContent, /couldn’t load/);
+  R.unmount();
+  // Preloaded engine + UI: mounted once per block, with the parsed model and the report.
+  const mounted = [];
+  let disposed = 0;
+  global.ModelEngine = ME;
+  global.ReportModel = { mount: (slot, o) => { mounted.push(o); const d = () => { disposed++; }; d.getState = () => o.state; d.setState = s => { o.state = s; }; return d; } };
+  try {
+    await R.renderReport(el, 'fxr', { m: 'eyJ2IjoxfQ' });
+    await new Promise(res => setImmediate(res));
+    eq(mounted.length, 1);
+    eq(mounted[0].model.slug, 'fxr'); eq(mounted[0].report.slug, 'fxr'); eq(mounted[0].state, 'eyJ2IjoxfQ');
+    eq(mounted[0].links, { self: '#/reports/fxr', full: '#/reports/fxr/model', report: '#/reports/fxr' });
+    assert.ok(typeof mounted[0].rich.inline === 'function' && typeof mounted[0].onState === 'function');
+    // the report's citations resolve in the model's text
+    const sup = mounted[0].rich.cite(['s3']);
+    eq(sup.textContent, '3');
+    assert.ok(calls.includes('reports/models/fxr.json'));
+    // same report again with a new ?m: applied in place, no refetch
+    const n = calls.length;
+    await R.renderReport(el, 'fxr', { m: 'eyJ2IjoyfQ' });
+    eq(calls.length, n); eq(mounted.length, 1); eq(mounted[0].state, 'eyJ2IjoyfQ');
+    // a junk ?m never reaches the model
+    R.unmount();
+    eq(disposed, 1, 'leaving disposes the model');
+    await R.renderReport(el, 'fxr', { m: '"><script>' });
+    await new Promise(res => setImmediate(res));
+    eq(mounted[1].state, '');
+    // #/reports/fxr/model: strip + the model alone + sources, safe tree
+    await R.renderReport(el, 'fxr', { view: 'model' });
+    await new Promise(res => setImmediate(res));
+    assertSafeTree(F, el);
+    const art = el.firstChild;
+    eq(art.getAttribute('data-rpt-view'), 'model');
+    assert.match(art.textContent, /Stress test & projections/);
+    assert.match(art.textContent, /Back to the report/);
+    eq(F.all(art).filter(e => /rpt-sec\b/.test(e.getAttribute('class') || '') && e.getAttribute('id') !== 'rpt-sec-sources').length, 0, 'no report sections');
+    eq(mounted[2].standalone, true); eq(mounted[2].links.self, '#/reports/fxr/model');
+    assert.ok(F.doc.getElementById('src-s3'), 'sources listed for the model citations');
+    R.unmount();
+  } finally { delete global.ModelEngine; delete global.ReportModel; }
+}));
 
 (async () => {
   for (const [name, fn] of queue) {

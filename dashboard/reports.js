@@ -11,11 +11,21 @@
 // the router, so the link's href is the report's own route (open-in-new-tab still works).
 // The "chart" block reuses charts.js's sandboxed TradingView iframe (Charts.mount, kind
 // 'symbol'); print hides it and shows a note in its place.
+// The "model" block ({"type":"model","src":"<slug>"}) is the interactive stress test /
+// projection model: on first use this file lazy-loads model-engine.js + model.js + model.css
+// (once per page), fetches reports/models/<src>.json and mounts ReportModel into the slot.
+// Its [sN] citations resolve against THIS report's sources (Reports.richText). The model's
+// state rides in the route's query (?m=<base64url>, decoded by ModelEngine.decodeState,
+// never eval'd) and is kept current with history.replaceState (no hashchange, no reload).
+// #/reports/<slug>/model shows the report's header strip + its (first) model full-width.
 //
 // UMD: assigns window.Reports in the browser and module.exports under Node (the tests),
 // like screen-dsl.js; declares no other global.
 //   Reports.renderList(el) -> Promise              #/reports: the report cards
-//   Reports.renderReport(el, slug) -> Promise      #/reports/<slug> ("not found" otherwise)
+//   Reports.renderReport(el, slug, opts?) -> Promise   #/reports/<slug> ("not found" otherwise);
+//       opts {view: 'model' (#/reports/<slug>/model), m: model state, onUrl(hash): the route's
+//       hash was rewritten in place (the router keeps it as its base hash)}
+//   Reports.richText(report) -> {inline(text) -> Node[], cite(ids) -> Node}   for model.js
 //   Reports.findByTicker(ticker) -> Promise<index entry | null>   never rejects
 //   Reports.unmount()                              the view was left: drop the live chart
 (function (root, factory) {
@@ -36,9 +46,13 @@
   // Bear / Base / Bull are required; a Restructuring (equity ≈ 0) tail case is optional.
   const SCENARIOS = ['Restructuring', 'Bear', 'Base', 'Bull'];
   const CALLOUT_TONES = new Set(['info', 'positive', 'risk']);
+  const MODEL_STATE_RE = /^[A-Za-z0-9_-]{1,4096}$/;
+  // Loaded on first use by a "model" block, in this order (model.js needs the engine).
+  const MODEL_ASSETS = { css: 'model.css', js: ['model-engine.js', 'model.js'] };
 
   // seq: bumps on every render/unmount, so a late fetch for a page that was left is dropped.
-  const S = { seq: 0, disposers: [], indexP: null, shown: null, title: null };
+  // models: the live model blocks [{ctl, url}] (ctl.setState applies a new ?m in place).
+  const S = { seq: 0, disposers: [], indexP: null, shown: null, title: null, models: [], assetsP: null };
 
   const isNum = v => typeof v === 'number' && isFinite(v);
   const str = v => (v == null ? '' : String(v));
@@ -274,6 +288,15 @@
     } catch { slot.appendChild(h('div', { class: 'rpt-chart-na' }, 'Chart unavailable right now.')); }
   }
 
+  // The slot the model mounts into once the page is attached (mountModels).
+  function modelBlock(b, ctx) {
+    const src = str(b.src);
+    const slot = h('div', { class: 'rpt-model-slot' }, h('div', { class: 'rpt-chart-na' }, 'Loading the stress-test model…'));
+    if (SLUG_RE.test(src)) ctx.models.push({ slot, src });
+    else { clear(slot); slot.appendChild(h('div', { class: 'rpt-chart-na' }, 'Model unavailable.')); }
+    return h('figure', { class: 'rpt-fig rpt-model' }, slot);
+  }
+
   function block(b, ctx) {
     if (!b || typeof b !== 'object') return null;
     switch (b.type) {
@@ -290,21 +313,50 @@
       case 'kv': return h('dl', { class: 'rpt-kv' }, (Array.isArray(b.items) ? b.items : []).map(it =>
         h('div', null, h('dt', null, str(it && it.label)), h('dd', null, inline(it && it.value, ctx)))));
       case 'chart': return chartBlock(b, ctx);
+      case 'model': return modelBlock(b, ctx);
       default: return null;                    // unknown block type: skipped (the validator rejects it)
     }
   }
 
   // ---------------- the report ----------------
-  function build(r) {
+  const reportSources = r => (Array.isArray(r.sources) ? r.sources.filter(s => s && typeof s.id === 'string') : []);
+  function makeCtx(r, self) {
     const slug = str(r.slug);
-    const sources = Array.isArray(r.sources) ? r.sources.filter(s => s && typeof s.id === 'string') : [];
-    const ctx = { slug, self: `#/reports/${slug}`, num: new Map(), srcLabel: new Map(), srcShort: new Map(), exhibit: 0, bars: 0, charts: [] };
-    sources.forEach((s, i) => {
+    const ctx = { slug, self: self || `#/reports/${slug}`, num: new Map(), srcLabel: new Map(), srcShort: new Map(), exhibit: 0, bars: 0, charts: [], models: [] };
+    reportSources(r).forEach((s, i) => {
       if (ctx.num.has(s.id)) return;
       ctx.num.set(s.id, i + 1);
       ctx.srcLabel.set(s.id, [s.title, s.publisher].filter(Boolean).map(str).join(' — '));
       ctx.srcShort.set(s.id, str(s.publisher || s.title));
     });
+    return ctx;
+  }
+  // The report's inline markup (**bold**, [sN] -> its numbered sources) for model.js.
+  function richText(r, self) {
+    const ctx = makeCtx(r && typeof r === 'object' ? r : {}, self);
+    return { inline: text => inline(text, ctx), cite: ids => cite((Array.isArray(ids) ? ids : [ids]).map(str), ctx) };
+  }
+
+  function sourcesList(sources) {
+    return h('ol', { class: 'rpt-srcs' }, sources.map(s => {
+      const url = safeUrl(s.url);
+      return h('li', { id: `src-${s.id}`, tabindex: '-1' },
+        h('span', { class: 'rpt-src-t' }, str(s.title)), '. ',
+        [s.publisher, s.date ? fmtDate(s.date) : ''].filter(Boolean).map(str).join(', '), s.publisher || s.date ? '. ' : '',
+        url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, url) : h('span', { class: 'rpt-dim' }, str(s.url)));
+    }));
+  }
+  function stancePills(stance) {
+    return h('div', { class: 'rpt-stance' },
+      stance.label ? pill(`Stance: ${str(stance.label)}`, STANCE_TONE[stance.label]) : null,
+      stance.risk ? pill(`Risk: ${str(stance.risk)}`, RISK_TONE[stance.risk]) : null,
+      stance.horizon ? h('span', { class: 'rpt-horizon' }, `Horizon: ${str(stance.horizon)}`) : null);
+  }
+
+  function build(r) {
+    const slug = str(r.slug);
+    const sources = reportSources(r);
+    const ctx = makeCtx(r);
     const stance = r.stance && typeof r.stance === 'object' ? r.stance : {};
     const sections = (Array.isArray(r.sections) ? r.sections : []).filter(s => s && typeof s === 'object');
 
@@ -316,10 +368,7 @@
         h('span', { class: 'rpt-tk' }, `${str(r.exchange)}${r.exchange ? ': ' : ''}${str(r.ticker)}`)),
       h('h2', { class: 'rpt-title' }, str(r.title)),
       r.subtitle ? h('p', { class: 'rpt-subtitle' }, str(r.subtitle)) : null,
-      h('div', { class: 'rpt-stance' },
-        stance.label ? pill(`Stance: ${str(stance.label)}`, STANCE_TONE[stance.label]) : null,
-        stance.risk ? pill(`Risk: ${str(stance.risk)}`, RISK_TONE[stance.risk]) : null,
-        stance.horizon ? h('span', { class: 'rpt-horizon' }, `Horizon: ${str(stance.horizon)}`) : null),
+      stancePills(stance),
       stance.summary ? h('p', { class: 'rpt-stance-sum' }, inline(stance.summary, ctx)) : null);
 
     const stats = (Array.isArray(r.key_stats) ? r.key_stats : []).filter(s => s && typeof s === 'object');
@@ -345,13 +394,7 @@
         (Array.isArray(s.blocks) ? s.blocks : []).map(b => block(b, ctx)))),
       h('section', { class: 'rpt-sec rpt-end', id: 'rpt-sec-sources' },
         h('h2', null, h('span', { class: 'rpt-num' }, String(sections.length + 1)), h('span', null, 'Sources')),
-        h('ol', { class: 'rpt-srcs' }, sources.map(s => {
-          const url = safeUrl(s.url);
-          return h('li', { id: `src-${s.id}`, tabindex: '-1' },
-            h('span', { class: 'rpt-src-t' }, str(s.title)), '. ',
-            [s.publisher, s.date ? fmtDate(s.date) : ''].filter(Boolean).map(str).join(', '), s.publisher || s.date ? '. ' : '',
-            url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, url) : h('span', { class: 'rpt-dim' }, str(s.url)));
-        })),
+        sourcesList(sources),
         h('h3', { class: 'rpt-disch' }, 'Disclosures'),
         h('div', { class: 'rpt-disc' }, (Array.isArray(r.disclosures) ? r.disclosures : []).map(t => h('p', null, inline(t, ctx)))),
         h('p', { class: 'rpt-stamp' }, `${str(r.author || 'GIVA Research')} · ${str(r.company)} (${str(r.ticker)}) · published ${fmtDate(r.published)} · data as of ${fmtDate(r.data_asof)}`)));
@@ -361,7 +404,38 @@
       h('div', { class: 'rpt-toolbar' }, h('a', { href: '#/reports', class: 'rpt-back' }, '← All key reports'), pdf),
       cover, h('div', { class: 'rpt-layout' }, side, main));
     art.addEventListener('click', e => onClick(e, r));
-    return { el: art, charts: ctx.charts };
+    return { el: art, charts: ctx.charts, models: ctx.models };
+  }
+
+  // #/reports/<slug>/model: the report's header strip, then its first model full-width, then
+  // the sources the model can cite and the report's disclosures.
+  function buildModelPage(r) {
+    const slug = str(r.slug);
+    const ctx = makeCtx(r, `#/reports/${slug}/model`);
+    const sections = (Array.isArray(r.sections) ? r.sections : []).filter(s => s && typeof s === 'object');
+    let mb = null;
+    for (const s of sections) for (const b of Array.isArray(s.blocks) ? s.blocks : []) if (!mb && b && b.type === 'model') mb = b;
+    const stance = r.stance && typeof r.stance === 'object' ? r.stance : {};
+    const strip = h('header', { class: 'rpt-cover rpt-strip' },
+      h('div', { class: 'rpt-eyebrow' },
+        h('span', null, 'GIVA Research · Stress test & projections'),
+        h('span', null, [r.report_type, r.sector, fmtDate(r.published)].filter(Boolean).map(str).join(' · '))),
+      h('h1', { class: 'rpt-company' }, str(r.company), ' ',
+        h('span', { class: 'rpt-tk' }, `${str(r.exchange)}${r.exchange ? ': ' : ''}${str(r.ticker)}`)),
+      h('p', { class: 'rpt-subtitle' }, 'From the key report: ', h('a', { href: `#/reports/${slug}` }, str(r.title))),
+      stancePills(stance));
+    const body = mb ? modelBlock(mb, ctx)
+      : notice('No model', 'This report has no stress-test model yet.', false);
+    const pdf = h('button', { type: 'button', class: 'rpt-btn', 'data-rpt-print': '' }, 'Download PDF');
+    const art = h('article', { class: 'rpt rpt-report rpt-modelpage', 'data-rpt-slug': slug, 'data-rpt-view': 'model' },
+      h('div', { class: 'rpt-toolbar' }, h('a', { href: `#/reports/${slug}`, class: 'rpt-back' }, '← Back to the report'), pdf),
+      strip, body,
+      h('section', { class: 'rpt-sec rpt-end', id: 'rpt-sec-sources' },
+        h('h2', null, h('span', null, 'Sources')), sourcesList(reportSources(r)),
+        h('h3', { class: 'rpt-disch' }, 'Disclosures'),
+        h('div', { class: 'rpt-disc' }, (Array.isArray(r.disclosures) ? r.disclosures : []).map(t => h('p', null, inline(t, ctx))))));
+    art.addEventListener('click', e => onClick(e, r));
+    return { el: art, charts: [], models: ctx.models };
   }
 
   // Citations / contents scroll in place (the hash is the router's); print opens the
@@ -419,6 +493,74 @@
     return loadIndex(false).then(list => (list || []).find(e => str(e.ticker).toUpperCase() === t) || null).catch(() => null);
   }
 
+  // ---------------- the model block (lazy) ----------------
+  // One load per page: the stylesheet, then the engine and the UI in order. A failure is
+  // retried on the next model block.
+  function loadModelAssets() {
+    if (typeof ModelEngine !== 'undefined' && typeof ReportModel !== 'undefined') return Promise.resolve(true);
+    if (typeof window === 'undefined' || !doc().head || typeof doc().createElement !== 'function') return Promise.resolve(false);
+    if (!S.assetsP) {
+      const head = doc().head;
+      if (!doc().querySelector || !doc().querySelector(`link[href="${MODEL_ASSETS.css}"]`)) {
+        head.appendChild(h('link', { rel: 'stylesheet', href: MODEL_ASSETS.css }));
+      }
+      const load = src => new Promise(res => {
+        const el = doc().createElement('script');
+        el.src = src;
+        el.onload = () => res(true);
+        el.onerror = () => { el.remove(); res(false); };
+        head.appendChild(el);
+      });
+      const p = S.assetsP = MODEL_ASSETS.js.reduce((acc, src) => acc.then(ok => (ok ? load(src) : false)), Promise.resolve(true))
+        .then(ok => {
+          ok = ok && typeof ModelEngine !== 'undefined' && typeof ReportModel !== 'undefined';
+          if (!ok && S.assetsP === p) S.assetsP = null;
+          return ok;
+        });
+    }
+    return S.assetsP;
+  }
+  // Mounts each model block of the page just attached. Only the first block's state rides in
+  // the URL (?m=); `route` = {slug, view, m, onUrl}.
+  function mountModels(models, r, route, seq) {
+    models.forEach(({ slot, src }, i) => {
+      Promise.all([loadModelAssets(), getJSON(`reports/models/${src}.json`)]).then(([ok, res]) => {
+        if (seq !== S.seq) return;
+        clear(slot);
+        const m = res.data;
+        if (!ok || !m || typeof m !== 'object' || m.v !== 1 || m.slug !== src) {
+          slot.appendChild(h('div', { class: 'rpt-chart-na' }, 'The stress-test model couldn’t load right now — try reloading the page.'));
+          return;
+        }
+        const base = `#/reports/${route.slug}${route.view === 'model' ? '/model' : ''}`;
+        const urlState = i === 0;
+        let ctl = null;
+        try {
+          ctl = ReportModel.mount(slot, {
+            model: m, report: r, rich: richText(r, base), state: urlState ? route.m : '', standalone: route.view === 'model',
+            links: { self: base, full: `#/reports/${route.slug}/model`, report: `#/reports/${route.slug}` },
+            onState: urlState ? enc => syncUrl(base, enc, route.onUrl) : null,
+          });
+        } catch { slot.appendChild(h('div', { class: 'rpt-chart-na' }, 'The stress-test model couldn’t be displayed.')); return; }
+        if (typeof ctl === 'function') {
+          S.disposers.push(ctl);
+          if (urlState) S.models.push(ctl);
+        }
+      });
+    });
+  }
+  // The model's state, written into the route's query in place (no hashchange, no history
+  // entry) — only while the route is still this page.
+  function syncUrl(base, enc, onUrl) {
+    if (typeof location === 'undefined' || typeof history === 'undefined' || !history.replaceState) return;
+    const cur = str(location.hash), path = cur.split('?')[0];
+    if (path.toLowerCase() !== base) return;
+    const next = base + (enc && MODEL_STATE_RE.test(enc) ? `?m=${enc}` : '');
+    if (next === cur) return;
+    try { history.replaceState(null, '', next); } catch { return; }
+    if (typeof onUrl === 'function') { try { onUrl(next); } catch { /* router's problem */ } }
+  }
+
   // ---------------- views ----------------
   const notice = (title, text, back) => h('div', { class: 'rpt rpt-empty' },
     title ? h('h2', null, title) : null, h('p', null, text),
@@ -462,6 +604,7 @@
   function unmount() {
     S.seq++;
     for (const d of S.disposers.splice(0)) { try { d(); } catch { /* already gone */ } }
+    S.models = [];
     setReportMode(null);
     S.shown = null;
   }
@@ -484,16 +627,23 @@
       el.appendChild(listView(list));
     });
   }
-  function renderReport(el, slug) {
+  function renderReport(el, slug, opts) {
     if (!el) return Promise.resolve();
     const s = str(slug);
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const view = o.view === 'model' ? 'model' : 'report';
+    const m = MODEL_STATE_RE.test(str(o.m)) ? str(o.m) : '';
     // The router re-runs for the page already on screen (Back from a stock drawer opened over
     // the report, a data refresh): keep the reader's place, the live chart and the fetched JSON.
+    // A different ?m (a pasted or edited link) is applied to the live model in place.
     const cur = el.firstChild;
-    if (S.shown === `report:${s}` && cur && cur.getAttribute && cur.getAttribute('data-rpt-slug') === s) return Promise.resolve();
+    if (S.shown === `${view}:${s}` && cur && cur.getAttribute && cur.getAttribute('data-rpt-slug') === s) {
+      for (const ctl of S.models) if (ctl.getState && ctl.getState() !== m) ctl.setState(m);
+      return Promise.resolve();
+    }
     unmount();
     const seq = S.seq;
-    shown(`report:${s}`);
+    shown(`${view}:${s}`);
     clear(el);
     if (!SLUG_RE.test(s)) { el.appendChild(notFound()); return Promise.resolve(); }
     el.appendChild(notice('', 'Loading report…'));
@@ -506,16 +656,17 @@
         return;
       }
       let out;
-      try { out = build(r); } catch { el.appendChild(notice('Report unavailable', 'This report couldn’t be displayed.', true)); return; }
+      try { out = view === 'model' ? buildModelPage(r) : build(r); } catch { el.appendChild(notice('Report unavailable', 'This report couldn’t be displayed.', true)); return; }
       el.appendChild(out.el);
       setReportMode(r);
       for (const fn of out.charts) fn();
+      if (out.models.length) mountModels(out.models, r, { slug: s, view, m, onUrl: o.onUrl }, seq);
     });
   }
 
   return {
-    renderList, renderReport, findByTicker, unmount,
+    renderList, renderReport, findByTicker, unmount, richText,
     // Pure helpers, exposed for tests.
-    _internal: { parseInline, plainText, safeUrl, fmtDate, fmtCell, barsScale, build, SLUG_RE },
+    _internal: { parseInline, plainText, safeUrl, fmtDate, fmtCell, barsScale, build, buildModelPage, SLUG_RE },
   };
 });
