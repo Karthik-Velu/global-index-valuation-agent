@@ -1,0 +1,56 @@
+{
+  "v": 1, "slug": "fxr", "template": "levered_growth_v1", "currency": "USD", "unit": "m", "asof": "2026-10-18",
+  "_comment": "Synthetic 'Fixture Corp' (FXR) for scripts/test_model.js. Small round numbers; not a real company.",
+  "years": [2026, 2027, 2028, 2029, 2030],
+  "prior": { "year": 2025, "revenue": 1000 },
+  "stub": { "year": 2026, "actual_months": 6,
+    "actuals": { "revenue": 700, "cost_of_revenue": 210, "opex_ex_da_sbc": 140, "sbc": 35, "da": 240, "interest": 70, "capex": 400, "ocf": 300 } },
+  "opening": { "date": "2026-06-30", "cash": 300, "gross_ppe": 3000, "net_ppe": 2000, "accum_dep": 1000, "shares_m": 100, "equity": 800, "src": ["s1"] },
+  "debt": [
+    { "id": "term-loan", "name": "Term loan B", "balance": 1000, "kind": "floating", "coupon_pct": null, "spread_bp": 300,
+      "maturity": "2031-06", "amort": "bullet", "secured": true, "recourse": true, "src": ["s1"] },
+    { "id": "notes-2028", "name": "8% senior notes due 2028", "balance": 500, "kind": "fixed", "coupon_pct": 8, "spread_bp": null,
+      "maturity": "2028-06", "amort": "bullet", "secured": false, "recourse": true, "src": ["s1"] },
+    { "id": "ddtl", "name": "Delayed-draw term loan", "balance": 600, "kind": "floating", "coupon_pct": null, "spread_bp": 400,
+      "maturity": "2029-06", "amort": "straight", "secured": true, "recourse": false, "src": ["s1"] }
+  ],
+  "rates": { "base_name": "SOFR", "path": { "2026": 4.0, "2027": 3.5, "2028": 3.25, "2029": 3.0, "2030": 3.0 }, "src": ["s2"],
+    "note": "Synthetic path for tests." },
+  "drivers": [
+    { "id": "revenue_growth", "label": "Revenue growth", "group": "Revenue", "kind": "shift_pp", "unit": "pp", "base": 0, "min": -40, "max": 40, "step": 1,
+      "path": { "2026": 50, "2027": 40, "2028": 25, "2029": 15, "2030": 10 }, "low": -15, "high": 10, "help": "FY growth path." },
+    { "id": "cost_of_revenue_pct", "label": "Cost of revenue", "group": "Margins", "kind": "shift_pp", "unit": "pp", "base": 0, "min": -20, "max": 20, "step": 0.5,
+      "path": { "2026": 30, "2027": 30, "2028": 29, "2029": 28, "2030": 28 }, "low": -3, "high": 5, "help": "COR % revenue." },
+    { "id": "opex_pct", "label": "Operating costs", "group": "Margins", "kind": "shift_pp", "unit": "pp", "base": 0, "min": -15, "max": 15, "step": 0.5,
+      "path": { "2026": 20, "2027": 18, "2028": 17, "2029": 16, "2030": 16 }, "low": -2, "high": 3, "help": "Opex % revenue." },
+    { "id": "sbc_pct", "label": "SBC", "group": "Margins", "kind": "scalar", "unit": "%", "base": 5, "min": 0, "max": 30, "step": 0.5, "low": 3, "high": 8, "help": "SBC % revenue." },
+    { "id": "capex", "label": "Capex", "group": "Capex & depreciation", "kind": "scale_pct", "unit": "%", "base": 0, "min": -60, "max": 60, "step": 5,
+      "path": { "2026": 900, "2027": 800, "2028": 600, "2029": 500, "2030": 500 }, "low": -25, "high": 20, "help": "FY capex US$m." },
+    { "id": "useful_life", "label": "Depreciation life", "group": "Capex & depreciation", "kind": "scalar", "unit": "yrs", "base": 6, "min": 2, "max": 10, "step": 0.5, "low": 4, "high": 7, "help": "Years." },
+    { "id": "sofr_shift", "label": "SOFR shift", "group": "Financing & rates", "kind": "shift_bp", "unit": "bp", "base": 0, "min": -300, "max": 500, "step": 25, "low": -100, "high": 200, "help": "bp." },
+    { "id": "spread_shift", "label": "Spread shift", "group": "Financing & rates", "kind": "shift_bp", "unit": "bp", "base": 0, "min": -300, "max": 800, "step": 25, "low": -100, "high": 300, "help": "bp." },
+    { "id": "new_debt_rate", "label": "New-debt rate", "group": "Financing & rates", "kind": "scalar", "unit": "%", "base": 10, "min": 2, "max": 25, "step": 0.25, "low": 8, "high": 14, "help": "%." },
+    { "id": "equity_funding_share", "label": "Gap funded by equity", "group": "Dilution", "kind": "scalar", "unit": "%", "base": 25, "min": 0, "max": 100, "step": 5, "low": 0, "high": 75, "help": "%." },
+    { "id": "issue_discount", "label": "Issue discount", "group": "Dilution", "kind": "scalar", "unit": "%", "base": 10, "min": 0, "max": 60, "step": 1, "low": 0, "high": 30, "help": "%." },
+    { "id": "min_cash", "label": "Minimum cash", "group": "Financing & rates", "kind": "scalar", "unit": "US$m", "base": 200, "min": 0, "max": 2000, "step": 50, "low": 100, "high": 500, "help": "US$m." },
+    { "id": "wc_prepay_pct", "label": "Customer prepayments", "group": "Revenue", "kind": "scalar", "unit": "%", "base": 10, "min": 0, "max": 100, "step": 5, "low": 0, "high": 30, "help": "%." },
+    { "id": "tax_rate", "label": "Tax rate", "group": "Margins", "kind": "scalar", "unit": "%", "base": 21, "min": 0, "max": 50, "step": 1, "low": 15, "high": 28, "help": "%." },
+    { "id": "exit_ev_ebitda", "label": "Exit EV/EBITDA", "group": "Valuation", "kind": "scalar", "unit": "x", "base": 10, "min": 2, "max": 30, "step": 0.5, "low": 7, "high": 13, "help": "x." },
+    { "id": "discount_rate", "label": "Cost of equity", "group": "Valuation", "kind": "scalar", "unit": "%", "base": 15, "min": 5, "max": 30, "step": 0.5, "low": 12, "high": 20, "help": "%." },
+    { "id": "share_price", "label": "Share price", "group": "Market", "kind": "scalar", "unit": "US$", "base": 20, "min": 1, "max": 200, "step": 0.01, "low": 15, "high": 25, "help": "US$.", "src": ["s2"] },
+    { "id": "share_dilution_pct", "label": "Share-count creep", "group": "Dilution", "kind": "scalar", "unit": "%", "base": 1, "min": 0, "max": 10, "step": 0.5, "low": 0, "high": 3, "help": "%." }
+  ],
+  "scenarios": [
+    { "id": "base", "name": "Base", "values": {}, "note": "Spec paths as given." },
+    { "id": "bear", "name": "Bear", "values": { "revenue_growth": -10, "cost_of_revenue_pct": 3, "sofr_shift": 100, "spread_shift": 200, "exit_ev_ebitda": 7 }, "note": "Slower growth, tighter credit." },
+    { "id": "bull", "name": "Bull", "values": { "revenue_growth": 8, "opex_pct": -1.5, "exit_ev_ebitda": 12 }, "note": "Faster growth." }
+  ],
+  "valuation": { "method": "exit_multiple", "exit_year": 2028, "valuation_date": "2027-12-31", "net_debt_at": "exit" },
+  "guides": [
+    { "label": "Q3 2026 interest expense guide", "metric": "interest", "period": "2026-Q3", "lo": 36, "hi": 44, "src": ["s3"] }
+  ],
+  "checks": [
+    { "label": "FY2026E revenue vs guidance 1,400–1,600", "metric": "revenue", "year": 2026, "lo": 1400, "hi": 1600, "src": ["s3"] },
+    { "label": "FY2027E capex at least 1,000 (deliberate miss)", "metric": "capex", "year": 2027, "lo": 1000, "hi": null, "src": ["s3"] }
+  ]
+}

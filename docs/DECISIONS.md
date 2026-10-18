@@ -9,6 +9,46 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-039 · Key reports get an interactive driver model (stress test, predicted interest, projections)
+- **Context:** owner (2026-10-18) asked for a way to stress-test a report: "if the biggest risk
+  is interest to predict how much they will pay… a sensitivity analysis tool to play around
+  with interest… bring out other key factors that will affect P&L projections… help me predict
+  future P&L and valuation multiples."
+- **Choice:**
+  - **Engine:** `dashboard/model-engine.js`, a pure UMD module with no DOM and no dependencies,
+    tested in Node by `scripts/test_model.js`. It runs a driver-based template,
+    `levered_growth_v1`:
+    - H1-actual + H2-projected stub year, then annual projections to 2030;
+    - debt modelled tranche by tranche, using contractual schedules, fixed vs floating, SOFR
+      paths (market forwards, the Fed SEP and stress paths), and refinancing and new borrowing
+      at a rate linked to SOFR and spread;
+    - funding gap split between committed facilities, new debt and equity (dilution);
+    - depreciation of in-service assets, controlled by useful-life and lag drivers;
+    - exit-multiple valuation;
+    - tornado, two-way grid, breakevens and covenant flags.
+  - **UI:** `dashboard/model.js` renders the `{"type":"model"}` report block and the
+    `#/reports/<slug>/model` route. It has sliders, scenario chips and shareable state in
+    `?m=`.
+  - **Data:** each model is a JSON spec, `dashboard/reports/models/<slug>.json`. Its citations
+    resolve against the parent report's sources, and `scripts/test_reports.js` validates it.
+- **Why:**
+  - **Static and cheap:** a static, deterministic, client-side engine keeps the product
+    at about $0 to run, works without a backend, and recomputes instantly as sliders move.
+  - **Auditable:** the inputs are cited public data (EDGAR, the 10-Q debt note, rate paths),
+    so every number can be checked.
+  - **Reusable:** a template plus a per-company spec means future reports reuse the engine.
+  - **Interest must be endogenous:** interest is modelled per tranche, with new debt priced off
+    the selected rate path. A shock that only re-priced today's floating debt understates
+    FY2027 interest sensitivity about 4x, because most of the 2028 stack is not yet borrowed.
+- **Rejected:**
+  - **A spreadsheet download:** not interactive in the product, and invites version drift.
+  - **Server-side compute:** cost and latency, for no gain.
+  - **A full three-statement model with circular interest:** fragile, and opaque to users. The
+    engine uses average balances instead, with a deterministic fixed-point refinement.
+  - **Licensed price data in the model:** the share price stays a cited public input that the
+    user can edit.
+- **Date:** 2026-10-18.
+
 ### ADR-038 · Key reports: curated, cited research as static JSON + a deterministic EDGAR financials job
 - **Context:** owner (2026-10-17): "Can you do a full fundamental report on CoreWeave. Make it
   look professional just like a fund house report. Add this to a new section in the product

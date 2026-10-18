@@ -10,7 +10,7 @@ Key reports <https://global-index-valuation-agent.vercel.app/#/reports>
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-10-17.
+> Last updated: 2026-10-18.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -33,7 +33,14 @@ secrets — a dev cloud session needs its own copy):
 ✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
 pasted into chat during setup).
 
-## Latest (2026-10-17): Key reports + CoreWeave initiation (ADR-038, PLAN Phase G)
+## Latest (2026-10-18): Stress test & projections in Key reports (ADR-039)
+- `#/reports/crwv/model` (also Section 9 of the CoreWeave report) is an interactive driver model.
+  It covers predicted SOFR paths, interest by tranche, tornado and two-way sensitivity,
+  breakevens, P&L to 2030 and implied multiples.
+- The engine is `dashboard/model-engine.js` (tests in `scripts/test_model.js`); specs live in
+  `dashboard/reports/models/`.
+
+## Previous (2026-10-17): Key reports + CoreWeave initiation (ADR-038, PLAN Phase G)
 - `#/reports` is live with its first report, CoreWeave (CRWV): Neutral, Very high risk.
   `engine/reports.py financials <T> --security-id N --tierb PATH` regenerates the EDGAR
   tables.

@@ -94,6 +94,14 @@
       ]
     },
     {
+      "id": "stress-test",
+      "title": "Stress test & projections",
+      "blocks": [
+        { "type": "p", "text": "Move the drivers to stress the synthetic projection: the SOFR path and credit spreads drive interest on the floating-rate debt [s3]." },
+        { "type": "model", "src": "fxr" }
+      ]
+    },
+    {
       "id": "risks",
       "title": "Key risks",
       "blocks": [

@@ -148,7 +148,8 @@ async function announceData(ok, data) {
 }
 
 // Routes: #/overview · #/screener[?s=<base64url filter>|?id=<saved screen id>] · #/lists ·
-// #/alerts · #/reports[/<slug>] · #/stock/<TICKER> · #/market/<key>. Rules (design review, magic-link safety):
+// #/alerts · #/reports[/<slug>[/model]][?m=<base64url model state>] · #/stock/<TICKER> ·
+// #/market/<key>. Rules (design review, magic-link safety):
 //  - the router does not touch location.hash until Auth.init has resolved (startRouter is
 //    called from announceData, after it);
 //  - a hash carrying access_token / refresh_token / error_code / error_description is
@@ -162,6 +163,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const ROUTE_TICKER_RE = /^[A-Z0-9][A-Z0-9.\-]{0,15}$/;
 const ROUTE_KEY_RE = /^[A-Za-z0-9_.\-]{1,64}$/;
 const REPORT_SLUG_RE = /^[a-z0-9-]{1,40}$/;    // reports.js checks it again before fetching
+const MODEL_STATE_RE = /^[A-Za-z0-9_-]{1,4096}$/;   // ModelEngine.decodeState validates the content
 
 function parseRoute(hash) {
   const h = String(hash || '');
@@ -181,10 +183,19 @@ function parseRoute(hash) {
   }
   // #/reports/<slug>: anything that isn't a well-formed slug gets the section's "report not
   // found" (slug ''), never Overview — and the text is never shown or fetched.
+  // #/reports/<slug>/model is the report's stress-test model full-width; ?m= carries the
+  // model's state (opaque base64url: shape-checked here, decoded + validated by the engine).
   if (name === 'reports' && arg) {
+    const parts = arg.split('/');
     let a = '';
-    try { a = decodeURIComponent(arg).toLowerCase(); } catch { a = ''; }   // slugs are lower-case
-    return { view: 'reports', params: { slug: REPORT_SLUG_RE.test(a) ? a : '' } };
+    try { a = decodeURIComponent(parts[0]).toLowerCase(); } catch { a = ''; }   // slugs are lower-case
+    const model = parts.length === 2 && parts[1] === 'model';
+    if (parts.length > 2 || (parts.length === 2 && !model)) a = '';
+    const params = { slug: REPORT_SLUG_RE.test(a) ? a : '' };
+    if (model) params.view = 'model';
+    const m = query ? new URLSearchParams(query).get('m') : null;
+    if (m && MODEL_STATE_RE.test(m)) params.m = m;
+    return { view: 'reports', params };
   }
   if (!VIEWS.includes(name) || arg) return { view: 'overview', unknown: true };
   const params = {};
@@ -244,7 +255,11 @@ function showView(view, params, { skipModule = false } = {}) {
     const el = document.getElementById('view-reports');
     if (typeof Reports !== 'undefined' && Reports.renderList) {
       try {
-        const p = params && params.slug != null ? Reports.renderReport(el, params.slug) : Reports.renderList(el);
+        // onUrl: the model rewrote the route's ?m= in place (replaceState): closing a drawer
+        // opened over the page must restore that hash, not the one first routed.
+        const p = params && params.slug != null
+          ? Reports.renderReport(el, params.slug, { view: params.view, m: params.m, onUrl: h => { ROUTER.baseHash = h; } })
+          : Reports.renderList(el);
         if (p && p.catch) p.catch(() => moduleMissing(view, true));
       } catch (e) { moduleMissing(view, true); }
     } else moduleMissing(view);

@@ -359,6 +359,17 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
   - **Still owed:** a click-through of every link from a machine with open egress, and
     re-sourcing the debt stack and customer concentration to the primary 10-Q and 8-Ks. The
     sandbox could not reach sec.gov or the company's investor-relations site.
+- ✅ **Stress test & projections module (ADR-039, 2026-10-18):** the model engine, UI and
+  route `#/reports/<slug>/model` are built. The CoreWeave model has 18 debt tranches that
+  reconcile to the 10-Q's US$35.55bn, SOFR rate paths, presets, tornado, grid, breakevens and
+  covenant flags.
+  - **Base case:** about US$114 a share.
+  - **Calibration:** 10 of 13 checks pass. The 3 misses are the report's base sitting below
+    consensus for FY2028.
+  - ⬜ **Next:** a second template for profitable compounders (no levered build-out), so other
+    reports can use the module.
+  - ⬜ **Next:** model SBC dilution through share count everywhere, and link revenue to capex
+    in more templates.
 - **The miss (audit 2026-10-17):** no module flagged CRWV or its slide. Follow-ups, ranked by
   leverage:
   - ⬜ **Value scoring with missing inputs:** `metrics.py` divides by the full weight sum even

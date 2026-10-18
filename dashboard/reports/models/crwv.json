@@ -1,0 +1,1459 @@
+{
+ "v": 1,
+ "slug": "crwv",
+ "template": "levered_growth_v1",
+ "currency": "USD",
+ "unit": "m",
+ "asof": "2026-10-17",
+ "_comment": "CoreWeave (CRWV) stress-test model, template levered_growth_v1, calibrated 2026-10-18 and revised after review (scratchpad calibration.md + review notes). Base = FY2026 guidance, consensus-like FY2027 revenue, the report base for FY2028. Opening balance sheet = the 10-Q at 30 Jun 2026; the August DDTL 5.5 and revolver draws and the September 2033 convertible enter on their dates. Tranche coupons/spreads are stated rates; fee_bp is non-cash issue-cost and discount amortisation (in P&L interest, added back in operating cash flow). Amortising loans follow a per-year schedule fitted to the 10-Q maturity table (amort_fit.json; the split across DDTL tranches is our fit). Committed undrawn facilities fund the gap first, at their own terms; the rest is new financing at the new-debt rate, which moves with the selected SOFR path (reference 2027). Revenue follows in-service capacity (capex_revenue_link 100%). Not modelled: tax-loss carry-forwards, interest income on cash, capitalised interest, default mechanics, hedges beyond those stated per tranche.",
+ "years": [
+  2026,
+  2027,
+  2028,
+  2029,
+  2030
+ ],
+ "prior": {
+  "year": 2025,
+  "revenue": 5131,
+  "src": [
+   "s1"
+  ],
+  "note": "FY2025 revenue, the base for FY2026 growth."
+ },
+ "stub": {
+  "year": 2026,
+  "actual_months": 6,
+  "actuals": {
+   "revenue": 4653,
+   "cost_of_revenue": 1595,
+   "opex_ex_da_sbc": 391,
+   "sbc": 318,
+   "da": 2518,
+   "interest": 1176,
+   "capex": 17100,
+   "ocf": 3663,
+   "other_income": 125,
+   "tax": 146
+  },
+  "src": [
+   "s2",
+   "s8",
+   "s11",
+   "s3",
+   "s139"
+  ],
+  "note": "H1 FY2026 = Q1 + Q2. opex_ex_da_sbc is derived so that revenue - cost of revenue - opex = company adjusted EBITDA (1,157 + 1,510); da = adj. EBITDA - adj. operating income (1,136 + 1,382). Capex is the company definition (7.7bn + 9.4bn; XBRL cash capex 14,117). Interest is income-statement interest expense, net (536 + 640). other_income 125 = other income 149 less 24 of adjusting items outside adj. EBITDA; tax 146 is the provision booked despite the pre-tax loss (net loss -1,366)."
+ },
+ "opening": {
+  "date": "2026-06-30",
+  "cash": 5524,
+  "gross_ppe": 52622,
+  "net_ppe": 46736,
+  "accum_dep": 5886,
+  "shares_m": 551.5,
+  "equity": 5024,
+  "src": [
+   "s2",
+   "s8",
+   "s55",
+   "s57"
+  ],
+  "note": "30 Jun 2026 balance sheet as reported: cash 5,524 (excludes 1,380 of restricted cash, 873 current + 507 non-current, part of it DDTL 4.0's three-month debt-service reserve; counting it would lower net debt by 1.4bn), equity 5,024. Post-period financing enters on its dates (debt list). Gross PP&E 52,622 includes 11,918 of construction in progress (cip, entering service from 1 July); in-service book value 34,818 (dep_nbv) depreciates at about 5.6bn a year at the six-year policy life (dep_rate: Q2 D&A of 1,382 annualised, plus Q2 additions), which with the in-service lag on new capex lands FY2026 adj. operating income inside the guide. A different useful life re-spreads the same book value; it never depreciates more than exists.",
+  "cip": 11918,
+  "dep_nbv": 34818,
+  "dep_rate": 5600,
+  "cip_in_service": 0
+ },
+ "debt": [
+  {
+   "id": "ddtl-1",
+   "name": "DDTL 1.0 (Magnetar/Blackstone, 2023)",
+   "balance": 1300,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 962,
+   "maturity": "2028-03",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s127",
+    "s107"
+   ],
+   "note": "Term SOFR + 9.6196%; 10-Q effective rate 15% incl. fees (fee_bp ~150). Repays from contract cash flows; per-year schedule fitted to the 10-Q maturity table.",
+   "fee_bp": 150,
+   "schedule": {
+    "2026": 371,
+    "2027": 743,
+    "2028": 186
+   }
+  },
+  {
+   "id": "ddtl-2",
+   "name": "DDTL 2.0 (Blackstone/Magnetar, 2024)",
+   "balance": 3190,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 650,
+   "maturity": "2030-08",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s128",
+    "s129",
+    "s107"
+   ],
+   "note": "Margin per customer rating: SOFR + 6.00-6.50% (investment-grade contracts) or 13.00% (non-IG); 650bp is our blend. 10-Q effective rate 11% (fee_bp ~85). Contractual margin: does not move with market spreads.",
+   "fee_bp": 85,
+   "schedule": {
+    "2026": 770,
+    "2027": 971,
+    "2028": 772,
+    "2029": 472,
+    "2030": 205
+   }
+  },
+  {
+   "id": "ddtl-2-1",
+   "name": "DDTL 2.1 (incremental tranche under the DDTL 2.0 agreement, Sep 2025)",
+   "balance": 3000,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 425,
+   "maturity": "2031-03",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s129",
+    "s107"
+   ],
+   "note": "Term SOFR + 4.25% plus 1.50% upfront fee per draw (fee_bp ~110); each draw matures 5 years after drawing. 10-Q effective rate 9%.",
+   "fee_bp": 110,
+   "schedule": {
+    "2026": 694,
+    "2027": 875,
+    "2028": 695,
+    "2029": 426,
+    "2030": 276,
+    "2031": 34
+   }
+  },
+  {
+   "id": "ddtl-3",
+   "name": "DDTL 3.0 (OpenAI contract, Jul 2025)",
+   "balance": 2215,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 400,
+   "maturity": "2030-08",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s103"
+   ],
+   "note": "SOFR + 4.00%; US$2.6bn commitment. 10-Q effective rate 9% (fee_bp ~135). Reported cash-trap clause [s61].",
+   "fee_bp": 135,
+   "schedule": {
+    "2026": 535,
+    "2027": 675,
+    "2028": 536,
+    "2029": 328,
+    "2030": 141
+   }
+  },
+  {
+   "id": "ddtl-4-float",
+   "name": "DDTL 4.0 floating tranche (A3 / A(low), Mar 2026)",
+   "balance": 1370,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 225,
+   "maturity": "2032-03",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": false,
+   "src": [
+    "s2",
+    "s17"
+   ],
+   "note": "Daily SOFR + 2.25% (fee_bp ~100). 10-Q: US$1.4bn floating + US$1.5bn fixed outstanding (split pro rata to the US$2,837m principal). The facility requires interest-rate hedges on at least 95% of anticipated floating borrowings within set periods after the 30 Jun 2027 commitment termination, so from mid-2027 this floating exposure becomes largely fixed; the model keeps it floating (overstates the SOFR sensitivity slightly after 2027). Interest-rate swaps designated as cash-flow hedges already existed at 30 Jun (fair value 13 asset / 5 liability), an unquantified offset. Principal is contractually payable after the commitment termination date or on site triggers; the 10-Q table implies some earlier repayment, which the fitted schedule follows.",
+   "fee_bp": 100,
+   "schedule": {
+    "2026": 296,
+    "2027": 373,
+    "2028": 296,
+    "2029": 182,
+    "2030": 117,
+    "2031": 59,
+    "2032": 47
+   }
+  },
+  {
+   "id": "ddtl-4-fixed",
+   "name": "DDTL 4.0 fixed tranche",
+   "balance": 1467,
+   "kind": "fixed",
+   "coupon_pct": 5.9,
+   "spread_bp": null,
+   "maturity": "2032-03",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": false,
+   "src": [
+    "s2",
+    "s17",
+    "s107"
+   ],
+   "note": "UST + 2.00% at draw, about 5.9% (fee_bp ~50).",
+   "fee_bp": 50,
+   "schedule": {
+    "2026": 317,
+    "2027": 399,
+    "2028": 317,
+    "2029": 194,
+    "2030": 126,
+    "2031": 63,
+    "2032": 51
+   }
+  },
+  {
+   "id": "ddtl-5",
+   "name": "DDTL 5.0 (Ba2 / BB+, May 2026)",
+   "balance": 1101,
+   "kind": "fixed",
+   "coupon_pct": 8.3,
+   "spread_bp": null,
+   "maturity": "2031-05",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s104"
+   ],
+   "note": "Stated SOFR + 4.50%, but at least 95% must be swapped to fixed, so modelled as fixed at 8.3% (4.50% + an assumed ~3.8% swap rate; not disclosed). 10-Q effective rate 9% (fee_bp ~70). Amortises monthly from November 2026.",
+   "fee_bp": 70,
+   "schedule": {
+    "2026": 99,
+    "2027": 376,
+    "2028": 299,
+    "2029": 183,
+    "2030": 119,
+    "2031": 25
+   }
+  },
+  {
+   "id": "ddtl-5-5",
+   "name": "DDTL 5.5 (Aug 2026; US$1.2bn drawn of US$2.6bn)",
+   "balance": 1200,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 550,
+   "fee_bp": 80,
+   "maturity": "2031-09",
+   "amort": "straight",
+   "issued": "2026-08-01",
+   "issue_cash": 1152,
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s59",
+    "s97"
+   ],
+   "note": "Priced at SOFR + 5.50% at about a 96 OID (fee_bp ~80); matures 1 Sep 2031. The 10-Q's subsequent events report US$1.2bn drawn after closing, entering on 1 Aug 2026 here; the remaining ~US$1.4bn is in funding.committed. Amortisation terms are not disclosed: straight-line to maturity assumed."
+  },
+  {
+   "id": "notes-2030",
+   "name": "9.250% senior notes due 2030",
+   "balance": 2000,
+   "kind": "fixed",
+   "coupon_pct": 9.25,
+   "spread_bp": null,
+   "maturity": "2030-06",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s130",
+    "s14"
+   ],
+   "note": "Rate here includes ~30bp a year of issue-cost and discount amortisation (stated 9.25%).",
+   "fee_bp": 30
+  },
+  {
+   "id": "notes-2031-900",
+   "name": "9.000% senior notes due Feb 2031",
+   "balance": 1750,
+   "kind": "fixed",
+   "coupon_pct": 9.0,
+   "spread_bp": null,
+   "maturity": "2031-02",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s131",
+    "s14"
+   ],
+   "note": "Rate here includes ~40bp a year of issue-cost and discount amortisation (stated 9%).",
+   "fee_bp": 40
+  },
+  {
+   "id": "notes-2031-975",
+   "name": "9.750% senior notes due Oct 2031",
+   "balance": 2750,
+   "kind": "fixed",
+   "coupon_pct": 9.75,
+   "spread_bp": null,
+   "maturity": "2031-10",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s132",
+    "s133",
+    "s28"
+   ],
+   "note": "US$1.75bn (Apr 2026) + US$1.0bn add-on at 102.0; yielded ~15.8% on 15 Oct 2026 [s31].",
+   "fee_bp": 0
+  },
+  {
+   "id": "notes-2032-9625",
+   "name": "9.625% senior notes due 2032",
+   "balance": 1250,
+   "kind": "fixed",
+   "coupon_pct": 9.625,
+   "spread_bp": null,
+   "maturity": "2032-07",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s134",
+    "s28"
+   ],
+   "note": "Traded below 80c, ~15% yield, 14 Oct 2026 [s28]. Rate here includes ~20bp a year of issue-cost and discount amortisation (stated 9.625%).",
+   "fee_bp": 20
+  },
+  {
+   "id": "notes-2032-eur",
+   "name": "8.500% EUR senior notes due 2032 (EUR 2.0bn)",
+   "balance": 2279,
+   "kind": "fixed",
+   "coupon_pct": 8.5,
+   "spread_bp": null,
+   "maturity": "2032-07",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s134"
+   ],
+   "note": "Swapped to USD with cross-currency swaps designated as a fair-value hedge (fair value 61 at 30 Jun). The USD-equivalent swapped cost is not disclosed and is likely above the EUR 8.5% coupon given the USD–EUR rate gap; the model uses the EUR coupon, so this line understates interest (roughly US$40m a year at a ~10.3% USD rate, our assumption).",
+   "fee_bp": 30
+  },
+  {
+   "id": "conv-2031",
+   "name": "1.75% convertible senior notes due Dec 2031",
+   "balance": 2588,
+   "kind": "fixed",
+   "coupon_pct": 1.75,
+   "spread_bp": null,
+   "maturity": "2031-12",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s105",
+    "s107"
+   ],
+   "note": "Conversion ~US$107.80, capped call to US$215.60 [s107]. Debt at face; above the cap, net-share settlement adds shares at the exit price (modelled).",
+   "fee_bp": 25,
+   "conv_price": 107.8,
+   "cap_price": 215.6
+  },
+  {
+   "id": "conv-2032",
+   "name": "1.75% convertible senior notes due Oct 2032",
+   "balance": 4000,
+   "kind": "fixed",
+   "coupon_pct": 1.75,
+   "spread_bp": null,
+   "maturity": "2032-10",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s106"
+   ],
+   "note": "Conversion rate 8.3612 per US$1,000 = US$119.60 (10-Q); capped call to US$230.00 (10-Q). Debt at face; net shares above the cap are modelled at exit.",
+   "fee_bp": 25,
+   "conv_price": 119.6,
+   "cap_price": 230.0
+  },
+  {
+   "id": "oem-recourse",
+   "name": "OEM and software-licence financing (recourse)",
+   "balance": 4220,
+   "kind": "fixed",
+   "coupon_pct": 10.5,
+   "spread_bp": null,
+   "maturity": "2030-07",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2"
+   ],
+   "note": "Many arrangements maturing Dec 2026 - Jul 2030; 10-Q effective rate 11% (9% on the short-term part). Rate here includes ~50bp a year of issue-cost and discount amortisation (stated 10.5%).",
+   "fee_bp": 50,
+   "schedule": {
+    "2026": 1027,
+    "2027": 1295,
+    "2028": 1029,
+    "2029": 630,
+    "2030": 239
+   }
+  },
+  {
+   "id": "oem-nonrecourse",
+   "name": "OEM financing (non-recourse)",
+   "balance": 882,
+   "kind": "fixed",
+   "coupon_pct": 9.0,
+   "spread_bp": null,
+   "maturity": "2028-08",
+   "amort": "schedule",
+   "secured": true,
+   "recourse": false,
+   "src": [
+    "s2"
+   ],
+   "note": "Maturities Aug 2026 - Aug 2028; 10-Q effective rate 9%.",
+   "fee_bp": 0,
+   "schedule": {
+    "2026": 266,
+    "2027": 403,
+    "2028": 213
+   }
+  },
+  {
+   "id": "magnetar-loan",
+   "name": "Magnetar loan",
+   "balance": 189,
+   "kind": "fixed",
+   "coupon_pct": 12.0,
+   "spread_bp": null,
+   "maturity": "2029-01",
+   "amort": "schedule",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s107"
+   ],
+   "note": "Refund with a multiplier equal to a 12% annual return.",
+   "fee_bp": 0,
+   "schedule": {
+    "2026": 37,
+    "2027": 73,
+    "2028": 73,
+    "2029": 6
+   }
+  },
+  {
+   "id": "revolver",
+   "name": "Revolving credit facility (US$2.5bn; US$1.2bn drawn in August 2026)",
+   "balance": 1200,
+   "kind": "floating",
+   "coupon_pct": null,
+   "spread_bp": 175,
+   "maturity": "2029-11",
+   "amort": "bullet",
+   "secured": true,
+   "recourse": true,
+   "src": [
+    "s2",
+    "s135",
+    "s136"
+   ],
+   "note": "Undrawn at 30 Jun 2026 (US$1.0bn drawn at Dec 2025); the 10-Q's subsequent events report a US$1.2bn draw in August 2026, which enters on 1 Aug. SOFR + 1.75% per the 2024 facility (fee_bp ~25 for the undrawn fee). About US$0.8bn remains available after letters of credit (funding.committed).",
+   "fee_bp": 25,
+   "issued": "2026-08-01",
+   "issue_cash": 1200
+  },
+  {
+   "id": "conv-2033",
+   "name": "2.875% convertible senior notes due Apr 2033 (issued 22 Sep 2026)",
+   "balance": 4200,
+   "kind": "fixed",
+   "coupon_pct": 2.875,
+   "spread_bp": null,
+   "maturity": "2033-04",
+   "amort": "bullet",
+   "secured": false,
+   "recourse": true,
+   "src": [
+    "s14",
+    "s39",
+    "s108"
+   ],
+   "note": "Issued 22 Sep 2026 (after the balance-sheet date; enters on that date). US$4.2bn incl. the US$500m option; net proceeds US$4,137.0m less US$566.2m of capped calls = US$3,571m of cash; the capped calls reduce equity. Conversion ~US$97.85, cap US$199.70.",
+   "fee_bp": 25,
+   "issued": "2026-09-22",
+   "issue_cash": 3571,
+   "issue_equity": -566,
+   "conv_price": 97.85,
+   "cap_price": 199.7
+  }
+ ],
+ "rates": {
+  "base_name": "SOFR",
+  "path": {
+   "2026": 3.85,
+   "2027": 4.45,
+   "2028": 4.65,
+   "2029": 4.6,
+   "2030": 4.45
+  },
+  "new_debt_sofr_beta": 1,
+  "src": [
+   "s122",
+   "s119",
+   "s120",
+   "s121",
+   "s123",
+   "s124",
+   "s125",
+   "s126",
+   "s111"
+  ],
+  "note": "**Base = market forwards**: calendar-year averages of the 3M term-SOFR forward curve as of 15 Oct 2026 (end-2026 4.27%, end-2027 4.64%, end-2028 4.71%, end-2029 4.53%), the mean of adjacent year-end points rounded to 5bp [s122]; **2030 is our assumption** (the curve is not public past 2029). 2026 is H2 only: ~3.63% to 16 Sep, 3.88% after the 25bp hike to 3.75–4.00% [s111], ~4.08% for Nov–Dec weighting FedWatch odds of ~40–49% for an October hike [s124,s125]. Cross-check: 2-yr Treasury 4.77% on 15 Oct 2026 [s123]. **Alternatives** (the Rate path selector): the Fed’s September 2026 projections (median year-end 4.1% / 4.1% / 3.9% / 3.6%, longer run 3.2%) [s119,s120,s121], 0 / 35 / 65 / 85 / 100bp below the market path in 2026–30, and two stress paths of our own. The selected path sets floating interest and, relative to the base path’s 2027 level, the cost of new and refinanced debt; the SOFR and spread sliders start in November 2026 (July–October is realised).",
+  "base_id": "market_fwd",
+  "base_label": "Market forwards (15 Oct 2026)",
+  "new_debt_ref_year": 2027,
+  "shift_from": "2026-11",
+  "alt_paths": [
+   {
+    "id": "fed_sep",
+    "name": "Fed projections (Sep 2026 SEP median)",
+    "path": {
+     "2026": 3.85,
+     "2027": 4.1,
+     "2028": 4.0,
+     "2029": 3.75,
+     "2030": 3.45
+    },
+    "src": [
+     "s119",
+     "s120",
+     "s121"
+    ],
+    "note": "Median year-end fed funds 4.1% (2026), 4.1% (2027), 3.9% (2028), 3.6% (2029), longer run 3.2%, as annual averages; 2030 halfway to the longer run."
+   },
+   {
+    "id": "cuts_faster",
+    "name": "Fed cuts faster (our stress)",
+    "path": {
+     "2026": 3.85,
+     "2027": 3.7,
+     "2028": 3.3,
+     "2029": 3.2,
+     "2030": 3.2
+    },
+    "src": [
+     "s119",
+     "s121"
+    ],
+    "note": "Our illustrative path: the September hike is reversed in 2027 and policy reaches the 3.2% longer-run dot by 2028."
+   },
+   {
+    "id": "higher_for_longer",
+    "name": "Re-hike, higher for longer (our stress)",
+    "path": {
+     "2026": 3.9,
+     "2027": 5.0,
+     "2028": 5.25,
+     "2029": 5.0,
+     "2030": 4.75
+    },
+    "src": [
+     "s87",
+     "s123",
+     "s124"
+    ],
+    "note": "Our illustrative path: September CPI of 3.7% forces about 100bp more hiking through 2027, held into 2028."
+   }
+  ]
+ },
+ "drivers": [
+  {
+   "id": "revenue_growth",
+   "label": "Revenue growth (FY/FY)",
+   "group": "Revenue",
+   "kind": "shift_pp",
+   "unit": "pp",
+   "base": 0,
+   "min": -60,
+   "max": 40,
+   "step": 1,
+   "path": {
+    "2026": 149.5,
+    "2027": 105.0,
+    "2028": 45.0,
+    "2029": 35.0,
+    "2030": 18.0
+   },
+   "low": -20,
+   "high": 10,
+   "help": "Year-on-year revenue growth (fundamental growth) at the base capex plan. FY2026 path = guidance midpoint US$12.8bn; FY2027 = consensus ~US$26.3bn; FY2028 ~US$38bn (the report base, below the US$42.9bn consensus and BofA’s US$43.3bn); then slowing as the backlog is delivered. The slider shifts FY2027–30 by the same number of points; FY2026 stays at guidance. With Revenue follows capex on, a capex change moves revenue too.",
+   "src": [
+    "s9",
+    "s64",
+    "s141",
+    "s2",
+    "s138"
+   ],
+   "stub_weight": 0
+  },
+  {
+   "id": "capex_revenue_link",
+   "label": "Revenue follows capex (in-service capacity)",
+   "group": "Revenue",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 100,
+   "min": 0,
+   "max": 100,
+   "step": 10,
+   "low": 0,
+   "high": 100,
+   "src": [
+    "s141",
+    "s2"
+   ],
+   "help": "How far revenue tracks the in-service build-out when capex moves off its path. 100% = revenue moves one-for-one with in-service PP&E versus the base plan (BofA ties revenue to 1.4–1.5 GW of new capacity a year); 0% = revenue ignores capex, which makes a capex cut look free. Only matters once capex is moved."
+  },
+  {
+   "id": "wc_prepay_pct",
+   "label": "Customer prepayments (% of revenue increase)",
+   "group": "Revenue",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 25,
+   "min": 0,
+   "max": 100,
+   "step": 5,
+   "low": 0,
+   "high": 50,
+   "help": "Customers prepay part of their contracts (deferred revenue US$9.7bn at 30 Jun 2026). Cash inflow modelled as this share of each year's revenue increase. Implied history: ~37% (FY2025), ~90% (H1 2026, lumpy).",
+   "src": [
+    "s2",
+    "s1"
+   ]
+  },
+  {
+   "id": "cost_of_revenue_pct",
+   "label": "Cost of revenue (% of revenue, excl. D&A)",
+   "group": "Margins",
+   "kind": "shift_pp",
+   "unit": "pp",
+   "base": 0,
+   "min": -10,
+   "max": 15,
+   "step": 0.5,
+   "path": {
+    "2026": 34.5,
+    "2027": 33.5,
+    "2028": 33.0,
+    "2029": 33.5,
+    "2030": 34.0
+   },
+   "low": -2,
+   "high": 3,
+   "help": "Power, colocation and data-centre operating costs. Rose from ~26% (2024) to 34% in H1 2026 as leased capacity ramped ahead of revenue; we assume modest scale benefits, then pricing pressure on renewals. The slider moves FY2027–30 (FY2026 is guided).",
+   "src": [
+    "s2",
+    "s1",
+    "s8"
+   ],
+   "stub_weight": 0
+  },
+  {
+   "id": "opex_pct",
+   "label": "Operating expenses (% of revenue, excl. D&A and SBC)",
+   "group": "Margins",
+   "kind": "shift_pp",
+   "unit": "pp",
+   "base": 0,
+   "min": -5,
+   "max": 15,
+   "step": 0.5,
+   "path": {
+    "2026": 7.5,
+    "2027": 6.0,
+    "2028": 5.0,
+    "2029": 5.0,
+    "2030": 5.0
+   },
+   "low": -1.5,
+   "high": 2,
+   "help": "Technology & infrastructure (ex-depreciation), sales & marketing, G&A and R&D. H1 2026 8.4% (Q1 9.9%, Q2 7.2%); operating leverage as revenue doubles. Together with cost of revenue this sets adjusted EBITDA margin (57.5% H2-26, ~60.5% FY27, 62% FY28; consensus FY27 63.1%: US$16.6bn on US$26.3bn).",
+   "src": [
+    "s8",
+    "s65"
+   ],
+   "stub_weight": 0
+  },
+  {
+   "id": "sbc_pct",
+   "label": "Stock-based compensation (% of revenue)",
+   "group": "Margins",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 6.0,
+   "min": 0,
+   "max": 20,
+   "step": 0.5,
+   "low": 4,
+   "high": 9,
+   "help": "Non-cash, but a real cost to shareholders (dilution). 12.3% in FY2025 (IPO grants), 6.8% in H1 2026, 6.4% in Q2.",
+   "src": [
+    "s1",
+    "s2"
+   ]
+  },
+  {
+   "id": "tax_rate",
+   "label": "Tax rate on positive pre-tax profit",
+   "group": "Margins",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 21,
+   "min": 0,
+   "max": 35,
+   "step": 1,
+   "low": 0,
+   "high": 25,
+   "help": "Applies only when pre-tax profit is positive (no loss carry-forwards modelled, so conservative). The base case is loss-making in FY2026–28; the tax booked in loss years is the next slider."
+  },
+  {
+   "id": "min_tax",
+   "label": "Tax charge in loss years (US$m a year)",
+   "group": "Margins",
+   "kind": "scalar",
+   "unit": "US$m",
+   "base": 290,
+   "min": 0,
+   "max": 1500,
+   "step": 10,
+   "low": 0,
+   "high": 600,
+   "src": [
+    "s2"
+   ],
+   "help": "Tax CoreWeave books even with a pre-tax loss (state and foreign taxes, deferred tax): US$146m in H1 2026 on a US$1.22bn pre-tax loss, so ~US$290m a year. It is a floor: when profits come, 21% of pre-tax applies if higher."
+  },
+  {
+   "id": "capex",
+   "label": "Capex (company definition, US$m)",
+   "group": "Capex & depreciation",
+   "kind": "scale_pct",
+   "unit": "%",
+   "base": 0,
+   "min": -70,
+   "max": 60,
+   "step": 5,
+   "path": {
+    "2026": 37000,
+    "2027": 47400,
+    "2028": 49800,
+    "2029": 36000,
+    "2030": 30000
+   },
+   "low": -30,
+   "high": 25,
+   "help": "FY2026 = guidance midpoint US$37bn (raised twice from >US$30bn; held at guidance); FY2027–28 = BofA’s US$47.4bn / US$49.8bn (15 Oct 2026 note, which pairs them with US$26.5bn / US$43.3bn of revenue); tapering after as growth slows. Company definition, including accrued and vendor-financed additions, all funded as cash here: in H1 2026 cash capex was US$14.1bn against US$17.1bn, so the funding need and interest are overstated by that payables float (~US$2–3bn). Revenue follows in-service capacity, so a cut also costs revenue a few quarters later.",
+   "src": [
+    "s9",
+    "s83",
+    "s141"
+   ],
+   "stub_weight": 0
+  },
+  {
+   "id": "useful_life",
+   "label": "GPU / infrastructure useful life",
+   "group": "Capex & depreciation",
+   "kind": "scalar",
+   "unit": "yrs",
+   "base": 6,
+   "min": 3,
+   "max": 8,
+   "step": 0.5,
+   "low": 4,
+   "high": 7,
+   "help": "CoreWeave depreciates servers over six years. Bears argue GPUs are economically obsolete in 3–4 years. A shorter life re-spreads the existing book value faster (never more than exists) and raises D&A and losses, but changes neither EBITDA nor cash flow.",
+   "src": [
+    "s1",
+    "s85"
+   ]
+  },
+  {
+   "id": "in_service_lag",
+   "label": "In-service lag (capex to depreciation)",
+   "group": "Capex & depreciation",
+   "kind": "scalar",
+   "unit": "yrs",
+   "base": 0.35,
+   "min": 0,
+   "max": 1.5,
+   "step": 0.05,
+   "low": 0.1,
+   "high": 0.75,
+   "dp": 2,
+   "src": [
+    "s2"
+   ],
+   "help": "Time from spending capex to the asset entering service: construction in progress was US$11.9bn at 30 Jun 2026, about 0.35 years of H1 2026 capex. Longer = later depreciation (and, with Revenue follows capex, later revenue). Interest is not capitalised in this model."
+  },
+  {
+   "id": "rate_path",
+   "label": "SOFR path",
+   "group": "Financing & rates",
+   "kind": "choice",
+   "unit": "path",
+   "base": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "src": [
+    "s122",
+    "s119"
+   ],
+   "help": "Which projected SOFR path the model runs on: market forwards (base), the Fed’s own September projections, or one of our two stress paths. It sets floating interest and moves the cost of new debt by the path’s gap to the base 2027 level."
+  },
+  {
+   "id": "sofr_shift",
+   "label": "SOFR shift vs market path",
+   "group": "Financing & rates",
+   "kind": "shift_bp",
+   "unit": "bp",
+   "base": 0,
+   "min": -300,
+   "max": 400,
+   "step": 25,
+   "low": -75,
+   "high": 150,
+   "help": "Parallel shift on top of the selected SOFR path, from November 2026 (earlier months are realised). Moves the floating debt at once (~US$13.5bn gross incl. the August DDTL 5.5 and revolver draws, plus any committed DDTL 4.0 / 5.5 draws) and, one-for-one, the cost of new and refinanced debt, which is most of the stack by 2028. DDTL 4.0 must be at least 95% hedged after mid-2027 (not modelled). +150bp ≈ a renewed hiking cycle (September CPI 3.7%).",
+   "src": [
+    "s122",
+    "s119",
+    "s87",
+    "s111",
+    "s2"
+   ]
+  },
+  {
+   "id": "spread_shift",
+   "label": "Credit spread shift",
+   "group": "Financing & rates",
+   "kind": "shift_bp",
+   "unit": "bp",
+   "base": 0,
+   "min": -300,
+   "max": 800,
+   "step": 25,
+   "low": -100,
+   "high": 300,
+   "help": "Moves the credit spread on new and refinanced debt only; contractual margins on existing loans and committed facilities do not change. CoreWeave 5-yr CDS was ~1,038bp on 15 Oct 2026 after a record 1,194.5bp; +300bp is a further widening beyond that record (refinancing near distressed levels), −100bp a path toward investment grade (S&P B+, positive outlook).",
+   "src": [
+    "s31",
+    "s34",
+    "s117"
+   ]
+  },
+  {
+   "id": "new_debt_rate",
+   "label": "All-in cost of new and refinanced debt",
+   "group": "Financing & rates",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 10.5,
+   "min": 5,
+   "max": 20,
+   "step": 0.25,
+   "low": 9.0,
+   "high": 14.0,
+   "help": "All-in cost of new (uncommitted) financing and of refinancing, at the base SOFR path’s 2027 level (4.45%); it moves with the selected path, SOFR and spread sliders. Our mix at October 2026 prices: 60% secured DDTL-style at the latest deal’s SOFR + 5.50% plus ~0.8% fees (DDTL 5.5, Aug 2026) ≈ 10.75%; 15% OEM financing at the 10-Q’s 9–11% effective ≈ 10%; 15% unsecured at the ~15% the notes yielded in October; 10% converts at ~3.1% (2.875% coupon plus fees) ≈ 10.5% in all. 9% = credit normalises (more DDTL 4.0-style pricing); 14% = most refinancing near unsecured yields. Committed facilities are drawn first at their own terms.",
+   "src": [
+    "s2",
+    "s17",
+    "s59",
+    "s97",
+    "s28",
+    "s31",
+    "s14"
+   ]
+  },
+  {
+   "id": "min_cash",
+   "label": "Minimum cash balance",
+   "group": "Financing & rates",
+   "kind": "scalar",
+   "unit": "US$m",
+   "base": 4000,
+   "min": 0,
+   "max": 15000,
+   "step": 500,
+   "low": 2000,
+   "high": 8000,
+   "help": "Cash kept on hand; any shortfall is borrowed or raised. US$5.5bn at 30 Jun 2026 excluding US$1.4bn of restricted cash, about two quarters of cash opex plus interest. DDTL 4.0 also requires restricted cash covering three months of debt service.",
+   "src": [
+    "s2"
+   ]
+  },
+  {
+   "id": "equity_funding_share",
+   "label": "Share of funding gap met with new equity",
+   "group": "Dilution",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 5,
+   "min": 0,
+   "max": 100,
+   "step": 5,
+   "low": 0,
+   "high": 25,
+   "help": "CoreWeave has an at-the-market programme for up to 35m shares (~US$2bn at today’s price, ~5% of the 2026–27 funding gap). Higher = less debt, more dilution.",
+   "src": [
+    "s109"
+   ]
+  },
+  {
+   "id": "issue_discount",
+   "label": "Discount on new shares vs market price",
+   "group": "Dilution",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 3,
+   "min": 0,
+   "max": 60,
+   "step": 1,
+   "low": 0,
+   "high": 25,
+   "help": "ATM sales are near market (agent commission ~1-2%); a stressed follow-on would price at a deep discount.",
+   "src": [
+    "s109"
+   ]
+  },
+  {
+   "id": "share_dilution_pct",
+   "label": "Share-count creep from employee equity",
+   "group": "Dilution",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 0,
+   "min": 0,
+   "max": 10,
+   "step": 0.5,
+   "low": 0,
+   "high": 2,
+   "help": "Annual share growth from options and other employee equity on top of SBC paid in shares and any equity raised. 0 at base, because SBC already converts to shares (next slider).",
+   "src": [
+    "s55",
+    "s1"
+   ]
+  },
+  {
+   "id": "sbc_share_pct",
+   "label": "SBC paid in new shares",
+   "group": "Dilution",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 100,
+   "min": 0,
+   "max": 100,
+   "step": 10,
+   "low": 50,
+   "high": 100,
+   "src": [
+    "s1",
+    "s55"
+   ],
+   "help": "Share of stock-based comp that becomes new shares at the share price (100% = every dollar of SBC is a dollar of new stock; RSU tax withholding paid in cash is value-equivalent). At 6% of revenue that is ~26m shares in FY2027 at US$61.39."
+  },
+  {
+   "id": "exit_ev_ebitda",
+   "label": "Exit EV / EBITDA (on FY2028, at base financing costs)",
+   "group": "Valuation",
+   "kind": "scalar",
+   "unit": "x",
+   "base": 7.0,
+   "min": 3,
+   "max": 14,
+   "step": 0.5,
+   "low": 5.0,
+   "high": 9.0,
+   "help": "Multiple applied at end-2027 to FY2028 adjusted EBITDA, at base financing costs; it re-rates automatically when the cost of debt or equity moves (Valuation tab). 7x ≈ Oracle’s next-twelve-months multiple: Oracle trades at 8.6x FY May-2027 and 6.0x FY May-2028 EBITDA (Alpha Spread, 18 Oct 2026, at US$128.06), ~7.2x on a 12-month-forward blend. At US$61.39 the market prices CoreWeave at 6.65x FY2027 and 4.57x FY2028 consensus EBITDA (MarketScreener, which adds each year’s own net debt). 5.5x is distressed credit; 9x a re-rating as financing goes investment grade.",
+   "src": [
+    "s72",
+    "s65",
+    "s73"
+   ]
+  },
+  {
+   "id": "discount_rate",
+   "label": "Cost of equity",
+   "group": "Valuation",
+   "kind": "scalar",
+   "unit": "%",
+   "base": 18,
+   "min": 8,
+   "max": 30,
+   "step": 0.5,
+   "low": 15,
+   "high": 21,
+   "help": "Discounts the end-2027 value back to today, and is the equity half of the cost of capital that re-rates the exit multiple. Set above the ~15% unsecured bond yield: the equity ranks below US$35bn+ of debt.",
+   "src": [
+    "s28",
+    "s111"
+   ]
+  },
+  {
+   "id": "share_price",
+   "label": "Share price (for multiples and new-share pricing)",
+   "group": "Market",
+   "kind": "scalar",
+   "unit": "US$",
+   "base": 61.39,
+   "min": 5,
+   "max": 300,
+   "step": 0.5,
+   "low": 45,
+   "high": 90,
+   "help": "Close of 16 Oct 2026. Sets the market multiples shown (P/E, EV/EBITDA, FCF yield), the price of any new shares and of SBC paid in shares.",
+   "src": [
+    "s25",
+    "s26"
+   ]
+  }
+ ],
+ "scenarios": [
+  {
+   "id": "base",
+   "name": "Base",
+   "prob": 35,
+   "values": {},
+   "note": "FY2026 at guidance, consensus-like FY2027 revenue, FY2028 adj. EBITDA ~US$23.6bn at 7x; market SOFR path; committed facilities first, then new financing at ~10.5%; 5% of the gap met with equity. Report weight 35%."
+  },
+  {
+   "id": "bear",
+   "name": "Bear (funding-constrained)",
+   "prob": 40,
+   "values": {
+    "revenue_growth": -42,
+    "cost_of_revenue_pct": 7,
+    "opex_pct": 1.5,
+    "capex": -55,
+    "new_debt_rate": 13,
+    "spread_shift": 100,
+    "wc_prepay_pct": 5,
+    "equity_funding_share": 8,
+    "issue_discount": 40,
+    "exit_ev_ebitda": 6.5,
+    "capex_revenue_link": 0
+   },
+   "note": "The report’s bear: FY2027 capex cut to ~US$21bn, revenue stalling near the exit-2026 run-rate (US$20.9bn in FY2027, US$21.5bn in FY2028) at ~53% margins, new financing at 13% plus 100bp of spread, ~90m more shares, 6.5x at base financing costs (5.6x after the cost-of-capital re-rating). Gives ~US$5 (report ~US$5), net debt ~US$60bn at end-2027 (report ~US$59bn). FY2026 stays at guidance. Revenue follows capex is off in this preset: the bear sets revenue directly, so the capex cut is not counted twice. Report weight 40%."
+  },
+  {
+   "id": "bull",
+   "name": "Bull",
+   "prob": 10,
+   "values": {
+    "revenue_growth": 14,
+    "cost_of_revenue_pct": -2.5,
+    "opex_pct": -1,
+    "capex": 5,
+    "wc_prepay_pct": 30,
+    "equity_funding_share": 3,
+    "issue_discount": 0,
+    "exit_ev_ebitda": 8.4,
+    "spread_shift": -50,
+    "new_debt_rate": 9.5
+   },
+   "note": "The report’s bull: revenue ~US$28bn (FY2027) and ~US$45.5bn (FY2028) at 64–65% margins, FY2028 adj. EBITDA ~US$29.8bn, spreads 50bp tighter and new financing at 9.5%, 8.4x at base financing costs (~9.0x after the re-rating). Gives ~US$245 (report ~US$259, which leaves out the ~29m net convertible shares above the capped-call caps). Report weight 10%."
+  },
+  {
+   "id": "restructuring",
+   "name": "Restructuring",
+   "prob": 15,
+   "values": {
+    "revenue_growth": -45,
+    "cost_of_revenue_pct": 8,
+    "opex_pct": 2,
+    "capex": -45,
+    "new_debt_rate": 16,
+    "spread_shift": 400,
+    "wc_prepay_pct": 0,
+    "equity_funding_share": 40,
+    "issue_discount": 50,
+    "exit_ev_ebitda": 4.0
+   },
+   "note": "The report puts this at ~US$0. The model cannot simulate a default; this stress shows the arithmetic that leads there: debt above enterprise value (value floors at zero) and heavy dilution at half the share price. Report weight 15%."
+  },
+  {
+   "id": "fed_projections",
+   "name": "Fed projections path",
+   "values": {
+    "rate_path": "fed_sep"
+   },
+   "note": "SOFR follows the Fed’s September 2026 projections instead of market forwards: 0 / 35 / 65 / 85 / 100bp lower in 2026–30. Operations at base."
+  },
+  {
+   "id": "higher_for_longer",
+   "name": "Re-hike path",
+   "values": {
+    "rate_path": "higher_for_longer"
+   },
+   "note": "Our stress path: about 100bp more hiking through 2027 (SOFR ~5.0–5.25% in 2027–28). Operations at base."
+  },
+  {
+   "id": "rates_up",
+   "name": "SOFR +150bp, spreads +100bp",
+   "values": {
+    "sofr_shift": 150,
+    "spread_shift": 100
+   },
+   "note": "Owner-requested interest-rate stress from November 2026: inflation re-accelerates (Sep CPI 3.7%) and the Fed keeps hiking; SOFR +150bp on the market path, credit spreads on new debt +100bp."
+  },
+  {
+   "id": "credit_stays_wide",
+   "name": "Funding at October unsecured yields",
+   "values": {
+    "new_debt_rate": 14
+   },
+   "note": "New and refinanced debt costs 14%, near the ~15% the unsecured notes yielded in October 2026, instead of ~10.5%. Rates and operations at base."
+  }
+ ],
+ "valuation": {
+  "method": "exit_multiple",
+  "exit_year": 2028,
+  "valuation_date": "2027-12-31",
+  "net_debt_at": "exit",
+  "note": "As in the report: EV at end-2027 = exit EV/EBITDA x FY2028 adj. EBITDA (one-year-forward), less net debt and over shares at end-2027, discounted to 17 Oct 2026. The multiple is set at base financing costs and re-rates with the cost of capital: x (WACC0 − g) / (WACC − g), with WACC = 47% (debt’s share of end-2027 EV at base) x the FY2028 new-debt rate + 53% x the cost of equity, and g = 4.5% long-run nominal growth. Convertibles are debt at face; above their capped-call caps, net-share settlement adds shares at the exit price. Leases are excluded.",
+  "rate_link": {
+   "debt_weight": 0.47,
+   "growth_pct": 4.5
+  }
+ },
+ "guides": [
+  {
+   "label": "Q3 2026 interest expense guide",
+   "metric": "interest",
+   "period": "2026-Q3",
+   "lo": 860,
+   "hi": 940,
+   "src": [
+    "s9"
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "label": "FY2026E revenue vs guidance US$12.4–13.2bn",
+   "metric": "revenue",
+   "year": 2026,
+   "lo": 12400,
+   "hi": 13200,
+   "src": [
+    "s9"
+   ]
+  },
+  {
+   "label": "FY2026E capex vs guidance US$35–39bn",
+   "metric": "capex",
+   "year": 2026,
+   "lo": 35000,
+   "hi": 39000,
+   "src": [
+    "s9"
+   ]
+  },
+  {
+   "label": "FY2026E adj. operating income vs guidance US$0.96–1.15bn",
+   "metric": "adj_op_income",
+   "year": 2026,
+   "lo": 960,
+   "hi": 1150,
+   "src": [
+    "s9"
+   ]
+  },
+  {
+   "label": "FY2026E interest: H1 actual US$1.18bn + H2 at about twice the Q3 guide of US$860–940m, Q4 higher",
+   "metric": "interest",
+   "year": 2026,
+   "lo": 2900,
+   "hi": 3250,
+   "src": [
+    "s9",
+    "s8",
+    "s11"
+   ]
+  },
+  {
+   "label": "FY2026E adj. EBITDA vs consensus US$7.55bn (±6%)",
+   "metric": "ebitda",
+   "year": 2026,
+   "lo": 7100,
+   "hi": 8000,
+   "src": [
+    "s65"
+   ]
+  },
+  {
+   "label": "FY2027E revenue vs analysts’ range US$21.1–31.0bn (mean US$26.3bn)",
+   "metric": "revenue",
+   "year": 2027,
+   "lo": 21100,
+   "hi": 31030,
+   "src": [
+    "s64"
+   ]
+  },
+  {
+   "label": "FY2027E adj. EBITDA vs consensus US$16.6bn (±5%)",
+   "metric": "ebitda",
+   "year": 2027,
+   "lo": 15800,
+   "hi": 17450,
+   "src": [
+    "s65"
+   ]
+  },
+  {
+   "label": "FY2027E EPS vs analysts’ range −US$8.53 to −US$1.12 (mean −US$4.49, 23 analysts)",
+   "metric": "eps",
+   "year": 2027,
+   "lo": -8.53,
+   "hi": -1.12,
+   "src": [
+    "s64"
+   ]
+  },
+  {
+   "label": "FY2028E revenue vs consensus US$42.9bn (±10%; BofA US$43.3bn)",
+   "metric": "revenue",
+   "year": 2028,
+   "lo": 38600,
+   "hi": 47150,
+   "src": [
+    "s65",
+    "s141"
+   ]
+  },
+  {
+   "label": "FY2028E net income vs published estimates −US$2.6bn (Simply Wall St, Jul) to −US$1.2bn (consensus, Oct)",
+   "metric": "net_income",
+   "year": 2028,
+   "lo": -2615,
+   "hi": -1220,
+   "src": [
+    "s140",
+    "s65"
+   ]
+  },
+  {
+   "label": "End-2026E net debt vs consensus US$45.6bn (±7.5%)",
+   "metric": "net_debt",
+   "year": 2026,
+   "lo": 42150,
+   "hi": 48980,
+   "src": [
+    "s65"
+   ]
+  },
+  {
+   "label": "End-2027E net debt vs consensus US$76.7bn (±7.5%)",
+   "metric": "net_debt",
+   "year": 2027,
+   "lo": 70950,
+   "hi": 82450,
+   "src": [
+    "s65"
+   ]
+  },
+  {
+   "label": "End-2028E net debt vs consensus US$97.6bn (±7.5%)",
+   "metric": "net_debt",
+   "year": 2028,
+   "lo": 90270,
+   "hi": 104910,
+   "src": [
+    "s65"
+   ]
+  }
+ ],
+ "funding": {
+  "new_debt_secured_pct": 60,
+  "note": "Committed but undrawn at the latest disclosure, drawn in this order before any new financing. 10-Q (30 Jun 2026): DDTL 4.0 US$5,663m, DDTL 5.0 US$1,999m (draw window closed 30 Sep 2026; any Q3 draws are not disclosed, so it is available in 2026 only), DDTL 5.5 US$2.6bn less the US$1.2bn August draw, revolver US$2.0bn less the US$1.2bn August draw. About US$9.9bn in total; the rest of the funding gap is uncommitted new financing. 60% of new financing is assumed secured (asset-backed DDTL-style).",
+  "src": [
+   "s2",
+   "s17",
+   "s59",
+   "s97",
+   "s104",
+   "s135"
+  ],
+  "committed": [
+   {
+    "id": "ddtl-5-undrawn",
+    "name": "DDTL 5.0 undrawn (window closed 30 Sep 2026)",
+    "amount": 1999,
+    "kind": "fixed",
+    "coupon_pct": 8.3,
+    "fee_bp": 70,
+    "available_until": "2026-09",
+    "maturity": "2031-05",
+    "secured": true,
+    "src": [
+     "s2",
+     "s104"
+    ]
+   },
+   {
+    "id": "ddtl-4-undrawn",
+    "name": "DDTL 4.0 undrawn (to 30 Jun 2027)",
+    "amount": 5663,
+    "kind": "floating",
+    "spread_bp": 225,
+    "fee_bp": 100,
+    "available_until": "2027-06",
+    "maturity": "2032-03",
+    "secured": true,
+    "src": [
+     "s2",
+     "s17"
+    ]
+   },
+   {
+    "id": "ddtl-5-5-undrawn",
+    "name": "DDTL 5.5 undrawn (window assumed to mid-2027)",
+    "amount": 1400,
+    "kind": "floating",
+    "spread_bp": 550,
+    "fee_bp": 80,
+    "available_until": "2027-06",
+    "maturity": "2031-09",
+    "secured": true,
+    "src": [
+     "s2",
+     "s59",
+     "s97"
+    ]
+   },
+   {
+    "id": "revolver-undrawn",
+    "name": "Revolver, remaining availability",
+    "amount": 800,
+    "kind": "floating",
+    "spread_bp": 175,
+    "fee_bp": 25,
+    "available_until": "2029-11",
+    "maturity": "2029-11",
+    "secured": true,
+    "src": [
+     "s2",
+     "s135"
+    ]
+   }
+  ]
+ },
+ "covenants": [
+  {
+   "id": "total_leverage",
+   "label": "Total leverage cap (total debt / EBITDA ≤ 6.0x)",
+   "metric": "gross_debt_ebitda",
+   "max": 6.0,
+   "kind": "covenant",
+   "src": [
+    "s137"
+   ],
+   "note": "Reported incurrence test in the unsecured notes, on total debt to EBITDA: above it, new debt must fit a carve-out (asset-level financing baskets exist)."
+  },
+  {
+   "id": "secured_leverage",
+   "label": "Secured leverage cap (secured debt / EBITDA ≤ 4.0x)",
+   "metric": "secured_debt_ebitda",
+   "max": 4.0,
+   "kind": "covenant",
+   "src": [
+    "s137"
+   ],
+   "note": "Reported cap on secured debt in the unsecured notes. Secured = DDTL, OEM and revolver debt plus 60% of new financing."
+  },
+  {
+   "id": "interest_cover",
+   "label": "Interest cover floor (EBITDA / interest ≥ 1.5x)",
+   "metric": "interest_cover",
+   "min": 1.5,
+   "kind": "threshold",
+   "note": "Our analyst threshold, not a covenant: below 1.5x, EBITDA barely covers interest before any capex."
+  }
+ ],
+ "consensus": {
+  "label": "MarketScreener consensus, read 18 Oct 2026 (reference price US$61.39)",
+  "src": [
+   "s65"
+  ],
+  "rows": {
+   "revenue": {
+    "2026": 12872,
+    "2027": 26338,
+    "2028": 42865
+   },
+   "ebitda": {
+    "2026": 7553,
+    "2027": 16626,
+    "2028": 28732
+   },
+   "net_income": {
+    "2026": -2837,
+    "2027": -2718,
+    "2028": -1220
+   },
+   "eps": {
+    "2026": -5.151,
+    "2027": -4.487,
+    "2028": -1.8
+   },
+   "net_debt": {
+    "2026": 45560,
+    "2027": 76697,
+    "2028": 97588
+   },
+   "ev_ebitda": {
+    "2026": 10.5,
+    "2027": 6.65,
+    "2028": 4.57
+   }
+  }
+ }
+}
