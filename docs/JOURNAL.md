@@ -8,6 +8,22 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-18 — Stress-test & projection model for Key reports
+- **Built:** the `model-engine.js` + `model.js` interactive model, and a CoreWeave spec
+  calibrated to guidance (FY26 revenue, capex, adjusted operating income and the Q3 interest
+  guide all pass).
+- **Debt stack:** read from the 10-Q debt note: 18 tranches summing exactly to US$35,551m
+  principal, with repayment schedules that reproduce the 10-Q maturity table.
+- **Learned:**
+  - Interest risk is mostly in debt not yet borrowed. About 31% of today's stack floats, but by
+    end-2028 about 79% floats or is new borrowing. Each +100bp on SOFR adds about US$0.43bn to
+    FY27 interest and US$0.89bn to FY28.
+  - Value per share is driven by the exit multiple, revenue growth and capex. Net income is
+    driven by GPU useful life and capex.
+- **Open:** a template for non-levered companies; the Firecrawl credits are nearly exhausted.
+
+---
+
 ## 2026-10-17 — Key reports section + CoreWeave initiation + "why didn't we flag it?" audit
 - **Built:**
   - The `#/reports` section, with a JSON report format, an XSS-safe renderer, print-to-PDF and

@@ -1881,7 +1881,7 @@
        "Oracle (ORCL)",
        "FY May-27 / May-28 [s72]",
        "—",
-       "about 10.1x / 7.3x",
+       "8.6x / 6.0x (18 Oct, at US$128.06)",
        "Investment-grade hyperscaler"
       ],
       [
@@ -1915,11 +1915,11 @@
     },
     {
      "type": "p",
-     "text": "**Choosing the multiple.** The asset-light names above are not the right anchor: their EBITDA is not consumed by depreciation and their balance sheets are investment grade. The closer economic comparables are lessors of depreciating, debt-financed equipment on contracts (aircraft lessors, equipment rental), with contracted data-centre landlords as an upper bound for longer-dated contracts on longer-lived assets. We did not find dated, citable multiples for those groups in time for this report, so we show none. Our 7x base multiple sits below Oracle’s forward multiple and well below the asset-light peers; the bear case uses 5.5x, a distressed-credit level."
+     "text": "**Choosing the multiple.** The asset-light names above are not the right anchor: their EBITDA is not consumed by depreciation and their balance sheets are investment grade. The closer economic comparables are lessors of depreciating, debt-financed equipment on contracts (aircraft lessors, equipment rental), with contracted data-centre landlords as an upper bound for longer-dated contracts on longer-lived assets. We did not find dated, citable multiples for those groups in time for this report, so we show none. Our 7x base multiple is about Oracle’s next-twelve-months multiple (8.6x FY May-2027 and 6.0x FY May-2028 on 18 October, ~7.2x blended [s72]) and well below the asset-light peers; the bear case uses 5.5x, a distressed-credit level."
     },
     {
      "type": "p",
-     "text": "**Method.** We value the company at end-2027 on a one-year-forward multiple of FY2028 adjusted EBITDA, roll net debt forward with guidance and consensus cash flows, and discount the per-share value back 1.2 years at an **18% cost of equity**. That rate is a stated premium (roughly the 3.75–4.00% policy rate [s111] plus about 14 points for a single-B, pre-profit, highly levered equity), not a read-across from the bond yield: a 15% yield on near-distressed bonds is a promised yield, not an expected return. Default risk sits in the scenario weights, so the high rate is partly a second, conservative haircut; at 15% or 21% the weighted value would be about US$72 or US$68. Step 1 is common to all cases: from US$29.8bn at 30 June, H2 FY2026 company-defined capex of about US$19.9bn (guide midpoint US$37bn less H1 about US$17.1bn [s9,s83,s8]), H2 adjusted EBITDA of about US$4.7bn (consensus FY US$7.4bn [s65] less H1 US$2.67bn [s8,s11]), interest of about US$1.9bn and US$1.5bn of prepayments take **net debt to about US$45.3bn by end-2026**. After that, any equity raised is credited against net debt, so new shares are not counted twice. Section 9 puts these inputs on sliders; its base case gives about US$118 a share."
+     "text": "**Method.** We value the company at end-2027 on a one-year-forward multiple of FY2028 adjusted EBITDA, roll net debt forward with guidance and consensus cash flows, and discount the per-share value back 1.2 years at an **18% cost of equity**. That rate is a stated premium (roughly the 3.75–4.00% policy rate [s111] plus about 14 points for a single-B, pre-profit, highly levered equity), not a read-across from the bond yield: a 15% yield on near-distressed bonds is a promised yield, not an expected return. Default risk sits in the scenario weights, so the high rate is partly a second, conservative haircut; at 15% or 21% the weighted value would be about US$72 or US$68. Step 1 is common to all cases: from US$29.8bn at 30 June, H2 FY2026 company-defined capex of about US$19.9bn (guide midpoint US$37bn less H1 about US$17.1bn [s9,s83,s8]), H2 adjusted EBITDA of about US$4.7bn (consensus FY US$7.4bn [s65] less H1 US$2.67bn [s8,s11]), interest of about US$1.9bn and US$1.5bn of prepayments take **net debt to about US$45.3bn by end-2026**. After that, any equity raised is credited against net debt, so new shares are not counted twice. Section 9 puts these inputs on sliders; its base case gives about US$114 a share, lower mainly because it pays stock-based compensation in new shares."
     },
     {
      "type": "table",
@@ -1958,7 +1958,7 @@
        "22.0",
        "38.0",
        "45.0",
-       "Bear: exit-2027 active power of about 2.3–2.4 GW, less lower renewal pricing on Hopper fleets; bull: near BofA’s US$43.3bn [s71]"
+       "Bear: exit-2027 active power of about 2.3–2.4 GW, less lower renewal pricing on Hopper fleets; bull: near BofA’s US$43.3bn [s141]"
       ],
       [
        "FY28 adj. EBITDA margin",
@@ -1979,7 +1979,7 @@
        "22.0",
        "47.4",
        "52.0",
-       "Bear: capped at about US$6bn of operating cash flow plus new contract-backed debt and equity; base: BofA FY27 US$47.4bn [s71]"
+       "Bear: capped at about US$6bn of operating cash flow plus new contract-backed debt and equity; base: BofA FY27 US$47.4bn [s141]"
       ],
       [
        "FY27 interest",
@@ -2028,7 +2028,7 @@
        "5.5x",
        "7.0x",
        "9.0x",
-       "Distressed credit / below Oracle’s forward multiple / re-rated [s72]"
+       "Distressed credit / about Oracle’s next-twelve-months multiple (~7.2x) / re-rated [s72]"
       ],
       [
        "Diluted shares, end-2027 (m)",
@@ -2130,7 +2130,7 @@
        "name": "Base",
        "value": "≈ US$120 a share",
        "prob": "35%",
-       "text": "Consensus-like FY27 revenue of US$26.3bn, 62% margins, and FY28 adjusted EBITDA of about US$23.6bn valued at 7x, below Oracle’s forward multiple [s64,s72]. Requires the 2027 capex plan (about US$47bn) to be funded without a further jump in the cost of capital; the 35m-share ATM is sold at about US$70."
+       "text": "Consensus-like FY27 revenue of US$26.3bn, 62% margins, and FY28 adjusted EBITDA of about US$23.6bn valued at 7x, about Oracle’s next-twelve-months multiple [s64,s72]. Requires the 2027 capex plan (about US$47bn) to be funded without a further jump in the cost of capital; the 35m-share ATM is sold at about US$70."
       },
       {
        "name": "Bull",
@@ -2319,7 +2319,7 @@
     },
     {
      "type": "table",
-     "caption": "Street view (consensus pages read 17 Oct 2026; most targets predate the 14–16 October sell-off)",
+     "caption": "Street view (consensus pages read 18 Oct 2026; most targets predate the 14–16 October sell-off)",
      "columns": [
       "Item",
       "Value",
@@ -2333,17 +2333,17 @@
      "rows": [
       [
        "Consensus revenue FY26 / FY27",
-       "US$12.87bn / US$26.27bn (FY27 range US$21.1–31.0bn)",
+       "US$12.87bn / US$26.34bn (FY27 range US$21.1–31.0bn)",
        "[s64]"
       ],
       [
        "Consensus adj. EBITDA FY26 / FY27 / FY28",
-       "about US$7.4bn / US$15.6–16.6bn / US$28.7bn",
+       "about US$7.55bn / US$16.6bn / US$28.7bn",
        "[s65]"
       ],
       [
        "Consensus EPS FY27",
-       "−US$4.33, from −US$3.37 ninety days earlier",
+       "−US$4.49 (23 analysts; range −US$8.53 to −US$1.12), from −US$3.37 ninety days earlier",
        "[s64]"
       ],
       [
@@ -2375,11 +2375,11 @@
    "blocks": [
     {
      "type": "p",
-     "text": "This section turns the report’s assumptions into a working model. Pick a scenario or move a slider, and the FY2026E–FY2030E P&L, funding need, debt, interest, forward multiples and value per share recalculate in the browser; **Copy link** keeps the exact settings. FY2026E is the reported first half [s2] plus the model’s second half. The base case uses FY2026 guidance [s9], consensus-like FY2027 [s64,s65] and Section 8’s FY2028, passes every check against guidance (Calibration tab) and gives **about US$118 a share**, within rounding of Section 8’s ≈US$120. Its end-2027 net debt (US$77.8bn) and share count (608m) are a little above Section 8’s US$77.0bn and 600m, because the model sells new shares at the current price rather than about US$70 and books issue-cost amortisation in interest. The Bear, Bull and Restructuring presets reproduce Section 8’s cases at about US$5, US$261 and US$0; three more presets stress interest rates and credit."
+     "text": "This section turns the report’s assumptions into a working model. Pick a scenario, move a slider or choose a SOFR path, and the FY2026E–FY2030E P&L, funding need, debt, interest, covenant tests, forward multiples and value per share recalculate in the browser; **Copy link** keeps the exact settings. FY2026E is the reported first half [s2] plus the model’s second half, held at guidance in every preset [s9]. The opening balance sheet is the 30 June 10-Q; August’s DDTL 5.5 and revolver draws and September’s US$4.2bn convertible enter on their dates [s2,s14]. The base case uses FY2026 guidance, consensus-like FY2027 revenue [s64] and Section 8’s FY2028, passes the FY2026 guidance and FY2027 consensus checks (Calibration tab) and gives **about US$114 a share**, against Section 8’s ≈US$120: the model pays stock-based compensation in new shares at today’s price (630m shares at end-2027, against 600m) and draws about US$9.9bn of committed facilities before new borrowing at about 10.5%. The Restructuring, Bear, Base and Bull presets give about US$0, US$5, US$114 and US$245; weighted 15/40/35/10 that is **about US$66**, close to Section 8’s ≈US$70. The bull is below Section 8’s US$259 because it counts about 29m net convertible shares above the capped-call caps. Four more presets stress rates and credit."
     },
     {
      "type": "p",
-     "text": "**What moves the P&L most.** At base, FY2027E net income is about −US$4.5bn (−US$7.74 a share, against consensus EPS of −US$4.33 [s64]) and FY2028E about −US$8.5bn (consensus about −US$2.6bn [s140]): the model carries depreciation and interest on new debt in full, and Section 8’s FY2028 EBITDA of US$23.6bn sits below the US$28.7bn consensus [s65]. Across each driver’s plausible range, FY2027E net income swings most with **capex** (−30% to +25%: about break-even to −US$8.5bn), **GPU depreciation life** (4 to 7 years: −US$11.2bn to −US$2.6bn, with no change in cash), **revenue growth** (−20 to +10 points: −US$7.2bn to −US$3.1bn), the **cost of new debt** (8% to 14%: −US$4.1bn to −US$6.1bn) and **credit spreads** (−100 to +300bp: −US$4.1bn to −US$5.8bn). **Interest rates:** each +100bp on SOFR adds about US$0.42bn to FY2027E and US$0.81bn to FY2028E interest, because by then most of the debt is new borrowing priced off SOFR. The Rates +150bp preset (spreads +100bp too) lifts FY2027E interest from US$5.6bn to US$6.6bn and cuts interest cover from 2.8x to 2.4x, yet moves value by only about −US$2 a share: the exit multiple is struck on EBITDA, before interest, so rates hurt the equity through refinancing and covenants rather than through the valuation. Value per share swings most with the exit multiple (5x to 9x: US$54 to US$181), revenue growth (US$48 to US$158) and capex (US$159 to US$86)."
+     "text": "**Interest rates and the P&L.** Each +100bp on SOFR (from November 2026) adds about US$0.41bn to FY2027E and US$0.81bn to FY2028E interest, because by end-2028 about 78% of the debt floats or is new borrowing that reprices. The same move takes about US$10 off value per share, mostly by re-rating the exit multiple as the cost of capital rises (7.0x to 6.7x). The SOFR path selector runs market forwards [s122], the Fed’s September projections [s119,s120,s121] or two stress paths of our own. On the Fed path FY2028E interest is US$8.6bn against US$9.1bn and value about US$120; on the re-hike path it is US$9.5bn and about US$107. SOFR +150bp with spreads +100bp lifts FY2027E interest from US$5.6bn to US$6.5bn and FY2028E to US$11.0bn, and cuts value to about US$90; new financing at 14% instead of 10.5% gives about US$82. **What moves FY2027E net income** (base about −US$3.4bn, or −US$5.65 a share against consensus of −US$4.49 [s64]): GPU depreciation life (4 to 7 years: −US$9.3bn to −US$1.7bn, with no change in cash), how fast new capex enters service (0.1 to 0.75 years: −US$5.7bn to −US$0.9bn), revenue growth (−20 to +10 points: −US$4.9bn to −US$2.6bn) and the cost of new debt (9% to 14%: −US$3.1bn to −US$4.2bn). FY2028E net income (about −US$8.1bn) sits well below published estimates of −US$1.2bn to −US$2.6bn [s65,s140], mostly because Section 8’s FY2028 EBITDA of US$23.6bn is below the US$28.7bn consensus [s65]; the Calibration tab shows that miss rather than hiding it. **Value per share** swings most with the exit multiple (5x to 9x: US$52 to US$174), revenue growth (US$63 to US$141), the cost of equity (US$159 to US$82) and the cost of new debt (US$130 to US$82). **What the price implies** (Breakevens tab): at US$61.39 the shares are worth what the model says only at 5.3x FY2028 EBITDA (we assume 7x), at revenue growth about 21 points a year below the path, or with new financing at about 17%."
     },
     {
      "type": "model",
@@ -2389,13 +2389,13 @@
      "type": "callout",
      "tone": "info",
      "title": "How interest expense is projected",
-     "text": "**Rate path.** SOFR follows market forwards as of 15 October 2026: 3.85% for H2 2026, then 4.45%, 4.65%, 4.60% and 4.45% (2030 extrapolated) [s122,s111]. The Fed’s September projections imply about 75bp less from 2027 [s119,s120,s121]; the “Fed projections path” preset applies them. **Fixed vs floating.** Of US$39.8bn of principal (30 June 2026, pro forma for September’s US$4.2bn 2.875% convertible [s2,s14]), US$11.1bn (28%) floats over SOFR: DDTL 1.0, 2.0, 2.1 and 3.0 and the DDTL 4.0 floating tranche [s127,s128,s129,s103,s17]. DDTL 5.0 must be at least 95% swapped and is treated as fixed [s104]; the rest is fixed: senior notes at 8.5–9.75% [s130,s131,s132,s133,s134], convertibles at 1.75–2.875% and OEM financing at about 9–11% [s2]. Each tranche pays its rate on its average balance, including issue-cost and discount amortisation as the income statement does. **Refinancing.** Amortising loans repay straight-line to maturity, maturing notes roll over, and any funding gap (capex and repayments not covered by operating cash flow, keeping US$4bn of cash) is borrowed at the new-debt rate: 9.5% at base, moving one-for-one with the SOFR and spread sliders, with half a year’s interest in the year it is raised. New borrowing reaches about US$49bn by end-2027 and US$84bn by end-2028, so most of the rate risk sits in debt not yet raised. The unsecured notes reportedly cap total leverage at 6.0x and secured leverage at 4.0x [s137]; base net debt is 4.9x FY2027E EBITDA, the bear case 6.1x."
+     "text": "**Rate paths.** SOFR follows market forwards as of 15 October 2026: 3.85% for H2 2026, then 4.45%, 4.65%, 4.60% and 4.45% (2030 is our assumption) [s122,s111]. The Fed’s September projections run 0, 35, 65, 85 and 100bp below that in 2026–30 [s119,s120,s121]; the path selector and the “Fed projections path” preset apply them year by year, and July–October 2026 is treated as realised. **Fixed vs floating.** Of US$42.2bn of principal (US$35.6bn at 30 June [s2], plus August’s US$1.2bn DDTL 5.5 and US$1.2bn revolver draws [s2] and September’s US$4.2bn 2.875% convertible [s14]), about US$13.5bn (32%) floats over SOFR: DDTL 1.0, 2.0, 2.1, 3.0 and 5.5, the DDTL 4.0 floating tranche and the revolver [s127,s128,s129,s103,s17,s59]. DDTL 5.0 must be at least 95% swapped and is treated as fixed [s104]. DDTL 4.0 must hedge at least 95% of its floating draws after mid-2027; the model does not, so it slightly overstates the floating sensitivity from then on. The rest is fixed: senior notes at 8.5–9.75% [s130,s131,s132,s133,s134], convertibles at 1.75–2.875% and OEM financing at about 9–11% [s2]. Each tranche pays its stated rate on its balance month by month. Issue-cost and discount amortisation (about US$0.1–0.25bn a year) is carried as non-cash interest, as the income statement does, and added back in cash flow. Amortising loans follow a schedule fitted to the 10-Q maturity table [s2]. **Funding.** Any gap (capex and repayments not covered by operating cash flow, keeping US$4bn of cash) is first drawn from about US$9.9bn of committed, undrawn facilities on their own terms (DDTL 4.0, 5.0 and 5.5 and the revolver [s2,s17,s104,s59]). The rest is borrowed at the new-debt rate: about 10.5% at base, a mix of secured DDTL-style debt at the latest SOFR + 5.50% pricing [s59], OEM financing, unsecured notes near their October yields [s28,s31] and converts. It moves with the selected path and the SOFR and spread sliders; credit spreads never touch contractual margins. Uncommitted funding reaches about US$43bn by end-2027 and US$81bn by end-2028, so most of the rate risk sits in debt not yet raised. **Covenants.** The unsecured notes reportedly cap total leverage at 6.0x and secured leverage at 4.0x [s137]. Base total debt is 6.8x FY2026E EBITDA, above the cap, then 5.2x in FY2027 and 4.8x in FY2028; the bear case is back above it, at 7.0x, in FY2028."
     },
     {
      "type": "callout",
      "tone": "risk",
      "title": "What the model leaves out",
-     "text": "Presets shift every year by the same amount, so the bear case also trims the second half of 2026. Revenue does not follow capex: cutting capex without cutting revenue growth flatters the result. There are no tax-loss carry-forwards, no interest on cash, no conversion of the convertibles (treated as debt, as in Section 8) and no default mechanics: below zero, the equity value simply floors at nothing. It is a tool for testing assumptions, not a forecast."
+     "text": "Presets keep FY2026 at guidance and shift FY2027–30 by the same amount each year. Revenue follows in-service capacity, so cutting capex costs revenue a few quarters later; the bear preset sets revenue directly and switches that link off. There are no tax-loss carry-forwards (a tax charge of about US$290m a year stands in for the tax CoreWeave books in loss years), no interest on cash, no capitalised interest and no default mechanics: below zero, the equity value simply floors at nothing, and a covenant breach is flagged rather than stopping the borrowing. Convertibles are debt at face, with net shares only above their capped-call caps. It is a tool for testing assumptions, not a forecast."
     }
    ]
   },
@@ -3177,16 +3177,16 @@
   },
   {
    "id": "s64",
-   "title": "CoreWeave (CRWV) analyst estimates (live page, read 17 Oct 2026)",
+   "title": "CoreWeave (CRWV) analyst estimates (live page, read 18 Oct 2026)",
    "publisher": "Yahoo Finance",
-   "date": "2026-10-17",
+   "date": "2026-10-18",
    "url": "https://finance.yahoo.com/quote/CRWV/analysis/"
   },
   {
    "id": "s65",
-   "title": "CoreWeave Inc valuation and consensus estimates (live page, read 17 Oct 2026)",
+   "title": "CoreWeave Inc valuation and consensus estimates (live page, read 18 Oct 2026)",
    "publisher": "MarketScreener",
-   "date": "2026-10-17",
+   "date": "2026-10-18",
    "url": "https://www.marketscreener.com/quote/stock/COREWEAVE-INC-185380761/valuation/"
   },
   {
@@ -3226,16 +3226,16 @@
   },
   {
    "id": "s71",
-   "title": "CoreWeave rallies as BofA dismisses market-saturation worries",
+   "title": "CoreWeave rallies as BofA dismisses market-saturation worries (FY2026 capex forecast raised to US$34bn)",
    "publisher": "Parameter",
-   "date": "2026-10",
+   "date": "2026-07-20",
    "url": "https://parameter.io/coreweave-crwv-stock-rallies-as-bofa-dismisses-market-saturation-worries/"
   },
   {
    "id": "s72",
-   "title": "Oracle EV/EBITDA relative valuation (live page, read 17 Oct 2026)",
+   "title": "Oracle EV/EBITDA relative valuation (live page, read 18 Oct 2026: 8.6x FY May-2027, 6.0x FY May-2028 at US$128.06)",
    "publisher": "Alpha Spread",
-   "date": "2026-10-17",
+   "date": "2026-10-18",
    "url": "https://www.alphaspread.com/security/nyse/orcl/relative-valuation/ratio/enterprise-value-to-ebitda"
   },
   {
@@ -3527,9 +3527,9 @@
   },
   {
    "id": "s117",
-   "title": "CoreWeave faces rising liabilities and leverage (S&P B+ rating, positive outlook; undated article, read 17 Oct 2026)",
+   "title": "CoreWeave faces rising liabilities and leverage (S&P B+ rating, positive outlook)",
    "publisher": "Let’s Data Science",
-   "date": "2026-10-17",
+   "date": "2026-06-15",
    "url": "https://letsdatascience.com/news/coreweave-faces-rising-liabilities-and-leverage-32d677ad"
   },
   {
@@ -3692,6 +3692,13 @@
    "publisher": "Simply Wall St",
    "date": "2026-07-29",
    "url": "https://simplywall.st/stocks/de/software/etr-i1v/coreweave-shares/future"
+  },
+  {
+   "id": "s141",
+   "title": "BofA reiterates Buy on CoreWeave and raises its revenue forecast to US$43.3bn by 2028 (capex US$47.4bn / US$49.8bn for 2027–28; Zhitong Finance flash, secondary; the headline wrongly names Morgan Stanley)",
+   "publisher": "KuCoin News (Zhitong Finance)",
+   "date": "2026-10-16",
+   "url": "https://www.kucoin.com/news/flash/morgan-stanley-maintains-a-buy-rating-for-coreweave-and-raises-revenue-forecast-to-43-3-billion-by-2028"
   }
  ],
  "disclosures": [

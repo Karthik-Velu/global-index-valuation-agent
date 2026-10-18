@@ -8,7 +8,9 @@ name: Screen DSL tests
 # No secrets, no database, no network beyond checkout/setup: engine/screens.py is
 # stdlib-only; the jobs test installs only pandas/numpy and uses a fake DB connection.
 # Safe to run on push to the dev branch. Also validates the Key reports (dashboard/reports/*.json,
-# schema v1) and the report renderer's XSS-safety in a fake DOM — Node only, no network.
+# schema v1) and the report renderer's XSS-safety in a fake DOM, and runs the stress-test model
+# engine's suite (dashboard/model-engine.js: accounting identities, interest, codec) — Node only,
+# no network.
 
 on:
   pull_request:
@@ -18,6 +20,7 @@ on:
       - "dashboard/index.html"
       - "dashboard/reports/**"
       - "scripts/test_reports.js"
+      - "scripts/test_model.js"
       - "engine/screens.py"
       - "engine/screenjobs.py"
       - "engine/picks.py"
@@ -37,6 +40,7 @@ on:
       - "dashboard/index.html"
       - "dashboard/reports/**"
       - "scripts/test_reports.js"
+      - "scripts/test_model.js"
       - "engine/screens.py"
       - "engine/screenjobs.py"
       - "engine/picks.py"
@@ -64,6 +68,8 @@ jobs:
         run: node scripts/test_screens.js
       - name: Key reports (schema v1 + renderer in a fake DOM, no network)
         run: node scripts/test_reports.js
+      - name: Stress-test model engine (Node, no network)
+        run: node scripts/test_model.js
       - name: AI screen builder (stubbed fetch, no network)
         run: |
           if [ -f scripts/test_screen_builder.js ]; then node scripts/test_screen_builder.js

@@ -274,9 +274,11 @@ const modelBlocks = r => (Array.isArray(r && r.sections) ? r.sections : []).flat
 // template driver present with the template's kind, ranges coherent, scenarios on known
 // drivers, every citation in the PARENT report's sources, and a share price that cites one.
 const MODEL_KEYS = ['v', 'slug', 'template', 'currency', 'unit', 'asof', 'years', 'prior', 'stub', 'opening', 'debt', 'rates',
-  'drivers', 'scenarios', 'valuation', 'checks', 'guides', '_comment'];
-const DRIVER_KEYS = ['id', 'label', 'group', 'kind', 'unit', 'base', 'min', 'max', 'step', 'path', 'low', 'high', 'help', 'src', 'dp'];
-const TRANCHE_KEYS = ['id', 'name', 'balance', 'kind', 'coupon_pct', 'spread_bp', 'maturity', 'amort', 'secured', 'recourse', 'src', 'note'];
+  'funding', 'drivers', 'scenarios', 'valuation', 'covenants', 'consensus', 'checks', 'guides', '_comment'];
+const DRIVER_KEYS = ['id', 'label', 'group', 'kind', 'unit', 'base', 'min', 'max', 'step', 'path', 'low', 'high', 'help', 'src', 'dp', 'stub_weight'];
+const TRANCHE_KEYS = ['id', 'name', 'balance', 'kind', 'coupon_pct', 'spread_bp', 'fee_bp', 'maturity', 'amort', 'schedule', 'amort_start',
+  'issued', 'issue_cash', 'issue_equity', 'conv_price', 'cap_price', 'secured', 'recourse', 'src', 'note'];
+const FACILITY_KEYS = ['id', 'name', 'amount', 'kind', 'coupon_pct', 'spread_bp', 'fee_bp', 'available_until', 'maturity', 'secured', 'src', 'note'];
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 function validateModel(m, report, { file } = {}) {
   const errs = [];
@@ -340,6 +342,14 @@ function validateModel(m, report, { file } = {}) {
     seen.add(d.id);
     if (d.kind !== t.kind) err(w, `kind must be ${t.kind} (the template's semantics)`);
     if (!tpl.groups.includes(d.group)) err(w, `group must be one of ${tpl.groups.join(' | ')}`);
+    if (t.kind === 'choice') {             // a picker over rates.path + rates.alt_paths: index 0..n
+      const n = isObj(m.rates) && Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths.length : 0;
+      if (d.unit !== 'path' || d.base !== 0 || d.min !== 0 || d.max !== n || d.step !== 1) err(w, `a choice driver is {unit: "path", base: 0, min: 0, max: ${n} (alt paths), step: 1}`);
+      if (d.low != null || d.high != null || d.path !== undefined || d.stub_weight !== undefined) err(w, 'a choice driver takes no low/high/path/stub_weight');
+      if (!isStr(d.label) || !isStr(d.help)) err(w, 'label and help required');
+      return;
+    }
+    if (d.stub_weight !== undefined && (!isNum(d.stub_weight) || d.stub_weight < 0 || d.stub_weight > 1 || !['shift_pp', 'shift_bp', 'scale_pct'].includes(t.kind))) err(w, 'stub_weight must be 0–1, on a shift/scale driver');
     if (!['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m'].includes(d.unit)) err(w, 'unit must be pp | bp | % | x | yrs | US$ | US$m');
     if (!isStr(d.label) || !isStr(d.help)) err(w, 'label and help required');
     for (const k of ['base', 'min', 'max', 'step']) if (!isNum(d[k])) err(w, `${k} must be a number`);
@@ -365,7 +375,8 @@ function validateModel(m, report, { file } = {}) {
   else m.scenarios.forEach((s, i) => {
     const w = `scenarios[${i}]`;
     if (!isObj(s)) { err(w, 'not an object'); return; }
-    for (const k of Object.keys(s)) if (!['id', 'name', 'values', 'note'].includes(k)) err(w, `unknown key "${k}"`);
+    for (const k of Object.keys(s)) if (!['id', 'name', 'values', 'note', 'prob'].includes(k)) err(w, `unknown key "${k}"`);
+    if (s.prob !== undefined && (!isNum(s.prob) || s.prob < 0 || s.prob > 100)) err(w, 'prob must be a percentage 0–100');
     if (!isStr(s.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(s.id)) err(w, 'id must be lower-case');
     else if (sIds.has(s.id)) err(w, `duplicate id ${s.id}`);
     else sIds.add(s.id);
@@ -374,10 +385,17 @@ function validateModel(m, report, { file } = {}) {
     for (const [k, v] of Object.entries(s.values)) {
       const d = (m.drivers || []).find(x => x && x.id === k);
       if (!d) { err(w, `values: "${k}" is not a driver`); continue; }
+      if (d.kind === 'choice') {
+        const ids = [isObj(m.rates) && m.rates.base_id || 'base'].concat(isObj(m.rates) && Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths.map(p => p && p.id) : []);
+        if (!ids.includes(v)) err(w, `values: ${k} must be one of ${ids.join(' | ')}`);
+        continue;
+      }
       if (!isNum(v) || v < d.min || v > d.max) err(w, `values: ${k} = ${v} outside [${d.min}, ${d.max}]`);
     }
   });
   if (!sIds.has('base')) err('scenarios', 'a "base" scenario is required');
+  const probs = (Array.isArray(m.scenarios) ? m.scenarios : []).filter(s => isObj(s) && isNum(s.prob)).map(s => s.prob);
+  if (probs.length && Math.abs(probs.reduce((a, b) => a + b, 0) - 100) > 1e-6) err('scenarios', `prob weights must sum to 100 (got ${probs.reduce((a, b) => a + b, 0)})`);
 
   // opening balance sheet, stub, prior
   const op = m.opening;
@@ -406,12 +424,58 @@ function validateModel(m, report, { file } = {}) {
     else if (t.kind === 'floating') { if (!isNum(t.spread_bp) || t.spread_bp < 0 || t.spread_bp > 3000) err(w, 'floating: spread_bp (0–3000) required'); }
     else err(w, 'kind must be fixed | floating');
     if (!MONTH_RE.test(String(t.maturity))) err(w, 'maturity must be YYYY-MM');
-    if (!['bullet', 'straight', 'cashsweep'].includes(t.amort)) err(w, 'amort must be bullet | straight | cashsweep');
+    if (!['bullet', 'straight', 'cashsweep', 'schedule'].includes(t.amort)) err(w, 'amort must be bullet | straight | cashsweep | schedule');
+    if (t.amort === 'schedule') {
+      if (!isObj(t.schedule) || !Object.keys(t.schedule).length) err(w, 'schedule: {"<year>": principal} required with amort "schedule"');
+      else {
+        for (const [y, v] of Object.entries(t.schedule)) if (!/^\d{4}$/.test(y) || !isNum(v) || v < 0) err(w, `schedule: ${y} = ${v} must be a year -> principal >= 0`);
+        const tot = Object.values(t.schedule).filter(isNum).reduce((a, b) => a + b, 0);
+        if (isNum(t.balance) && Math.abs(tot - t.balance) > 0.5) err(w, `schedule sums to ${tot}, not the balance ${t.balance}`);
+      }
+    } else if (t.schedule !== undefined) err(w, 'schedule only with amort "schedule"');
+    for (const k of ['fee_bp', 'issue_cash']) if (t[k] !== undefined && (!isNum(t[k]) || t[k] < 0)) err(w, `${k} must be a number >= 0`);
+    if (t.issue_equity !== undefined && !isNum(t.issue_equity)) err(w, 'issue_equity must be a number');
+    for (const k of ['issued', 'amort_start']) if (t[k] !== undefined && !(MONTH_RE.test(String(t[k])) || validDate(String(t[k])))) err(w, `${k} must be YYYY-MM or YYYY-MM-DD`);
+    if ((t.conv_price !== undefined || t.cap_price !== undefined) && !(isNum(t.conv_price) && isNum(t.cap_price) && t.conv_price > 0 && t.cap_price >= t.conv_price)) err(w, 'conv_price and cap_price go together (cap >= conversion price > 0)');
     if (typeof t.secured !== 'boolean' || typeof t.recourse !== 'boolean') err(w, 'secured and recourse must be booleans');
     if (!Array.isArray(t.src)) err(w, 'src required (where the balance comes from)');
   });
   if (!isObj(m.rates)) err('rates', 'required object');
-  else { path0(m.rates.path, 'rates'); if (!isStr(m.rates.note)) err('rates', 'note required (how the path was derived, dated)'); }
+  else {
+    path0(m.rates.path, 'rates'); if (!isStr(m.rates.note)) err('rates', 'note required (how the path was derived, dated)');
+    for (const k of Object.keys(m.rates)) if (!['base_name', 'base_id', 'base_label', 'path', 'alt_paths', 'new_debt_sofr_beta', 'new_debt_ref_year', 'shift_from', 'src', 'note'].includes(k)) err('rates', `unknown key "${k}"`);
+    if (m.rates.new_debt_ref_year !== undefined && !years.includes(m.rates.new_debt_ref_year)) err('rates', 'new_debt_ref_year must be a model year');
+    if (m.rates.shift_from !== undefined && !MONTH_RE.test(String(m.rates.shift_from))) err('rates', 'shift_from must be YYYY-MM');
+    const pids = new Set([m.rates.base_id || 'base']);
+    (Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths : m.rates.alt_paths === undefined ? [] : [null]).forEach((p, i) => {
+      const w = `rates.alt_paths[${i}]`;
+      if (!isObj(p) || !isStr(p.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(p.id) || pids.has(p.id)) { err(w, 'needs a unique lower-case id'); return; }
+      pids.add(p.id);
+      for (const k of Object.keys(p)) if (!['id', 'name', 'path', 'src', 'note'].includes(k)) err(w, `unknown key "${k}"`);
+      if (!isStr(p.name) || !isStr(p.note)) err(w, 'name and note required (who projects it, dated)');
+      path0(p.path, w, { pct: true });
+    });
+  }
+  // committed facilities (drawn before any new financing)
+  if (m.funding !== undefined) {
+    const F = m.funding;
+    if (!isObj(F)) err('funding', 'must be an object');
+    else {
+      for (const k of Object.keys(F)) if (!['committed', 'new_debt_secured_pct', 'src', 'note'].includes(k)) err('funding', `unknown key "${k}"`);
+      if (F.new_debt_secured_pct !== undefined && (!isNum(F.new_debt_secured_pct) || F.new_debt_secured_pct < 0 || F.new_debt_secured_pct > 100)) err('funding', 'new_debt_secured_pct must be 0–100');
+      (Array.isArray(F.committed) ? F.committed : []).forEach((x, i) => {
+        const w = `funding.committed[${i}]${x && x.id ? ` (${x.id})` : ''}`;
+        if (!isObj(x)) { err(w, 'not an object'); return; }
+        for (const k of Object.keys(x)) if (!FACILITY_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+        if (!isStr(x.id) || !ID_RE.test(x.id) || tIds.has(x.id) || x.id === ME.NEW_DEBT_ID) err(w, 'id must be kebab-case and distinct from the tranche ids');
+        else tIds.add(x.id);
+        if (!isStr(x.name) || !isNum(x.amount) || x.amount < 0) err(w, 'name and amount >= 0 required');
+        if (!MONTH_RE.test(String(x.available_until)) || !MONTH_RE.test(String(x.maturity))) err(w, 'available_until and maturity must be YYYY-MM');
+        if (x.kind === 'fixed' ? !isNum(x.coupon_pct) : x.kind === 'floating' ? !isNum(x.spread_bp) : true) err(w, 'kind fixed (coupon_pct) | floating (spread_bp)');
+        if (typeof x.secured !== 'boolean' || !Array.isArray(x.src)) err(w, 'secured (boolean) and src required');
+      });
+    }
+  }
 
   // valuation, checks, guides
   const v = m.valuation;
@@ -430,6 +494,24 @@ function validateModel(m, report, { file } = {}) {
     if (!/^\d{4}(-Q[1-4])?$/.test(String(g.period)) || !years.includes(+String(g.period).slice(0, 4))) err(w, 'period must be YYYY or YYYY-Qn inside the model years');
     if (!isNum(g.lo) || !isNum(g.hi) || g.lo > g.hi) err(w, 'lo <= hi required');
   });
+
+  (Array.isArray(m.covenants) ? m.covenants : m.covenants === undefined ? [] : [null]).forEach((k, i) => {
+    const w = `covenants[${i}]`;
+    if (!isObj(k) || !isStr(k.label) || !tpl.covenant_metrics.includes(k.metric)) { err(w, `label + a metric in ${tpl.covenant_metrics.join(' | ')} required`); return; }
+    for (const x of Object.keys(k)) if (!['id', 'label', 'metric', 'max', 'min', 'kind', 'src', 'note'].includes(x)) err(w, `unknown key "${x}"`);
+    if (!isNum(k.max) && !isNum(k.min)) err(w, 'max or min required');
+    if (!['covenant', 'threshold'].includes(k.kind)) err(w, 'kind must be covenant | threshold');
+    if (k.kind === 'covenant' && !Array.isArray(k.src)) err(w, 'a covenant must cite where its terms come from (src)');
+  });
+  if (m.consensus !== undefined) {
+    const C = m.consensus;
+    if (!isObj(C) || !isStr(C.label) || !Array.isArray(C.src) || !isObj(C.rows)) err('consensus', '{label, src, rows: {<row>: {"<year>": number}}} required');
+    else for (const [k, row] of Object.entries(C.rows)) {
+      if (!tpl.row_names.includes(k)) err('consensus', `rows: ${k} is not a model row`);
+      if (!isObj(row)) { err('consensus', `rows.${k} must be {"<year>": number}`); continue; }
+      for (const [y, v] of Object.entries(row)) if (!ys.includes(y) || !isNum(v)) err('consensus', `rows.${k}.${y} must be a model year -> number`);
+    }
+  }
 
   // and the engine must accept it without falling back to template defaults
   const vs = ME.validateSpec(m);
@@ -1021,7 +1103,7 @@ check('model.js helpers: formatting, axis values, plain-English driver lines, qu
   eq(MI.money(12850), 'US$12.9bn');
   eq(MI.money(1234), 'US$1.23bn');
   eq(MI.money(-450), '−US$450m');
-  eq(MI.tone(5, -1), 'neg'); eq(MI.tone(5, 1), 'pos'); eq(MI.tone(0, 1), 'flat');
+  eq(MI.tone(5, -1), 'neg'); eq(MI.tone(5, 1), 'pos'); eq(MI.tone(0, 1), 'flat'); eq(MI.tone(5, 0), 'chg', 'neither good nor bad: a neutral change');
   const d = { min: -300, max: 500, step: 25, low: -100, high: 200 };
   eq(MI.axisValues(d, 30, 7), [-100, -50, 0, 30, 50, 100, 150, 200]);
   eq(MI.driverNoun('SOFR shift'), 'SOFR'); eq(MI.driverNoun('Capex'), 'capex');

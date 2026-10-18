@@ -10,13 +10,18 @@
 //     links     {self, full, report}: this view's route, the full-width route, the report
 //   dispose() unmounts; dispose.setState(str) applies a new ?m in place; dispose.getState().
 //
-// Layout: scenario chips + Reset + Copy link, a headline KPI strip (each with its delta vs the
-// base scenario), a "Key P&L drivers" callout written from the tornado, the driver panel
-// (sliders + numeric inputs, grouped) and five tabs: P&L projection, Interest & debt (the
-// predicted rate path, interest by tranche, maturity ladder), Sensitivity (tornado + 2-way
-// grid), Valuation & multiples, Calibration. Inputs recompute on the next animation frame;
-// the tornado and grid only for the tab on screen. Print swaps the controls for a static
-// snapshot (KPIs + P&L + tornado) of the scenario on screen.
+// Layout: scenario chips + Reset + Copy link, a headline KPI strip for FY+1 or FY+2 (each
+// with its delta vs the base scenario; covenant badges; the probability-weighted value), a
+// compact sticky strip on a phone, a "Key P&L drivers" callout written from the tornado, the
+// driver panel (sliders + numeric inputs, grouped; the SOFR path is a picker) and six tabs:
+// P&L projection (+ consensus), Interest & debt (every rate path, the new-debt rate, interest
+// by tranche, funding sources, leverage and coverage against the covenants, the maturity
+// ladder with the model's own borrowing), Sensitivity (tornado + 2-way grid, any metric and
+// year), Breakevens (what the price implies; where the covenants break), Valuation &
+// multiples (funded-EV forward multiples, the exit bridge), Calibration. Inputs recompute the
+// projection on the next animation frame; the tornado, grid and breakevens wait until the
+// slider rests (~0.25 s). Print swaps the controls for a static snapshot (KPIs + P&L +
+// tornado) of the scenario on screen.
 //
 // Safety: as reports.js — createElement / textContent only (innerHTML is never assigned);
 // spec text reaches the page as text nodes, citations through rich.cite. Charts are inline
@@ -31,19 +36,38 @@
   // The dashboard palette, ordered so neighbouring series stay apart under colour-vision
   // deficiency (checked with the dataviz validator); a sixth+ tranche folds into "Other".
   const SERIES = ['#60a5fa', '#f472b6', '#fbbf24', '#a78bfa', '#2dd4bf'];
-  const C_ACTUAL = '#64748b', C_OTHER = '#94a3b8', C_LOW = '#60a5fa', C_HIGH = '#fbbf24';
+  const C_ACTUAL = '#64748b', C_OTHER = '#94a3b8', C_LOW = '#60a5fa', C_HIGH = '#fbbf24', C_LIMIT = '#f87171';
   const MINUS = '−';
-  const TABS = [['pl', 'P&L projection'], ['debt', 'Interest & debt'], ['sens', 'Sensitivity'], ['val', 'Valuation & multiples'], ['cal', 'Calibration']];
+  const TABS = [['pl', 'P&L projection'], ['debt', 'Interest & debt'], ['sens', 'Sensitivity'], ['be', 'Breakevens'], ['val', 'Valuation & multiples'], ['cal', 'Calibration']];
+  const SLOW_TABS = new Set(['sens', 'be']);           // recomputed once the sliders rest
+  const SLOW_MS = 250;
   const PL_ROWS = ['revenue', 'revenue_growth', 'gross_profit', 'gross_margin', 'ebitda', 'ebitda_margin', 'da', 'ebit', 'interest',
-    'pretax', 'net_income', 'eps', 'capex', 'ocf', 'fcf'];
+    'pretax', 'tax', 'net_income', 'eps', 'capex', 'ocf', 'fcf'];
   const STRONG_ROWS = new Set(['revenue', 'ebitda', 'net_income', 'fcf']);
-  // +1: higher is better for the shareholder, -1: lower is better, 0: neither (colour only by sign).
+  // +1: higher is better for the shareholder, -1: lower is better, 0: neither (a neutral change marker).
   const GOOD = { revenue: 1, revenue_growth: 1, gross_profit: 1, gross_margin: 1, ebitda: 1, ebitda_margin: 1, da: -1, ebit: 1,
-    interest: -1, pretax: 1, net_income: 1, eps: 1, capex: 0, ocf: 1, fcf: 1, value_per_share: 1, upside_pct: 1,
-    net_debt_ebitda: -1, interest_cover: 1, funding: -1, ev_ebitda: -1, ev_sales: -1, pe: -1, fcf_yield: 1 };
-  // Grid defaults per metric (x, y): the ask was SOFR x exit multiple for value, SOFR x spread for interest.
-  const GRID_DEFAULTS = { value_per_share: ['sofr_shift', 'exit_ev_ebitda'], interest: ['sofr_shift', 'spread_shift'],
-    net_income: ['sofr_shift', 'revenue_growth'], net_debt_ebitda: ['sofr_shift', 'capex'] };
+    interest: -1, pretax: 1, tax: -1, net_income: 1, eps: 1, capex: 0, ocf: 1, fcf: 1, value_per_share: 1, upside_pct: 1, weighted: 1,
+    net_debt_ebitda: -1, gross_debt_ebitda: -1, secured_debt_ebitda: -1, interest_cover: 1, ebit_cover: 1, ebitda_capex_cover: 1,
+    funding: 0, funding_cum: 0, uncommitted_cum: 0, ev_ebitda: -1, ev_sales: -1, pe: -1, fcf_yield: 1 };
+  // Grid defaults per metric (x across, y down): value against the two biggest value drivers;
+  // interest against the rate (SOFR) and the credit (new-debt cost) halves of the owner's question.
+  const GRID_DEFAULTS = { value_per_share: ['revenue_growth', 'exit_ev_ebitda'], interest: ['sofr_shift', 'new_debt_rate'],
+    net_income: ['sofr_shift', 'revenue_growth'], eps: ['sofr_shift', 'revenue_growth'], interest_cover: ['sofr_shift', 'new_debt_rate'],
+    net_debt_ebitda: ['capex', 'revenue_growth'], gross_debt_ebitda: ['capex', 'revenue_growth'], uncommitted_cum: ['capex', 'equity_funding_share'] };
+  // The metrics the tornado, grid and breakevens offer; `row` ones take a year.
+  const METRICS = [
+    { key: 'value_per_share', label: 'Value per share', unit: 'US$', dp: 2, good: 1, what: 'value per share' },
+    { key: 'net_income', row: true, label: 'net income', unit: 'US$m', dp: 0, good: 1 },
+    { key: 'eps', row: true, label: 'EPS', unit: 'US$', dp: 2, good: 1 },
+    { key: 'ebitda', row: true, label: 'adj. EBITDA', unit: 'US$m', dp: 0, good: 1 },
+    { key: 'interest', row: true, label: 'interest expense', unit: 'US$m', dp: 0, good: -1 },
+    { key: 'interest_cover', row: true, label: 'interest cover (x)', unit: 'x', dp: 2, good: 1 },
+    { key: 'gross_debt_ebitda', row: true, label: 'total debt / EBITDA', unit: 'x', dp: 2, good: -1 },
+    { key: 'net_debt_ebitda', row: true, label: 'net debt / EBITDA', unit: 'x', dp: 2, good: -1 },
+    { key: 'fcf', row: true, label: 'free cash flow', unit: 'US$m', dp: 0, good: 1 },
+    { key: 'funding_cum', row: true, label: 'funding raised (cumulative)', unit: 'US$m', dp: 0, good: 0 },
+    { key: 'uncommitted_cum', row: true, label: 'uncommitted funding need (cumulative)', unit: 'US$m', dp: 0, good: 0 },
+  ];
   // Stub-year actuals behind a row (for a quarterly guide inside the stub year).
   const ACTUAL_KEY = { revenue: 'revenue', cost_of_revenue: 'cost_of_revenue', interest: 'interest', capex: 'capex', ocf: 'ocf', da: 'da', sbc: 'sbc' };
 
@@ -88,12 +112,14 @@
   }
   // A change in a row's unit: a % row moves in percentage points.
   const deltaUnit = u => (u === '%' ? 'pp' : u);
-  // Tone of a change: 'pos' (good for the shareholder), 'neg', or 'flat'.
+  // Tone of a change: 'pos' (good for the shareholder), 'neg', 'chg' (a change that is neither,
+  // e.g. capex) or 'flat' (no change).
   function tone(delta, good, eps) {
-    if (!isNum(delta) || Math.abs(delta) <= (eps || 1e-9) || !good) return 'flat';
+    if (!isNum(delta) || Math.abs(delta) <= (eps || 1e-9)) return 'flat';
+    if (!good) return 'chg';
     return delta * good > 0 ? 'pos' : 'neg';
   }
-  const arrow = t => (t === 'pos' ? '▲' : t === 'neg' ? '▼' : '•');
+  const arrow = t => (t === 'pos' ? '▲' : t === 'neg' ? '▼' : t === 'chg' ? '◆' : '•');
 
   function niceStep(range, target) {
     const raw = range / Math.max(1, target);
@@ -194,7 +220,7 @@
   // ---------------- charts (inline SVG) ----------------
   // Lines over years: zero-based y axis, 2px lines, end-of-line labels nudged apart.
   function lineChart({ id, title, desc, labels, series, unit, dp }) {
-    const W = Math.max(520, 140 + labels.length * 90), H = 240, padL = 46, padR = 132, padT = 14, padB = 28;
+    const W = Math.max(540, 160 + labels.length * 90), H = 240, padL = 46, padR = 160, padT = 14, padB = 28;
     const sc = scale(series.flatMap(s => s.values), true, 4);
     const pw = W - padL - padR, ph = H - padT - padB;
     const x = i => padL + (labels.length === 1 ? pw / 2 : i * pw / (labels.length - 1));
@@ -239,6 +265,9 @@
       svg.appendChild(sv('line', { x1: padL, x2: W - padR, y1: f1(y(t)), y2: f1(y(t)), class: t === 0 ? 'mdl-zero' : 'mdl-grid' }));
       svg.appendChild(sv('text', { x: padL - 6, y: f1(y(t) + 3.5), 'text-anchor': 'end', class: 'mdl-tick' }, tickMoney(t)));
     }
+    // a column with a guide bracket puts its total above the bracket, so the two never collide
+    const markTop = new Map();
+    for (const m of marks || []) if (isNum(m.lo) && isNum(m.hi)) markTop.set(m.i, Math.min(markTop.has(m.i) ? markTop.get(m.i) : Infinity, y(Math.max(m.lo, m.hi))));
     labels.forEach((l, j) => {
       const cx = padL + gw * (j + 0.5), x0 = cx - bw / 2;
       let acc = 0;
@@ -250,7 +279,7 @@
           sv('title', null, `${l} · ${s.name}: ${fmt(v, unit, 0)}`)));
         acc += v;
       }
-      if (acc > 0) svg.appendChild(sv('text', { x: f1(cx), y: f1(y(acc) - 5), 'text-anchor': 'middle', class: 'mdl-val' }, money(acc)));
+      if (acc > 0) svg.appendChild(sv('text', { x: f1(cx), y: f1(Math.min(y(acc), markTop.has(j) ? markTop.get(j) - 4 : Infinity) - 5), 'text-anchor': 'middle', class: 'mdl-val' }, money(acc)));
       svg.appendChild(sv('text', { x: f1(cx), y: H - 9, 'text-anchor': 'middle', class: 'mdl-xl' }, l));
     });
     for (const m of marks || []) {
@@ -258,7 +287,7 @@
       const bx = padL + gw * (m.i + 0.5) + bw / 2 + 6, y1 = y(Math.max(m.lo, m.hi)), y2 = y(Math.min(m.lo, m.hi));
       svg.appendChild(sv('path', { d: `M${f1(bx + 5)} ${f1(y1)}H${f1(bx)}V${f1(Math.max(y2, y1 + 2))}H${f1(bx + 5)}`, class: 'mdl-mark' },
         sv('title', null, `${m.label}: ${fmt(m.lo, unit, 0)}–${fmt(m.hi, unit, 0)}`)));
-      svg.appendChild(sv('text', { x: f1(bx + 8), y: f1((y1 + y2) / 2 + 3.5), class: 'mdl-markt' }, 'Guide'));
+      svg.appendChild(sv('text', { x: f1(bx + 9), y: f1(Math.max(y2, y1 + 2) + 3.5), class: 'mdl-markt' }, 'Guide'));
     }
     return svg;
   }
@@ -268,8 +297,9 @@
   function tornado({ id, sens, drivers, unit, dp, title }) {
     // drivers that leave the metric unchanged are listed under the chart instead
     const bars = sens.bars.filter(b => isNum(b.v_low) && isNum(b.v_high) && b.swing > 1e-9).slice(0, 12);
-    const W = 660, rowH = 30, padL = 178, padT = 22, padB = 10, H = padT + padB + Math.max(1, bars.length) * rowH;
-    const plotL = padL + 62, plotR = W - 66;                    // room for the end-value labels
+    // padL fits a 26-character name at 11.5px; 76px each side fits a bold 'US$24,781m' end label
+    const W = 720, rowH = 30, padL = 196, padT = 22, padB = 10, H = padT + padB + Math.max(1, bars.length) * rowH;
+    const plotL = padL + 76, plotR = W - 76;                    // room for the end-value labels
     const byId = new Map(drivers.map(d => [d.id, d]));
     const vals = bars.flatMap(b => [b.v_low, b.v_high]).concat([sens.base]);
     const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || Math.abs(sens.base) || 1;
@@ -331,35 +361,52 @@
     const stubbed = !!(spec.stub && spec.stub.year === years[0]);
     const KY = years[stubbed && years.length > 1 ? 1 : 0];              // first full projected year
     const XY = (spec.valuation && years.includes(spec.valuation.exit_year)) ? spec.valuation.exit_year : years[Math.min(2, years.length - 1)];
+    const KYS = years.filter(y => y >= KY).slice(0, 2);                  // the KPI strip's year toggle
     const yl = y => `FY${String(y).slice(-2)}E`;
     const ylong = y => `FY${y}E`;
     const scen = Array.isArray(spec.scenarios) ? spec.scenarios.filter(s => s && typeof s.id === 'string') : [];
     const baseOv = E.applyScenario(spec, 'base') || {};
     const BASE = E.project(spec, baseOv);
+    const BASE_W = E.weighted ? E.weighted(spec, baseOv, 'base') : null;
     const tranches = (Array.isArray(spec.debt) ? spec.debt : []).filter(t => t && typeof t.id === 'string');
+    const facilities = (spec.funding && Array.isArray(spec.funding.committed) ? spec.funding.committed : []).filter(x => x && typeof x.id === 'string');
     const guides = (Array.isArray(spec.guides) ? spec.guides : []).filter(g => g && typeof g === 'object').slice(0, 20);
-    const sensMetrics = [
-      { key: 'value_per_share', label: 'Value per share', metric: 'value_per_share', unit: 'US$', dp: 2, good: 1, what: 'value per share' },
-      { key: 'net_income', label: `${ylong(KY)} net income`, metric: 'net_income', year: KY, unit: 'US$m', dp: 0, good: 1, what: `${ylong(KY)} net income` },
-      { key: 'interest', label: `${ylong(KY)} interest expense`, metric: 'interest', year: KY, unit: 'US$m', dp: 0, good: -1, what: `${ylong(KY)} interest expense` },
-      { key: 'net_debt_ebitda', label: `${ylong(XY)} net debt / EBITDA`, metric: 'net_debt_ebitda', year: XY, unit: 'x', dp: 1, good: -1, what: `${ylong(XY)} net debt / EBITDA` },
-    ];
-    const st = { ov: {}, res: null, raf: 0, tab: 'pl', stale: new Set(TABS.map(t => t[0])), sens: 'value_per_share',
-      grid: { metric: 'value_per_share', x: 'sofr_shift', y: 'exit_ev_ebitda' }, enc: '', snapT: 0, alive: true, refs: new Map() };
+    const cons = spec.consensus && typeof spec.consensus === 'object' && spec.consensus.rows && typeof spec.consensus.rows === 'object' ? spec.consensus : null;
+    const consAt = (k, y) => (cons && cons.rows[k] && isNum(cons.rows[k][String(y)]) ? cons.rows[k][String(y)] : null);
+    const PATHS = E.ratePaths ? E.ratePaths(spec) : [];
+    const scenRuns = new Map();
+    const pathD = byId.get('rate_path'), hasPaths = !!(pathD && pathD.max > 0 && PATHS.length > 1);
+    const PATH_COLORS = [C_LOW, '#a78bfa', '#2dd4bf', '#f472b6', '#94a3b8'];
+    const metricYears = years.filter(y => !(stubbed && y === years[0]));
+    // a metric definition at a year: {key, metric, year, label, unit, dp, good, what}
+    function mdef(key, year) {
+      const m = METRICS.find(x => x.key === key) || METRICS[0];
+      if (!m.row) return Object.assign({ metric: m.key, year: null }, m);
+      const y = metricYears.includes(year) ? year : KY;
+      return Object.assign({}, m, { metric: m.key, year: y, label: `${ylong(y)} ${m.label}`, what: `${ylong(y)} ${m.label.replace(/ \(x\)$/, '')}` });
+    }
+    const st = { ov: {}, res: null, w: null, raf: 0, tab: 'pl', stale: new Set(TABS.map(t => t[0])), ky: KY, anchor: 'base',
+      sens: { key: 'value_per_share', year: KY }, grid: { key: 'value_per_share', year: KY, x: GRID_DEFAULTS.value_per_share[0], y: GRID_DEFAULTS.value_per_share[1] },
+      enc: '', snapT: 0, slowT: 0, beSeq: 0, alive: true, refs: new Map() };
 
     // ---- state ----
     function decode(s) {
       const r = E.decodeState(spec, s || '');
       st.ov = r.ok ? r.overrides : {};
+      st.anchor = E.matchScenario(spec, st.ov) || 'base';
       if (s && (!r.ok || r.errors.length)) status(r.ok ? 'Some settings in this link were out of range or unknown and were adjusted.' : 'That model link could not be read; showing the base case.');
     }
     function setOv(next) { st.ov = E.cleanOverrides(spec, next); schedule(); }
     function setDriver(id, value) { const n = Object.assign({}, st.ov); n[id] = value; setOv(n); }
-    const cur = id => (Object.prototype.hasOwnProperty.call(st.ov, id) ? st.ov[id] : byId.get(id).base);
+    const cur = id => (Object.prototype.hasOwnProperty.call(st.ov, id) ? st.ov[id] : byId.has(id) ? byId.get(id).base : null);
     function schedule() {
       if (st.raf) return;
       const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : fn => setTimeout(fn, 16);
       st.raf = raf(() => { st.raf = 0; if (st.alive) update(); });
+    }
+    function scheduleSlow() {
+      clearTimeout(st.slowT);
+      st.slowT = setTimeout(slow, SLOW_MS);
     }
 
     // ---- skeleton ----
@@ -375,19 +422,28 @@
     const chipEls = new Map();
     for (const s of scen) {
       const b = h('button', { type: 'button', class: `mdl-chip ${/^(bear|bull|base|restructuring)$/.test(s.id) ? s.id : ''}`, 'aria-pressed': 'false', 'data-mdl-scen': s.id }, str(s.name || s.id));
-      b.addEventListener('click', () => { setOv(E.applyScenario(spec, s.id) || {}); status(`${str(s.name)} scenario applied.`); });
+      b.addEventListener('click', () => { st.anchor = s.id; setOv(E.applyScenario(spec, s.id) || {}); status(`${str(s.name)} scenario applied.`); });
       chipEls.set(s.id, b); chips.appendChild(b);
     }
     const customChip = h('span', { class: 'mdl-chip custom', hidden: true }, 'Custom');
     chips.appendChild(customChip);
     const resetBtn = h('button', { type: 'button', class: 'rpt-btn mdl-ctl', 'data-mdl-reset': '' }, 'Reset');
-    resetBtn.addEventListener('click', () => { setOv(baseOv); status('Back to the base case.'); });
+    resetBtn.addEventListener('click', () => { st.anchor = 'base'; setOv(baseOv); status('Back to the base case.'); });
     const copyBtn = h('button', { type: 'button', class: 'rpt-btn mdl-ctl', 'data-mdl-copy': '' }, 'Copy link');
     const copyBox = h('input', { class: 'mdl-copybox', type: 'text', readonly: true, 'aria-label': 'Link to this scenario', hidden: true });
     copyBtn.addEventListener('click', copyLink);
     const fullLink = links.full && !o.standalone ? h('a', { class: 'mdl-full', href: links.full }, 'Open full-width ↗') : null;
 
+    // the KPI strip's year toggle (FY+1 / FY+2)
+    const kyBox = h('div', { class: 'mdl-kyr', role: 'group', 'aria-label': 'Year shown in the headline figures' });
+    const kyBtns = new Map();
+    if (KYS.length > 1) for (const y of KYS) {
+      const b = h('button', { type: 'button', class: 'mdl-kybtn', 'aria-pressed': y === st.ky ? 'true' : 'false', 'data-mdl-ky': String(y) }, ylong(y));
+      b.addEventListener('click', () => { st.ky = y; for (const [yy, bb] of kyBtns) bb.setAttribute('aria-pressed', yy === y ? 'true' : 'false'); renderKpis(); renderMini(); scheduleSlow(); });
+      kyBtns.set(y, b); kyBox.appendChild(b);
+    }
     const kpis = h('div', { class: 'mdl-kpis', role: 'list', 'aria-label': 'Headline outputs' });
+    const mini = h('div', { class: 'mdl-mini', 'aria-hidden': 'true' });      // phone: sticky echo of four KPIs
     const keyd = h('aside', { class: 'rpt-callout info mdl-keyd', role: 'note' });
     const drvPanel = h('div', { class: 'mdl-drivers', role: 'group', 'aria-label': 'Model drivers' });
     const tablist = h('div', { class: 'mdl-tabs', role: 'tablist', 'aria-label': 'Model views' });
@@ -425,7 +481,7 @@
             h('p', { class: 'mdl-sub' }, `Interactive ${years[0]}–${years[years.length - 1]} model · ${str(spec.currency || 'USD')} millions unless stated · drivers as of ${asof}`)),
           fullLink),
         h('div', { class: 'mdl-bar mdl-ctl' }, chips, h('div', { class: 'mdl-actions' }, resetBtn, copyBtn)),
-        copyBox, scenNote, statusEl, kpis, keyd,
+        copyBox, scenNote, statusEl, KYS.length > 1 ? kyBox : null, kpis, mini, keyd,
         h('div', { class: 'mdl-body' },
           h('aside', { class: 'mdl-side mdl-ctl' }, h('h4', { class: 'mdl-h4' }, 'Drivers'),
             h('p', { class: 'mdl-hint' }, 'Move a slider or type a value; the tick marks the base case, the shaded band the stress range used by the tornado.'),
@@ -438,14 +494,31 @@
 
     // ---- drivers ----
     const narrow = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
-    const groups = (tpl.groups || []).filter(g => D.some(d => d.group === g));
+    const groups = (tpl.groups || []).filter(g => D.some(d => d.group === g && shown(d)));
     const pct = (d, x) => ((x - d.min) / ((d.max - d.min) || 1) * 100).toFixed(2) + '%';
+    function shown(d) { return d.kind !== 'choice' || hasPaths; }
     groups.forEach((g, gi) => {
-      const box = h('details', { class: 'mdl-group', open: !narrow || gi < 2 ? true : null },
+      // On a phone only the first two groups start open — plus "Financing & rates", the
+      // owner's headline stress (interest), so it is never hidden behind the other sliders.
+      const box = h('details', { class: 'mdl-group', open: !narrow || gi < 2 || g === 'Financing & rates' ? true : null },
         h('summary', null, h('span', null, g), h('span', { class: 'mdl-gcount', 'data-mdl-gcount': g })));
-      for (const d of D.filter(x => x.group === g)) box.appendChild(driverRow(d));
+      for (const d of D.filter(x => x.group === g && shown(x))) box.appendChild(d.kind === 'choice' ? choiceRow(d) : driverRow(d));
       drvPanel.appendChild(box);
     });
+    function helpParts(d, rid) {
+      const helpId = `${rid}-help`;
+      const helpBtn = h('button', { type: 'button', class: 'mdl-help', 'aria-expanded': 'false', 'aria-controls': helpId, 'aria-label': `About ${d.label}` }, '?');
+      const helpBox = h('div', { class: 'mdl-helpbox', id: helpId, hidden: true },
+        h('p', null, rich.inline(d.help), d.src && d.src.length ? rich.cite(d.src) : null),
+        d.kind === 'choice' ? null : h('p', { class: 'mdl-dim' }, `Range ${fmt(d.min, d.unit, d.dp)} to ${fmt(d.max, d.unit, d.dp)} · base ${fmt(d.base, d.unit, d.dp)}`
+          + (isNum(d.low) && isNum(d.high) ? ` · stress range ${fmt(d.low, d.unit, d.dp)} to ${fmt(d.high, d.unit, d.dp)}` : '')),
+        pathLine(d));
+      helpBtn.addEventListener('click', () => {
+        const open = helpBox.hidden;
+        helpBox.hidden = !open; helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      return { helpBtn, helpBox };
+    }
     function driverRow(d) {
       const rid = `${uid}-d-${d.id}`;
       const range = h('input', { type: 'range', id: rid, min: d.min, max: d.max, step: d.step, value: d.base, class: 'mdl-range', 'data-mdl-driver': d.id,
@@ -455,17 +528,7 @@
       const delta = h('span', { class: 'mdl-dd' });
       const effect = h('span', { class: 'mdl-eff' });
       const reset = h('button', { type: 'button', class: 'mdl-rs', 'aria-label': `Reset ${d.label} to base`, title: 'Back to base', hidden: true }, '↺');
-      const helpId = `${rid}-help`;
-      const helpBtn = h('button', { type: 'button', class: 'mdl-help', 'aria-expanded': 'false', 'aria-controls': helpId, 'aria-label': `About ${d.label}` }, '?');
-      const helpBox = h('div', { class: 'mdl-helpbox', id: helpId, hidden: true },
-        h('p', null, rich.inline(d.help), d.src && d.src.length ? rich.cite(d.src) : null),
-        h('p', { class: 'mdl-dim' }, `Range ${fmt(d.min, d.unit, d.dp)} to ${fmt(d.max, d.unit, d.dp)} · base ${fmt(d.base, d.unit, d.dp)}`
-          + (isNum(d.low) && isNum(d.high) ? ` · stress range ${fmt(d.low, d.unit, d.dp)} to ${fmt(d.high, d.unit, d.dp)}` : '')),
-        pathLine(d));
-      helpBtn.addEventListener('click', () => {
-        const open = helpBox.hidden;
-        helpBox.hidden = !open; helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
+      const { helpBtn, helpBox } = helpParts(d, rid);
       const track = h('div', { class: 'mdl-track' },
         isNum(d.low) && isNum(d.high) ? h('span', { class: 'mdl-band', 'aria-hidden': 'true' }) : null,
         h('span', { class: 'mdl-base', 'aria-hidden': 'true', title: `Base ${fmt(d.base, d.unit, d.dp)}` }),
@@ -488,39 +551,66 @@
           h('span', { class: 'mdl-in' }, numIn, h('span', { class: 'mdl-unit' }, d.unit)), reset),
         track, h('div', { class: 'mdl-drv-foot' }, delta, effect), helpBox);
     }
+    // a choice driver (the SOFR path): a picker, not a slider
+    function pathSelect(d, id, label) {
+      const sel = h('select', { class: 'ctrl mdl-sel mdl-pathsel', id, 'data-mdl-driver': d.id, 'aria-label': label });
+      (d.choices || []).forEach((c, i) => sel.appendChild(h('option', { value: String(i) }, str(c.name))));
+      sel.value = String(cur(d.id));
+      sel.addEventListener('change', () => setDriver(d.id, +sel.value));
+      return sel;
+    }
+    function choiceRow(d) {
+      const rid = `${uid}-d-${d.id}`;
+      const sel = pathSelect(d, rid, d.label);
+      const delta = h('span', { class: 'mdl-dd' }), effect = h('span', { class: 'mdl-eff' });
+      const reset = h('button', { type: 'button', class: 'mdl-rs', 'aria-label': `Reset ${d.label} to base`, title: 'Back to base', hidden: true }, '↺');
+      reset.addEventListener('click', () => { const n = Object.assign({}, st.ov); delete n[d.id]; setOv(n); sel.focus(); });
+      const { helpBtn, helpBox } = helpParts(d, rid);
+      st.refs.set(d.id, { sel, delta, effect, reset });
+      return h('div', { class: 'mdl-drv', 'data-mdl-row': d.id },
+        h('div', { class: 'mdl-drv-top' }, h('label', { for: rid, class: 'mdl-lab' }, d.label), helpBtn, reset),
+        sel, h('div', { class: 'mdl-drv-foot' }, delta, effect), helpBox);
+    }
     function pathLine(d) {
       let p = null, unit = d.unit;
-      if (d.id === 'sofr_shift' && spec.rates && spec.rates.path) { p = years.map(y => spec.rates.path[String(y)]); unit = '%'; }
+      if ((d.id === 'sofr_shift' || d.id === 'rate_path') && spec.rates && spec.rates.path) { p = years.map(y => spec.rates.path[String(y)]); unit = '%'; }
       else if (Array.isArray(d.path)) { p = d.path; unit = d.kind === 'scale_pct' ? 'US$m' : '%'; }
       if (!p) return null;
       return h('p', { class: 'mdl-dim' }, `Base path: ${years.map((y, i) => `${yl(y)} ${unit === 'US$m' ? money(p[i]) : fmt(p[i], unit, unit === '%' ? 2 : 1)}`).join(' · ')}`,
-        d.id === 'sofr_shift' && spec.rates && Array.isArray(spec.rates.src) ? rich.cite(spec.rates.src) : null);
+        d.kind === 'shift_pp' || d.kind === 'scale_pct' ? (d.stub_weight === 0 && stubbed ? ` (${ylong(years[0])} held at its path)` : '') : null,
+        (d.id === 'sofr_shift' || d.id === 'rate_path') && spec.rates && Array.isArray(spec.rates.src) ? rich.cite(spec.rates.src) : null);
     }
-    // "FY27E 40.0% → 45.0%" under a path driver; the all-in rate under new_debt_rate.
+    // what a moved driver does, under its slider ("FY27E 40.0% → 45.0%"); nothing at base
     function effectText(d) {
-      const i = years.indexOf(KY), x = cur(d.id);
-      if (d.id === 'sofr_shift' && st.res && !st.res.error) {
-        const b = spec.rates && spec.rates.path ? spec.rates.path[String(KY)] : null;
-        return isNum(b) ? `SOFR ${yl(KY)} ${fmt(b, '%', 2)} → ${fmt(st.res.rows.sofr[i], '%', 2)}` : '';
+      const i = years.indexOf(st.ky), x = cur(d.id);
+      if (!st.res || st.res.error || Math.abs(x - d.base) < 1e-12) return '';
+      const R = st.res.rows;
+      if (d.id === 'sofr_shift' || d.id === 'rate_path') {
+        const b = BASE.error ? null : BASE.rows.sofr[i];
+        return isNum(b) ? `SOFR ${yl(st.ky)} ${fmt(b, '%', 2)} → ${fmt(R.sofr[i], '%', 2)} · new debt ${fmt(R.new_debt_rate[i], '%', 2)}` : '';
       }
       if (Array.isArray(d.path) && isNum(d.path[i])) {
-        if (d.kind === 'scale_pct') return `${yl(KY)} ${money(d.path[i])} → ${money(d.path[i] * (1 + x / 100))}`;
-        return `${yl(KY)} ${fmt(d.path[i], '%', 1)} → ${fmt(d.path[i] + x, '%', 1)}`;
+        if (d.kind === 'scale_pct') return `${yl(st.ky)} ${money(d.path[i])} → ${money(d.path[i] * (1 + x / 100))}`;
+        return `${yl(st.ky)} ${fmt(d.path[i], '%', 1)} → ${fmt(d.path[i] + x, '%', 1)}`;
       }
-      if (d.id === 'new_debt_rate') {
-        const beta = spec.rates && isNum(spec.rates.new_debt_sofr_beta) ? spec.rates.new_debt_sofr_beta : 1;
-        return `all-in ${fmt(x + cur('spread_shift') / 100 + beta * cur('sofr_shift') / 100, '%', 2)} with the shifts`;
-      }
+      if (d.id === 'new_debt_rate' || d.id === 'spread_shift') return `new debt ${yl(st.ky)} ${fmt(R.new_debt_rate[i], '%', 2)}`;
       return '';
     }
     function syncDrivers() {
       const counts = new Map();
       for (const d of D) {
-        const r = st.refs.get(d.id), x = cur(d.id), changed = Math.abs(x - d.base) > 1e-12;
-        if (String(r.range.value) !== String(x)) r.range.value = String(x);
-        r.range.setAttribute('aria-valuetext', fmt(x, d.unit, d.dp));
-        if (doc().activeElement !== r.numIn && String(r.numIn.value) !== String(x)) r.numIn.value = String(x);
-        r.delta.textContent = changed ? `${fmt(x - d.base, d.unit, d.dp, true)} vs base` : 'at base';
+        const r = st.refs.get(d.id);
+        if (!r) continue;
+        const x = cur(d.id), changed = Math.abs(x - d.base) > 1e-12;
+        if (r.range) {
+          if (String(r.range.value) !== String(x)) r.range.value = String(x);
+          r.range.setAttribute('aria-valuetext', fmt(x, d.unit, d.dp));
+          if (doc().activeElement !== r.numIn && String(r.numIn.value) !== String(x)) r.numIn.value = String(x);
+          r.delta.textContent = changed ? `${fmt(x - d.base, d.unit, d.dp, true)} vs base` : 'at base';
+        } else {
+          if (String(r.sel.value) !== String(x)) r.sel.value = String(x);
+          r.delta.textContent = changed ? 'changed from base' : 'at base';
+        }
         r.delta.className = `mdl-dd${changed ? ' on' : ''}`;
         r.effect.textContent = effectText(d);
         r.reset.hidden = !changed;
@@ -530,49 +620,71 @@
         const n = counts.get(c.getAttribute('data-mdl-gcount')) || 0;
         c.textContent = n ? `${n} changed` : '';
       }
+      for (const s of root.querySelectorAll ? root.querySelectorAll('select.mdl-pathsel') : []) if (s.value !== String(cur('rate_path'))) s.value = String(cur('rate_path'));
     }
 
     // ---- headline KPIs ----
     const at = (res, row, y) => (res && !res.error && Array.isArray(res.rows[row]) ? res.rows[row][res.years.indexOf(y)] : null);
-    function fundingTo(res, y) {
-      if (!res || res.error) return { raised: null, minCash: null, minYear: null };
-      let raised = 0, minCash = Infinity, minYear = null;
-      res.years.forEach((yy, i) => {
-        if (yy > y) return;
-        raised += (res.rows.new_debt[i] || 0) + (res.rows.new_equity_m[i] || 0);
-        if (isNum(res.rows.cash_end[i]) && res.rows.cash_end[i] < minCash) { minCash = res.rows.cash_end[i]; minYear = yy; }
-      });
-      return { raised, minCash: isNum(minCash) ? minCash : null, minYear };
+    const covOf = (res, metric) => (res && !res.error && Array.isArray(res.covenants) ? res.covenants.find(c => c.metric === metric) : null);
+    const limitText = c => (isNum(c.max) ? `cap ${fmt(c.max, 'x', 1)}` : `floor ${fmt(c.min, 'x', 1)}`);
+    // the covenant / threshold on a KPI: badge text when crossed in year y, and a line for the sub-label
+    function covState(res, metric, y) {
+      const c = covOf(res, metric);
+      if (!c) return null;
+      const i = res.years.indexOf(y), crossed = c.breach[i] === true;
+      return { c, crossed, badge: crossed ? (c.kind === 'covenant' ? `Breach ${yl(y)}` : `Below floor ${yl(y)}`) : null,
+        line: `${limitText(c)}${c.first_breach ? ` · first crossed ${yl(c.first_breach)}` : ' · never crossed'}` };
     }
-    function kpiList(res) {
-      const V = res.valuation, B = BASE.error ? null : BASE.valuation;
-      const fu = fundingTo(res, XY), fb = fundingTo(BASE, XY);
-      return [
-        { key: 'value_per_share', label: 'Value per share', value: fmt(V.value_per_share, 'US$', 2), raw: V.value_per_share, base: B && B.value_per_share, unit: 'US$', dp: 2,
-          sub: `vs ${fmt(V.share_price, 'US$', 2)} price · ${fmt(V.upside_pct, '%', 0, true)} ${isNum(V.upside_pct) && V.upside_pct < 0 ? 'downside' : 'upside'}`, good: 1 },
-        { key: 'net_income', label: `${ylong(KY)} net income`, value: money(at(res, 'net_income', KY)), raw: at(res, 'net_income', KY), base: at(BASE, 'net_income', KY), unit: 'US$m', good: 1,
-          sub: `EPS ${fmt(at(res, 'eps', KY), 'US$', 2)}` },
-        { key: 'interest', label: `${ylong(KY)} interest expense`, value: money(at(res, 'interest', KY)), raw: at(res, 'interest', KY), base: at(BASE, 'interest', KY), unit: 'US$m', good: -1,
-          sub: `avg cost of debt ${fmt(at(res, 'avg_cost_of_debt', KY), '%', 1)}` },
-        { key: 'net_debt_ebitda', label: `${ylong(KY)} net debt / EBITDA`, value: fmt(at(res, 'net_debt_ebitda', KY), 'x', 1), raw: at(res, 'net_debt_ebitda', KY), base: at(BASE, 'net_debt_ebitda', KY), unit: 'x', dp: 1, good: -1,
-          sub: `net debt ${money(at(res, 'net_debt', KY))}` },
-        { key: 'interest_cover', label: `${ylong(KY)} interest cover`, value: fmt(at(res, 'interest_cover', KY), 'x', 1), raw: at(res, 'interest_cover', KY), base: at(BASE, 'interest_cover', KY), unit: 'x', dp: 1, good: 1,
-          sub: 'adj. EBITDA ÷ interest' },
-        { key: 'funding', label: `Funding raised to ${XY}`, value: money(fu.raised), raw: fu.raised, base: fb.raised, unit: 'US$m', good: -1,
-          sub: `lowest cash ${money(fu.minCash)}${fu.minYear ? ` (${yl(fu.minYear)})` : ''}` },
-        { key: 'ev_ebitda', label: `${ylong(KY)} EV/EBITDA at price`, value: fmt(at(res, 'ev_ebitda', KY), 'x', 1), raw: at(res, 'ev_ebitda', KY), base: at(BASE, 'ev_ebitda', KY), unit: 'x', dp: 1, good: -1,
-          sub: `at ${fmt(V.share_price, 'US$', 2)} · P/E ${fmt(at(res, 'pe', KY), 'x', 1)}` },
+    const shortName = s => str(s.name).replace(/\s*\(.*\)$/, '');
+    const byValue = rows => rows.slice().sort((a, b) => (isNum(a.value) ? a.value : 0) - (isNum(b.value) ? b.value : 0));
+    function kpiList(res, y) {
+      const V = res.valuation, B = BASE.error ? null : BASE.valuation, W = st.w && !st.w.error ? st.w : null;
+      const lev = covState(res, 'gross_debt_ebitda', y), cvr = covState(res, 'interest_cover', y);
+      const commit = facilities.reduce((s, x) => s + (isNum(x.amount) ? x.amount : 0), 0);
+      const out = [
+        { key: 'value_per_share', label: 'Value per share (these settings)', value: fmt(V.value_per_share, 'US$', 2), raw: V.value_per_share, base: B && B.value_per_share, unit: 'US$', dp: 2,
+          sub: `vs ${fmt(V.share_price, 'US$', 2)} price · ${fmt(V.upside_pct, '%', 0, true)} ${isNum(V.upside_pct) && V.upside_pct < 0 ? 'downside' : 'upside'} · base case ${fmt(B && B.value_per_share, 'US$', 2)}`, good: 1 },
       ];
+      if (W && isNum(W.value)) out.push({ key: 'weighted', label: 'Probability-weighted value', value: fmt(W.value, 'US$', 2), raw: W.value, base: BASE_W && BASE_W.value, unit: 'US$', dp: 2, good: 1,
+        sub: byValue(W.rows).map(r => `${shortName(r)} ${fmt(r.prob, '', 0)}% ${fmt(r.value, 'US$', 0)}`).join(' · ') });
+      out.push(
+        { key: 'net_income', label: `${ylong(y)} net income`, value: money(at(res, 'net_income', y)), raw: at(res, 'net_income', y), base: at(BASE, 'net_income', y), unit: 'US$m', good: 1,
+          sub: `EPS ${fmt(at(res, 'eps', y), 'US$', 2)}${isNum(consAt('eps', y)) ? ` · consensus ${fmt(consAt('eps', y), 'US$', 2)}` : ''}` },
+        { key: 'interest', label: `${ylong(y)} interest expense`, value: money(at(res, 'interest', y)), raw: at(res, 'interest', y), base: at(BASE, 'interest', y), unit: 'US$m', good: -1,
+          sub: `avg cost of debt ${fmt(at(res, 'avg_cost_of_debt', y), '%', 1)} · new debt ${fmt(at(res, 'new_debt_rate', y), '%', 1)}` },
+        { key: 'gross_debt_ebitda', label: `${ylong(y)} total debt / EBITDA`, value: fmt(at(res, 'gross_debt_ebitda', y), 'x', 1), raw: at(res, 'gross_debt_ebitda', y), base: at(BASE, 'gross_debt_ebitda', y), unit: 'x', dp: 1, good: -1,
+          sub: `${lev ? lev.line + ' · ' : ''}net ${fmt(at(res, 'net_debt_ebitda', y), 'x', 1)}`, badge: lev && lev.badge },
+        { key: 'interest_cover', label: `${ylong(y)} interest cover`, value: fmt(at(res, 'interest_cover', y), 'x', 1), raw: at(res, 'interest_cover', y), base: at(BASE, 'interest_cover', y), unit: 'x', dp: 1, good: 1,
+          sub: `EBITDA ÷ interest · EBIT ÷ interest ${fmt(at(res, 'ebit_cover', y), 'x', 2)}${cvr ? ` · ${limitText(cvr.c)}` : ''}`, badge: cvr && cvr.badge },
+        { key: 'funding', label: `Uncommitted funding need to ${ylong(y)}`, value: money(at(res, 'uncommitted_cum', y)), raw: at(res, 'uncommitted_cum', y), base: at(BASE, 'uncommitted_cum', y), unit: 'US$m', good: 0,
+          sub: `of ${money(at(res, 'funding_cum', y))} raised${commit > 0 ? ` · ${money(commit)} of committed facilities drawn first` : ''}` },
+        { key: 'ev_ebitda', label: `${ylong(y)} EV/EBITDA (funded EV)`, value: fmt(at(res, 'ev_ebitda', y), 'x', 1), raw: at(res, 'ev_ebitda', y), base: at(BASE, 'ev_ebitda', y), unit: 'x', dp: 1, good: -1,
+          sub: `at ${fmt(V.share_price, 'US$', 2)} incl. the debt that funds it · P/E ${fmt(at(res, 'pe', y), 'x', 1)} · on today’s EV ${fmt(at(res, 'ev_ebitda_static', y), 'x', 1)}` });
+      return out;
     }
     function kpiTile(k) {
       const d = isNum(k.raw) && isNum(k.base) ? k.raw - k.base : null;
       const t = tone(d, k.good, k.unit === 'US$m' ? 0.5 : k.unit === 'US$' ? 0.005 : 0.05);
       const dTxt = d === null ? 'vs base n/a' : t === 'flat' ? 'at base' : `${k.unit === 'US$m' ? money(d, true) : fmt(d, k.unit, k.dp, true)} vs base`;
-      return h('div', { class: `mdl-kpi ${t}`, role: 'listitem', 'data-mdl-kpi': k.key },
-        h('div', { class: 'mdl-kpi-l' }, k.label),
+      return h('div', { class: `mdl-kpi ${t}${k.badge ? ' breach' : ''}`, role: 'listitem', 'data-mdl-kpi': k.key },
+        h('div', { class: 'mdl-kpi-l' }, k.label, k.badge ? h('span', { class: 'mdl-badge' }, k.badge) : null),
         h('div', { class: 'mdl-kpi-v' }, k.value),
         h('div', { class: 'mdl-kpi-s' }, k.sub),
         h('div', { class: `mdl-kpi-d ${t}` }, h('span', { 'aria-hidden': 'true' }, arrow(t)), ' ', dTxt));
+    }
+    function renderKpis() {
+      if (!st.res || st.res.error) return;
+      clear(kpis);
+      for (const k of kpiList(st.res, st.ky)) kpis.appendChild(kpiTile(k));
+    }
+    function renderMini() {
+      if (!st.res || st.res.error) return;
+      clear(mini);
+      const y = st.ky, res = st.res;
+      for (const [l, v] of [['Value', fmt(res.valuation.value_per_share, 'US$', 0)], [`${yl(y)} NI`, money(at(res, 'net_income', y))],
+        [`${yl(y)} interest`, money(at(res, 'interest', y))], [`${yl(y)} cover`, fmt(at(res, 'interest_cover', y), 'x', 1)]]) {
+        mini.appendChild(h('span', null, h('b', null, v), ` ${l}`));
+      }
     }
 
     // ---- P&L table ----
@@ -596,19 +708,43 @@
       return h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'P&L projection' },
         h('table', { class: 'rpt-table mdl-table' }, h('thead', null, head), h('tbody', null, body)));
     }
+    // model against the cited consensus, row by row (a cell: model, then consensus and the gap)
+    function consTable(res) {
+      const keys = ['revenue', 'ebitda', 'net_income', 'eps', 'net_debt'].filter(k => cons.rows[k] && Array.isArray(res.rows[k]));
+      const ys = years.filter(y => keys.some(k => isNum(consAt(k, y))));
+      if (!keys.length || !ys.length) return null;
+      const lab = { revenue: 'Revenue', ebitda: 'Adj. EBITDA', net_income: 'Net income', eps: 'EPS (US$)', net_debt: 'Net debt (year-end)' };
+      const body = keys.map(k => h('tr', null, h('th', { scope: 'row', class: 'l' }, lab[k]), ys.map(y => {
+        const mv = at(res, k, y), cv = consAt(k, y), dp = k === 'eps' ? 2 : 0;
+        const gap = isNum(mv) && isNum(cv) && cv !== 0 ? (mv - cv) / Math.abs(cv) * 100 : null;
+        return h('td', { class: 'r' }, fmt(mv, '', dp), isNum(cv) ? h('span', { class: 'mdl-th-note' }, `cons. ${fmt(cv, '', dp)}${isNum(gap) ? ` (${fmt(gap, '%', 0, true)})` : ''}`) : null);
+      })));
+      return h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Model vs consensus' },
+        h('table', { class: 'rpt-table mdl-table' }, h('caption', { class: 'mdl-cap' }, 'Model vs consensus (US$m unless stated)'),
+          h('thead', null, h('tr', null, h('th', { scope: 'col', class: 'l' }, 'Model, then consensus'), ys.map(y => h('th', { scope: 'col', class: 'r' }, ylong(y))))),
+          h('tbody', null, body)));
+    }
     function renderPL(p, res) {
       p.appendChild(h('p', { class: 'mdl-note' }, `Projection under the current drivers. Small figures under a cell are the change vs the base case `
-        + `(green = better for shareholders). ${stubbed ? `${ylong(years[0])} = ${spec.stub.actual_months} months reported + the model’s remainder of the year.` : ''}`));
+        + `(green = better for shareholders, ◆ = a change that is neither). ${stubbed ? `${ylong(years[0])} = ${spec.stub.actual_months} months reported + the model’s remainder of the year.` : ''}`));
       p.appendChild(plTable(res, true));
+      if (cons) {
+        const t = consTable(res);
+        if (t) {
+          p.appendChild(t);
+          p.appendChild(h('p', { class: 'mdl-src' }, str(cons.label), Array.isArray(cons.src) ? rich.cite(cons.src) : null));
+        }
+      }
       p.appendChild(h('p', { class: 'mdl-note' }, 'Adj. EBITDA = revenue − cost of revenue − operating costs, before stock-based comp and D&A. '
-        + 'Operating cash flow ≈ net income + D&A + SBC + customer prepayments (no other working capital). Tax on positive pre-tax profit only.'));
+        + 'Operating cash flow ≈ net income + D&A + SBC + non-cash interest + customer prepayments (no other working capital). '
+        + 'Tax: the rate on positive pre-tax profit, with a floor for the tax booked in loss years.'));
     }
 
     // ---- Interest & debt ----
     function trancheSeries(res) {
       const ids = tranches.map(t => t.id).filter(id => res.rows.interest_by_tranche[id]);
       const ranked = ids.slice().sort((a, b) => (tranches.find(t => t.id === b).balance || 0) - (tranches.find(t => t.id === a).balance || 0));
-      const keep = new Set(ranked.slice(0, SERIES.length - 1));
+      const keep = new Set(ranked.slice(0, SERIES.length - 2));
       const name = id => str((tranches.find(t => t.id === id) || {}).name || id);
       const out = [];
       if (stubbed) out.push({ id: '_actual', name: `${spec.stub.actual_months}-month actual (all debt)`, color: C_ACTUAL, values: res.rows.interest_actual });
@@ -616,39 +752,77 @@
       for (const id of ids) if (keep.has(id)) out.push({ id, name: name(id), color: SERIES[ci++], values: res.rows.interest_by_tranche[id] });
       const other = ids.filter(id => !keep.has(id));
       if (other.length) out.push({ id: '_other', name: `Other tranches (${other.length})`, color: C_OTHER, values: years.map((_, i) => other.reduce((s, id) => s + (res.rows.interest_by_tranche[id][i] || 0), 0)) });
+      const fac = facilities.map(x => res.rows.interest_by_tranche[x.id]).filter(Boolean);
+      if (fac.length && fac.some(a => a.some(x => x > 0.5))) out.push({ id: '_committed', name: 'Committed facility draws', color: SERIES[SERIES.length - 2], values: years.map((_, i) => fac.reduce((s, a) => s + (a[i] || 0), 0)) });
       const nd = res.rows.interest_by_tranche[E.NEW_DEBT_ID];
       if (nd && nd.some(x => x > 0.5)) out.push({ id: E.NEW_DEBT_ID, name: 'New & refinancing debt', color: SERIES[SERIES.length - 1], values: nd });
       return out;
     }
-    function trancheColor(res) {
-      const m = new Map();
-      for (const s of trancheSeries(res)) m.set(s.id, s.color);
-      return id => m.get(id) || C_OTHER;
+    // principal falling due per year: the opening stack and the model's own borrowing, by instrument type
+    function ladder(res) {
+      const openY = +str(spec.opening && spec.opening.date).slice(0, 4) || years[0];
+      const mIdx = s => { const x = /^(\d{4})-(\d{2})/.exec(str(s)); return x ? +x[1] * 12 + +x[2] : null; };
+      const om = mIdx(spec.opening && spec.opening.date);
+      const lastY = openY + 12, ly = [];
+      for (let y = openY; y <= lastY; y++) ly.push(y);
+      const G = [['DDTL loans', SERIES[0]], ['Senior notes', SERIES[1]], ['Convertibles', SERIES[2]], ['OEM & other', C_OTHER],
+        ['Revolver & committed draws', SERIES[3]], ['New debt raised by the model (5-yr tenor assumed)', SERIES[4]]];
+      const vals = G.map(() => ly.map(() => 0));
+      const add = (g, y, v) => { const i = ly.indexOf(y); if (i >= 0 && isNum(v)) vals[g][i] += v; else if (y > lastY && isNum(v)) vals[g][ly.length - 1] += v; };
+      const groupOf = id => (/^ddtl/.test(id) ? 0 : /^notes/.test(id) ? 1 : /^conv/.test(id) ? 2 : /^revolver/.test(id) ? 4 : 3);
+      for (const t of tranches) {
+        const g = groupOf(t.id), my = +str(t.maturity).slice(0, 4), mm = mIdx(t.maturity);
+        if (t.amort === 'schedule' && t.schedule && typeof t.schedule === 'object') {
+          for (const [y, v] of Object.entries(t.schedule)) add(g, Math.max(openY, +y), v);
+        } else if ((t.amort === 'straight' || t.amort === 'cashsweep') && om !== null && mm !== null) {
+          const s0 = Math.max(om, mIdx(t.issued) || om, mIdx(t.amort_start) || om);
+          if (mm > s0) ly.forEach((y, i) => { vals[g][i] += t.balance * Math.max(0, Math.min((y + 1) * 12, mm) - Math.max(y * 12, s0)) / (mm - s0); });
+          else add(g, my, t.balance);
+        } else add(g, my, t.balance);
+      }
+      for (const x of facilities) {
+        const b = res.rows.debt_by_tranche[x.id];
+        if (b) add(4, +str(x.maturity).slice(0, 4), b[b.length - 1]);
+      }
+      years.forEach((y, i) => add(5, y + 5, res.rows.uncommitted_debt ? res.rows.uncommitted_debt[i] : 0));
+      return { labels: ly.map(String), series: G.map(([name, color], g) => ({ id: `g${g}`, name, color, values: vals[g] })).filter(s => s.values.some(x => x > 0.5)) };
     }
     function renderDebt(p, res) {
-      const R = res.rows, rp = spec.rates && spec.rates.path ? years.map(y => (isNum(spec.rates.path[String(y)]) ? spec.rates.path[String(y)] : null)) : null;
-      const sofrSh = cur('sofr_shift'), spSh = cur('spread_shift');
-      const series = [];
-      if (rp) series.push({ name: `${str(spec.rates.base_name || 'SOFR')} path (base)`, short: 'SOFR base', color: C_LOW, values: rp, dash: true, faint: true });
-      if (rp && Math.abs(sofrSh) > 1e-9) series.push({ name: `${str(spec.rates.base_name || 'SOFR')} path (${fmt(sofrSh, 'bp', 0, true)})`, short: 'SOFR now', color: C_LOW, values: R.sofr });
-      if (!BASE.error && (Math.abs(sofrSh) > 1e-9 || Math.abs(spSh) > 1e-9 || JSON.stringify(st.ov) !== JSON.stringify(baseOv))) {
-        series.push({ name: 'Avg cost of debt (base)', short: 'Debt base', color: C_HIGH, values: BASE.rows.avg_cost_of_debt, dash: true, faint: true });
-      }
-      series.push({ name: 'All-in avg cost of debt', short: 'Debt cost', color: C_HIGH, values: R.avg_cost_of_debt });
-      p.appendChild(h('h4', { class: 'mdl-h4' }, 'Predicted rate path'));
-      p.appendChild(h('p', { class: 'mdl-note' }, `Annual average ${str(spec.rates && spec.rates.base_name || 'SOFR')} and the model’s all-in average cost of debt (interest ÷ average debt). `
-        + `Floating tranches pay the rate plus their spread; fixed notes keep their coupon until they mature and are refinanced at the new-debt rate.`));
-      p.appendChild(chartBox(lineChart({ id: `${uid}-rates`, title: 'Predicted rate path and average cost of debt (%)', labels: years.map(yl), series, unit: '%', dp: 2,
+      const R = res.rows, sofrSh = cur('sofr_shift'), pi = Math.round(cur('rate_path') || 0);
+      const baseName = str(spec.rates && spec.rates.base_name || 'SOFR');
+      p.appendChild(h('div', { class: 'mdl-row' }, h('h4', { class: 'mdl-h4' }, 'Predicted rate paths'),
+        hasPaths ? h('label', { class: 'mdl-sel-l' }, 'Path ', pathSelect(pathD, `${uid}-pathsel`, 'SOFR path (Interest & debt tab)')) : null));
+      const series = PATHS.map((pa, j) => ({ name: `${pa.name}${j === pi ? ' (selected)' : ''}`, short: str(pa.name).replace(/\s*[(,].*$/, '').slice(0, 16), color: PATH_COLORS[j % PATH_COLORS.length],
+        values: pa.path, dash: j !== pi, faint: j !== pi }));
+      if (Math.abs(sofrSh) > 1e-9) series.push({ name: `${baseName} with the ${fmt(sofrSh, 'bp', 0, true)} shift`, short: `${baseName} now`, color: PATH_COLORS[pi % PATH_COLORS.length], values: R.sofr });
+      series.push({ name: 'New-debt rate (marginal cost of new and refinanced debt)', short: 'New debt', color: C_HIGH, values: R.new_debt_rate });
+      series.push({ name: 'All-in average cost of debt', short: 'Avg debt', color: '#cbd5e1', values: R.avg_cost_of_debt, dash: true });
+      p.appendChild(h('p', { class: 'mdl-note' }, `Annual average ${baseName} on each path, the cost of new and refinanced debt (it follows the selected path and the SOFR and spread sliders) `
+        + 'and the all-in average cost of debt (interest ÷ average debt). Floating tranches pay SOFR plus their contractual margin; fixed notes keep their coupon until they mature.'));
+      p.appendChild(chartBox(lineChart({ id: `${uid}-rates`, title: 'Predicted rate paths, new-debt rate and average cost of debt (%)', labels: years.map(yl), series, unit: '%', dp: 2,
         desc: series.map(s => `${s.name}: ${s.values.map((x, i) => `${yl(years[i])} ${fmt(x, '%', 2)}`).join(', ')}`).join('; ') }),
       legend(series.map(s => [s.name, s.color, s.dash]))));
+      // the readout: what +100bp on SOFR does, and how much of the debt reprices
+      const up = E.project(spec, Object.assign({}, st.ov, { sofr_shift: Math.min(byId.get('sofr_shift').max, sofrSh + 100) }));
+      if (!up.error) {
+        const xi = years.indexOf(XY), d1 = at(up, 'interest', KY) - at(res, 'interest', KY), d2 = at(up, 'interest', XY) - at(res, 'interest', XY);
+        const flo = tranches.filter(t => t.kind === 'floating').reduce((s, t) => s + (R.debt_by_tranche[t.id] ? R.debt_by_tranche[t.id][xi] : 0), 0)
+          + facilities.filter(x => x.kind !== 'fixed').reduce((s, x) => s + (R.debt_by_tranche[x.id] ? R.debt_by_tranche[x.id][xi] : 0), 0)
+          + (R.debt_by_tranche[E.NEW_DEBT_ID] ? R.debt_by_tranche[E.NEW_DEBT_ID][xi] : 0);
+        const share = R.debt_end[xi] > 0 ? flo / R.debt_end[xi] * 100 : null;
+        const dv = up.valuation.value_per_share - res.valuation.value_per_share;
+        const from = spec.rates && spec.rates.shift_from ? ` from ${str(spec.rates.shift_from)}` : '';
+        p.appendChild(h('p', { class: 'mdl-readout', 'data-mdl-readout': 'sofr' }, h('strong', null, `+100bp on ${baseName}${from}`),
+          ` adds ${money(d1)} to ${ylong(KY)} and ${money(d2)} to ${ylong(XY)} interest; by end-${XY}, ${fmt(share, '%', 0)} of the debt floats or is new borrowing that reprices with rates. `
+          + `Through the cost of capital it moves value per share by ${fmt(dv, 'US$', 2, true)} (exit multiple ${fmt(res.valuation.exit_multiple_eff, 'x', 1)} → ${fmt(up.valuation.exit_multiple_eff, 'x', 1)}).`));
+      }
       if (spec.rates && (spec.rates.note || spec.rates.src)) {
-        p.appendChild(h('p', { class: 'mdl-src' }, 'Rate path: ', rich.inline(spec.rates.note || ''), Array.isArray(spec.rates.src) ? rich.cite(spec.rates.src) : null));
+        p.appendChild(h('p', { class: 'mdl-src' }, 'Rate paths: ', rich.inline(spec.rates.note || ''), Array.isArray(spec.rates.src) ? rich.cite(spec.rates.src) : null));
       }
 
       // interest by tranche + the company's guide as a bracket on the stub year
       const ts = trancheSeries(res);
-      const marks = [];
-      const gl = [];
+      const marks = [], gl = [];
       for (const g of guides.filter(x => x.metric === 'interest')) {
         const mv = guideValue(res, spec, g);
         const m = /^(\d{4})-Q([1-4])$/.exec(str(g.period));
@@ -664,46 +838,85 @@
         desc: years.map((y, i) => `${yl(y)}: ${ts.map(s => `${s.name} ${fmt(s.values[i], 'US$m', 0)}`).join(', ')}`).join('; ') }),
       legend(ts.map(s => [s.name, s.color]).concat(marks.length ? [['Company guide (implied full year)', 'var(--rpt-strong)', true]] : []))));
       if (gl.length) p.appendChild(h('ul', { class: 'rpt-bul mdl-guides' }, gl));
+      p.appendChild(h('p', { class: 'mdl-note' }, `Of which non-cash (issue costs and discount amortised through interest): ${years.map((y, i) => `${yl(y)} ${money(R.interest_noncash[i])}`).join(' · ')}.`));
 
-      // maturity ladder (opening stack)
-      const color = trancheColor(res);
-      const openY = +str(spec.opening && spec.opening.date).slice(0, 4) || years[0];
-      const matY = tranches.map(t => +str(t.maturity).slice(0, 4)).filter(isNum);
-      const lastY = Math.min(openY + 12, Math.max(years[years.length - 1], ...matY));
-      const ly = []; for (let y = openY; y <= lastY; y++) ly.push(y);
-      // amortising loans: linear from the opening date to maturity, as the engine runs them
-      const mIdx = s => { const x = /^(\d{4})-(\d{2})/.exec(str(s)); return x ? +x[1] * 12 + +x[2] : null; };
-      const om = mIdx(spec.opening && spec.opening.date);
-      const lad = tranches.map(t => {
-        const my = +str(t.maturity).slice(0, 4), mm = mIdx(t.maturity);
-        const vals = ly.map(() => 0);
-        if ((t.amort === 'straight' || t.amort === 'cashsweep') && om !== null && mm !== null && mm > om) {
-          ly.forEach((y, i) => { vals[i] = t.balance * Math.max(0, Math.min((y + 1) * 12, mm) - Math.max(y * 12, om)) / (mm - om); });
-        } else { const i = ly.indexOf(my); if (i >= 0) vals[i] = t.balance; }
-        return { id: t.id, name: str(t.name || t.id), color: color(t.id), values: vals };
-      });
-      // tranches folded into "Other" in the interest chart share its colour here too
-      const ladSeries = [];
-      const otherVals = ly.map(() => 0);
-      let hasOther = false;
-      for (const s of lad) {
-        if (s.color === C_OTHER) { hasOther = true; s.values.forEach((x, i) => { otherVals[i] += x; }); } else ladSeries.push(s);
+      // how the funding gap is met
+      const fs = [{ name: 'Committed facilities', color: SERIES[3], values: R.committed_draws }, { name: 'New (uncommitted) debt', color: SERIES[4], values: R.uncommitted_debt },
+        { name: 'Equity sold', color: SERIES[1], values: R.new_equity_m }].filter(s => s.values.some(x => x > 0.5));
+      p.appendChild(h('h4', { class: 'mdl-h4' }, 'Funding the gap'));
+      const commit = facilities.reduce((s, x) => s + (isNum(x.amount) ? x.amount : 0), 0);
+      p.appendChild(h('p', { class: 'mdl-note' }, `Each year’s gap (capex, scheduled repayments and the cash floor not covered by operating cash flow and debt issued after the balance-sheet date) is met by `
+        + `${facilities.length ? `drawing the ${money(commit)} of committed, undrawn facilities while their windows are open, then ` : ''}new debt at the new-debt rate and the equity share. `
+        + `Uncommitted need (cumulative): ${years.map((y, i) => `${yl(y)} ${money(R.uncommitted_cum[i])}`).join(' · ')}.`));
+      if (fs.length) p.appendChild(chartBox(stackedBars({ id: `${uid}-fund`, title: 'How the funding gap is met (US$m)', labels: years.map(yl), series: fs, unit: 'US$m',
+        desc: years.map((y, i) => `${yl(y)}: ${fs.map(s => `${s.name} ${fmt(s.values[i], 'US$m', 0)}`).join(', ')}`).join('; ') }), legend(fs.map(s => [s.name, s.color]))));
+      if (facilities.length) {
+        p.appendChild(h('ul', { class: 'rpt-bul mdl-guides' }, facilities.map(x => h('li', null, h('strong', null, str(x.name)), `: ${money(x.amount)} undrawn, `,
+          x.kind === 'fixed' ? `fixed ${fmt(x.coupon_pct, '%', 2)}` : `SOFR + ${fmt(x.spread_bp, '', 0)} bp`, `, available to ${str(x.available_until)}; drawn by end-${XY}: ${money(R.debt_by_tranche[x.id] ? R.debt_by_tranche[x.id][years.indexOf(XY)] : 0)}`,
+          Array.isArray(x.src) ? rich.cite(x.src) : null))));
+        if (spec.funding && spec.funding.note) p.appendChild(h('p', { class: 'mdl-src' }, rich.inline(spec.funding.note), Array.isArray(spec.funding.src) ? rich.cite(spec.funding.src) : null));
       }
-      if (hasOther) ladSeries.push({ id: '_other', name: 'Other tranches', color: C_OTHER, values: otherVals });
+
+      // leverage and coverage against the covenants and thresholds
+      const covs = Array.isArray(res.covenants) ? res.covenants : [];
+      const levS = [['gross_debt_ebitda', 'Total debt / EBITDA', SERIES[0]], ['secured_debt_ebitda', 'Secured debt / EBITDA', SERIES[2]], ['net_debt_ebitda', 'Net debt / EBITDA', SERIES[3]]]
+        .map(([k, name, color]) => ({ name, short: name.split(' / ')[0], color, values: R[k] }));
+      for (const c of covs.filter(x => /debt_ebitda$/.test(x.metric) && isNum(x.max))) levS.push({ name: `${c.label}`, short: c.metric === 'secured_debt_ebitda' ? 'Secured cap' : c.kind === 'covenant' ? 'Cap' : 'Limit', color: C_LIMIT, values: years.map(() => c.max), dash: true });
+      p.appendChild(h('h4', { class: 'mdl-h4' }, 'Leverage & coverage by year'));
+      p.appendChild(h('p', { class: 'mdl-note' }, 'Debt over each year’s adj. EBITDA, against the caps the notes reportedly carry (dashed). A year above a cap is a breach: '
+        + 'the company could not add debt under the notes’ general basket. Years with EBITDA at or below zero show no ratio.'));
+      p.appendChild(chartBox(lineChart({ id: `${uid}-lev`, title: 'Leverage by year (x EBITDA)', labels: years.map(yl), series: levS, unit: 'x', dp: 1,
+        desc: levS.map(s => `${s.name}: ${s.values.map((x, i) => `${yl(years[i])} ${fmt(x, 'x', 1)}`).join(', ')}`).join('; ') }), legend(levS.map(s => [s.name, s.color, s.dash]))));
+      const cvS = [{ name: 'Interest cover (EBITDA / interest)', short: 'EBITDA cover', color: SERIES[0], values: R.interest_cover },
+        { name: 'EBIT / interest', short: 'EBIT cover', color: SERIES[3], values: R.ebit_cover }];
+      for (const c of covs.filter(x => x.metric === 'interest_cover' && isNum(x.min))) cvS.push({ name: str(c.label), short: 'Floor', color: C_LIMIT, values: years.map(() => c.min), dash: true });
+      const capCov = R.ebitda_capex_cover.filter(isNum);
+      p.appendChild(h('p', { class: 'mdl-note' }, `EBITDA after capex covers interest (≥ 1x) in ${capCov.filter(x => x >= 1).length} of ${capCov.length} years; `
+        + '(EBITDA − capex) ÷ interest is in the table below, off the chart to keep its scale readable.'));
+      p.appendChild(chartBox(lineChart({ id: `${uid}-cov`, title: 'Interest coverage by year (x)', labels: years.map(yl), series: cvS, unit: 'x', dp: 1,
+        desc: cvS.map(s => `${s.name}: ${s.values.map((x, i) => `${yl(years[i])} ${fmt(x, 'x', 1)}`).join(', ')}`).join('; ') }), legend(cvS.map(s => [s.name, s.color, s.dash]))));
+      const covRows = [['gross_debt_ebitda', 'Total debt / EBITDA'], ['secured_debt_ebitda', 'Secured debt / EBITDA'], ['net_debt_ebitda', 'Net debt / EBITDA'],
+        ['interest_cover', 'EBITDA / interest'], ['ebitda_capex_cover', '(EBITDA − capex) / interest'], ['ebit_cover', 'EBIT / interest']];
+      const covBody = covRows.map(([k, label]) => {
+        const c = covs.find(x => x.metric === k);
+        return h('tr', null, h('th', { scope: 'row', class: 'l' }, label, c ? h('span', { class: 'mdl-th-note' }, `${limitText(c)} (${c.kind})`) : null, c && c.src && c.src.length ? rich.cite(c.src) : null),
+          years.map((y, i) => h('td', { class: `r${c && c.breach[i] === true ? ' mdl-breach' : ''}` }, fmt(R[k][i], 'x', k === 'ebit_cover' ? 2 : 1), c && c.breach[i] === true ? h('span', { class: 'mdl-cd neg' }, c.kind === 'covenant' ? 'breach' : 'below') : null)));
+      });
+      p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Leverage and coverage by year' },
+        h('table', { class: 'rpt-table mdl-table' }, h('thead', null, h('tr', null, h('th', { scope: 'col', class: 'l' }, 'Ratio'), years.map(y => h('th', { scope: 'col', class: 'r' }, ylong(y))))),
+          h('tbody', null, covBody))));
+      if (covs.length && scen.length) {
+        // presets do not depend on the sliders: run each once per mount
+        const rows = scen.map(s => {
+          if (!scenRuns.has(s.id)) scenRuns.set(s.id, E.project(spec, E.applyScenario(spec, s.id) || {}));
+          const r = scenRuns.get(s.id);
+          return h('tr', null, h('th', { scope: 'row', class: 'l' }, str(s.name)),
+            covs.map(c => { const rc = r.error ? null : r.covenants.find(x => x.id === c.id); return h('td', { class: 'r' }, rc ? (rc.first_breach ? yl(rc.first_breach) : 'never') : '—'); }));
+        });
+        p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'First year crossed, by scenario' },
+          h('table', { class: 'rpt-table mdl-table' }, h('caption', { class: 'mdl-cap' }, 'First year each limit is crossed, by scenario preset'),
+            h('thead', null, h('tr', null, h('th', { scope: 'col', class: 'l' }, 'Scenario'), covs.map(c => h('th', { scope: 'col', class: 'r' }, str(c.label).replace(/\s*\(.*\)$/, ''))))),
+            h('tbody', null, rows))));
+      }
+
+      // maturity ladder: the opening stack by instrument type, plus the model's own borrowing
+      const lad = ladder(res);
       p.appendChild(h('h4', { class: 'mdl-h4' }, 'Debt maturity ladder'));
-      p.appendChild(h('p', { class: 'mdl-note' }, `Principal falling due each year from the ${str(spec.opening && spec.opening.date)} debt stack (amortising loans spread evenly to maturity). `
-        + 'Bullet maturities inside the model horizon are refinanced at the new-debt rate.'));
-      p.appendChild(chartBox(stackedBars({ id: `${uid}-mat`, title: 'Debt maturity ladder (US$m of principal)', labels: ly.map(String), series: ladSeries, unit: 'US$m',
-        desc: ly.map((y, i) => `${y}: ${ladSeries.map(s => `${s.name} ${fmt(s.values[i], 'US$m', 0)}`).filter((_, k) => ladSeries[k].values[i] > 0).join(', ') || 'none'}`).join('; ') }),
-      legend(ladSeries.map(s => [s.name, s.color]))));
+      p.appendChild(h('p', { class: 'mdl-note' }, `Principal falling due each year: the ${str(spec.opening && spec.opening.date)} stack and later issues (amortising loans on their schedules), `
+        + 'committed facility draws at the facility’s maturity, and the model’s new borrowing assumed to mature five years after it is raised: the refinancing wall the projections lean on.'));
+      p.appendChild(chartBox(stackedBars({ id: `${uid}-mat`, title: 'Debt maturity ladder (US$m of principal)', labels: lad.labels, series: lad.series, unit: 'US$m',
+        desc: lad.labels.map((y, i) => `${y}: ${lad.series.filter(s => s.values[i] > 0.5).map(s => `${s.name} ${fmt(s.values[i], 'US$m', 0)}`).join(', ') || 'none'}`).join('; ') }),
+      legend(lad.series.map(s => [s.name, s.color]))));
 
       // debt table
-      const rateNow = id => (R.rate_by_tranche[id] ? R.rate_by_tranche[id][0] : null);
+      const color = (() => { const m = new Map(); for (const s of ts) m.set(s.id, s.color); return id => m.get(id) || C_OTHER; })();
+      const rateNow = id => (R.rate_by_tranche[id] ? R.rate_by_tranche[id].find(isNum) : null);
+      const terms = t => (t.kind === 'floating' ? `Floating, SOFR + ${fmt(t.spread_bp, '', 0)} bp` : `Fixed ${fmt(t.coupon_pct, '%', 3)}`) + (isNum(t.fee_bp) && t.fee_bp > 0 ? ` (+${fmt(t.fee_bp, '', 0)} bp fees)` : '');
       const rows = tranches.map(t => h('tr', null,
         h('th', { scope: 'row', class: 'l' }, h('i', { class: 'mdl-sw', style: `background:${color(t.id)}`, 'aria-hidden': 'true' }), str(t.name || t.id),
           Array.isArray(t.src) ? rich.cite(t.src) : null, t.note ? h('span', { class: 'mdl-th-note' }, str(t.note)) : null),
-        h('td', { class: 'r' }, fmt(t.balance, '', 0)),
-        h('td', { class: 'l' }, t.kind === 'floating' ? `Floating, SOFR + ${fmt(t.spread_bp, '', 0)} bp` : `Fixed ${fmt(t.coupon_pct, '%', 2)}`),
+        h('td', { class: 'r' }, fmt(t.balance, '', 0), t.issued ? h('span', { class: 'mdl-th-note' }, `from ${str(t.issued)}`) : null),
+        h('td', { class: 'l' }, terms(t)),
         h('td', { class: 'r' }, fmt(rateNow(t.id), '%', 2)),
         h('td', { class: 'r' }, str(t.maturity)),
         h('td', { class: 'l' }, [t.amort, t.secured ? 'secured' : 'unsecured', t.recourse === false ? 'non-recourse' : null].filter(Boolean).join(', '))));
@@ -715,7 +928,7 @@
       p.appendChild(h('h4', { class: 'mdl-h4' }, 'Debt stack'));
       p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Debt stack' },
         h('table', { class: 'rpt-table mdl-table' },
-          h('thead', null, h('tr', null, ['Tranche', 'Balance (US$m)', 'Terms', `Rate ${yl(years[0])}`, 'Maturity', 'Structure'].map((c, i) =>
+          h('thead', null, h('tr', null, ['Tranche', 'Balance (US$m)', 'Terms', 'All-in rate (first year)', 'Maturity', 'Structure'].map((c, i) =>
             h('th', { scope: 'col', class: [0, 2, 5].includes(i) ? 'l' : 'r' }, c)))),
           h('tbody', null, rows))));
       if (spec.opening && Array.isArray(spec.opening.src)) p.appendChild(h('p', { class: 'mdl-src' }, `Balances at ${str(spec.opening.date)}`, rich.cite(spec.opening.src)));
@@ -724,26 +937,40 @@
     // ---- Sensitivity ----
     function metricSel(value, onChange, label) {
       const s = h('select', { class: 'ctrl mdl-sel', 'aria-label': label });
-      for (const m of sensMetrics) s.appendChild(h('option', { value: m.key, selected: m.key === value ? true : null }, m.label));
+      for (const m of METRICS) s.appendChild(h('option', { value: m.key, selected: m.key === value ? true : null }, m.row ? m.label.charAt(0).toUpperCase() + m.label.slice(1) : m.label));
       s.value = value;
       s.addEventListener('change', () => onChange(s.value));
+      return s;
+    }
+    function yearSel(value, onChange, label, disabled) {
+      const s = h('select', { class: 'ctrl mdl-sel', 'aria-label': label, disabled: disabled ? true : null });
+      for (const y of metricYears) s.appendChild(h('option', { value: String(y) }, ylong(y)));
+      s.value = String(value);
+      s.addEventListener('change', () => onChange(+s.value));
       return s;
     }
     function driverSel(value, onChange, label) {
       const s = h('select', { class: 'ctrl mdl-sel', 'aria-label': label });
-      for (const d of D) s.appendChild(h('option', { value: d.id, selected: d.id === value ? true : null }, `${d.label} (${d.unit})`));
+      for (const d of D.filter(x => x.kind !== 'choice')) s.appendChild(h('option', { value: d.id, selected: d.id === value ? true : null }, `${d.label} (${d.unit})`));
       s.value = value;
       s.addEventListener('change', () => onChange(s.value));
       return s;
     }
-    const sensOf = key => sensMetrics.find(m => m.key === key) || sensMetrics[0];
+    // a select that rebuilt its panel gets keyboard focus back (it was removed from the page)
+    function rerender(k, label) {
+      renderPanel(k);
+      const p = panels.get(k), s = p && p.querySelector ? p.querySelector(`select[aria-label="${label}"]`) : null;
+      if (s) { try { s.focus({ preventScroll: true }); } catch { s.focus(); } }
+    }
     function renderSens(p) {
-      const m = sensOf(st.sens);
+      const m = mdef(st.sens.key, st.sens.year);
       const t0 = E.sensitivity(spec, st.ov, { metric: m.metric, year: m.year });
       p.appendChild(h('div', { class: 'mdl-row' }, h('h4', { class: 'mdl-h4' }, 'Tornado: what moves the answer most'),
-        h('label', { class: 'mdl-sel-l' }, 'Metric ', metricSel(st.sens, k => { st.sens = k; renderPanel('sens'); }, 'Tornado metric'))));
+        h('span', { class: 'mdl-gridctl' },
+          h('label', { class: 'mdl-sel-l' }, 'Metric ', metricSel(m.key, k => { st.sens.key = k; rerender('sens', 'Tornado metric'); }, 'Tornado metric')),
+          h('label', { class: 'mdl-sel-l' }, 'Year ', yearSel(m.year || st.sens.year, y => { st.sens.year = y; rerender('sens', 'Tornado year'); }, 'Tornado year', !m.row)))));
       p.appendChild(h('p', { class: 'mdl-note' }, `Each bar re-runs the model with one driver at the low or high end of its stress range, everything else as set now. `
-        + `Sorted by swing.`));
+        + `Sorted by swing. Rates and credit reach value through the cost-of-capital re-rating of the exit multiple, and the P&L through interest.`));
       if (t0.error) p.appendChild(h('p', { class: 'mdl-note' }, 'The tornado couldn’t be computed for these settings.'));
       else {
         p.appendChild(chartBox(tornado({ id: `${uid}-tor`, sens: t0, drivers: D, unit: m.unit, dp: m.dp, title: `Tornado: ${m.label} (${m.unit})` }),
@@ -753,7 +980,7 @@
       }
 
       // 2-way grid
-      const gm = sensOf(st.grid.metric);
+      const gm = mdef(st.grid.key, st.grid.year);
       const gx = byId.get(st.grid.x) ? st.grid.x : D[0].id, gy = byId.get(st.grid.y) ? st.grid.y : D[1].id;
       const xs = axisValues(byId.get(gx), cur(gx), 7), ys = axisValues(byId.get(gy), cur(gy), 7);
       const g = E.grid(spec, st.ov, gx, xs, gy, ys, gm.year ? `${gm.metric}@${gm.year}` : gm.metric);
@@ -761,10 +988,11 @@
       p.appendChild(h('div', { class: 'mdl-gridctl' },
         h('label', { class: 'mdl-sel-l' }, 'Metric ', metricSel(gm.key, k => {
           const dft = GRID_DEFAULTS[k] || GRID_DEFAULTS.value_per_share;
-          st.grid = { metric: k, x: dft[0], y: dft[1] }; renderPanel('sens');
+          st.grid = { key: k, year: st.grid.year, x: dft[0], y: dft[1] }; rerender('sens', 'Grid metric');
         }, 'Grid metric')),
-        h('label', { class: 'mdl-sel-l' }, 'Across ', driverSel(gx, id => { st.grid.x = id; renderPanel('sens'); }, 'Grid columns driver')),
-        h('label', { class: 'mdl-sel-l' }, 'Down ', driverSel(gy, id => { st.grid.y = id; renderPanel('sens'); }, 'Grid rows driver'))));
+        h('label', { class: 'mdl-sel-l' }, 'Year ', yearSel(gm.year || st.grid.year, y => { st.grid.year = y; rerender('sens', 'Grid year'); }, 'Grid year', !gm.row)),
+        h('label', { class: 'mdl-sel-l' }, 'Across ', driverSel(gx, id => { st.grid.x = id; rerender('sens', 'Grid columns driver'); }, 'Grid columns driver')),
+        h('label', { class: 'mdl-sel-l' }, 'Down ', driverSel(gy, id => { st.grid.y = id; rerender('sens', 'Grid rows driver'); }, 'Grid rows driver'))));
       if (g.error) { p.appendChild(h('p', { class: 'mdl-note' }, 'The grid couldn’t be computed for these drivers.')); return; }
       const now = E.metricValue(st.res, gm.metric, gm.year);
       const all = g.z.flat().filter(isNum);
@@ -778,7 +1006,7 @@
         g.z[yi].map((z, xi) => {
           const td = h('td', { class: `r mdl-heat${xi === cx && yi === cy ? ' now' : ''}`, title: `${dx.label} ${fmt(g.x.values[xi], dx.unit, dx.dp)}, ${dy.label} ${fmt(yv, dy.unit, dy.dp)}: ${fmt(z, gm.unit, gm.dp)}` },
             gm.unit === 'US$m' ? fmt(z, '', 0) : fmt(z, gm.unit === 'US$' ? '' : gm.unit, gm.dp));
-          if (isNum(z) && isNum(now)) {
+          if (isNum(z) && isNum(now) && gm.good) {
             const t = (z - now) / maxDev * gm.good, a = Math.min(0.55, Math.abs(t) * 0.55);
             if (a > 0.02) td.style.setProperty('background', t > 0 ? `rgba(52,211,153,${a.toFixed(3)})` : `rgba(248,113,113,${a.toFixed(3)})`);
           }
@@ -786,42 +1014,117 @@
         })));
       p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Two-way sensitivity grid' },
         h('table', { class: 'rpt-table mdl-table mdl-grid2' }, h('caption', { class: 'mdl-cap' }, `${gm.label} (${gm.unit})`), h('thead', null, head), h('tbody', null, body))));
-      p.appendChild(h('p', { class: 'mdl-note' }, `Outlined cell = the current setting (${fmt(now, gm.unit, gm.dp)}). Green is better for shareholders than now, red worse; deeper = further away.`));
+      p.appendChild(h('p', { class: 'mdl-note' }, `Outlined cell = the current setting (${fmt(now, gm.unit, gm.dp)}). ${gm.good ? 'Green is better for shareholders than now, red worse; deeper = further away.' : 'Uncoloured: more or less of this is neither good nor bad in itself.'}`));
+    }
+
+    // ---- Breakevens: what the price implies; where the limits break ----
+    const PRICED = ['exit_ev_ebitda', 'revenue_growth', 'cost_of_revenue_pct', 'new_debt_rate', 'sofr_shift', 'capex', 'discount_rate'].filter(id => byId.has(id));
+    const BREAK = ['revenue_growth', 'cost_of_revenue_pct', 'capex', 'new_debt_rate', 'sofr_shift'].filter(id => byId.has(id));
+    const beYears = [KY, XY].filter((y, i, a) => years.includes(y) && a.indexOf(y) === i);
+    // runs the solves a few at a time (~25 ms slices) so the page stays responsive
+    function queueSolves(jobs) {
+      const seq = ++st.beSeq;
+      const next = () => {
+        if (!st.alive || seq !== st.beSeq) return;
+        const t0 = Date.now();
+        while (jobs.length && Date.now() - t0 < 25) jobs.shift()();
+        if (jobs.length) setTimeout(next, 0);
+      };
+      next();
+    }
+    function renderBE(p) {
+      const price = cur('share_price'), jobs = [];
+      const fmtD = (d, x) => fmt(x, d.unit, Math.max(1, d.dp || 0));
+      p.appendChild(h('h4', { class: 'mdl-h4' }, `Priced in at ${fmt(price, 'US$', 2)}`));
+      p.appendChild(h('p', { class: 'mdl-note' }, `The level of each driver, moved alone with everything else as set now, at which the model’s value per share equals the share price: `
+        + 'what you would have to believe for today’s price to be fair. A driver whose whole range never brings value down (or up) to the price shows “none in range”.'));
+      const tb = h('tbody');
+      for (const id of PRICED) {
+        const d = byId.get(id), cell = h('td', { class: 'r', 'data-mdl-be': id }, '…'), move = h('td', { class: 'l' }, '');
+        tb.appendChild(h('tr', null, h('th', { scope: 'row', class: 'l' }, d.label), h('td', { class: 'r' }, fmtD(d, cur(id))), cell, move));
+        jobs.push(() => {
+          const r = E.solve(spec, st.ov, id, 'value_per_share', price, { steps: 12, tol: d.step / 10 });
+          cell.textContent = r.error ? '—' : r.found ? fmtD(d, r.value) : 'none in range';
+          if (r.found) move.textContent = `${fmt(r.value - cur(id), deltaUnit(d.unit), Math.max(1, d.dp || 0), true)} from now`;
+        });
+      }
+      p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'What the share price implies' },
+        h('table', { class: 'rpt-table mdl-table' }, h('thead', null, h('tr', null, ['Driver', 'You assume', 'Price implies', 'Move'].map((c, i) => h('th', { scope: 'col', class: i % 3 === 0 ? 'l' : 'r' }, c)))), tb)));
+
+      const covs = (st.res && Array.isArray(st.res.covenants) ? st.res.covenants : []).filter(c => /debt_ebitda$|interest_cover$/.test(c.metric));
+      if (covs.length && BREAK.length) {
+        p.appendChild(h('h4', { class: 'mdl-h4' }, 'Breaking points'));
+        p.appendChild(h('p', { class: 'mdl-note' }, 'The level of each driver, moved alone, at which a covenant or threshold is crossed in the year shown. '
+          + '“crossed now” = already beyond the limit at the current settings; “none in range” = this driver alone cannot get it there.'));
+        const short = { revenue_growth: 'Revenue growth', cost_of_revenue_pct: 'Cost of revenue', capex: 'Capex', new_debt_rate: 'New-debt cost', sofr_shift: 'SOFR shift' };
+        const head = h('tr', null, h('th', { scope: 'col', class: 'l' }, 'Limit, year'), BREAK.map(id => h('th', { scope: 'col', class: 'r', title: byId.get(id).label }, short[id] || byId.get(id).label)));
+        const body = h('tbody');
+        for (const c of covs) for (const y of beYears) {
+          const i = years.indexOf(y), limit = isNum(c.max) ? c.max : c.min, nowV = c.values[i];
+          const crossed = c.breach[i] === true;
+          body.appendChild(h('tr', null, h('th', { scope: 'row', class: 'l' }, `${str(c.label).replace(/\s*\(.*\)$/, '')}: ${fmt(limit, 'x', 1)}, ${ylong(y)}`,
+            h('span', { class: 'mdl-th-note' }, `now ${fmt(nowV, 'x', 2)}${crossed ? ' · crossed now' : ''}`)),
+          BREAK.map(id => {
+            const d = byId.get(id), td = h('td', { class: 'r' }, crossed ? 'crossed now' : '…');
+            if (!crossed) jobs.push(() => {
+              const r = E.solve(spec, st.ov, id, `${c.metric}@${y}`, limit, { steps: 12, tol: d.step / 10 });
+              td.textContent = r.error ? '—' : r.found ? fmtD(d, r.value) : 'none in range';
+            });
+            return td;
+          })));
+        }
+        p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Breaking points' },
+          h('table', { class: 'rpt-table mdl-table' }, h('thead', null, head), body)));
+      }
+      queueSolves(jobs);
     }
 
     // ---- Valuation & multiples ----
     function renderVal(p, res) {
-      const V = res.valuation;
-      const mt = [['ev_sales', 'EV / sales', 'x', 1], ['ev_ebitda', 'EV / adj. EBITDA', 'x', 1], ['pe', 'P/E', 'x', 1], ['fcf_yield', 'FCF yield', '%', 1]];
-      const rows = [];
-      for (const [k, label, unit, dp] of mt) {
-        rows.push(h('tr', null, h('th', { scope: 'row', class: 'l' }, label, h('span', { class: 'mdl-th-note' }, `at ${fmt(V.share_price, 'US$', 2)} price`)),
-          years.map((_, i) => h('td', { class: 'r' }, fmt(V.implied_fwd_multiples_at_price[k][i], unit, dp)))));
-        rows.push(h('tr', { class: 'mdl-sub-row' }, h('th', { scope: 'row', class: 'l' }, label, h('span', { class: 'mdl-th-note' }, `at ${fmt(V.value_per_share, 'US$', 2)} model value`)),
-          years.map((_, i) => h('td', { class: 'r' }, fmt(V.implied_multiples_at_value[k][i], unit, dp)))));
+      const V = res.valuation, W = st.w && !st.w.error ? st.w : null;
+      if (W && W.rows.length) {
+        p.appendChild(h('h4', { class: 'mdl-h4' }, 'Scenario values and weights'));
+        p.appendChild(h('ol', { class: 'mdl-bridge', 'aria-label': 'Probability-weighted value' },
+          byValue(W.rows).map(r => h('li', { class: 'mdl-step' }, h('span', { class: 'mdl-step-l' }, `${str(r.name)} · ${fmt(r.prob, '', 0)}%`), h('span', { class: 'mdl-step-v' }, fmt(r.value, 'US$', 2)))),
+          h('li', { class: 'mdl-step' }, h('span', { class: 'mdl-step-l' }, 'Probability-weighted'), h('span', { class: 'mdl-step-v' }, fmt(W.value, 'US$', 2)),
+            h('span', { class: 'mdl-step-n' }, `vs ${fmt(V.share_price, 'US$', 2)}: ${fmt(isNum(W.value) && V.share_price ? (W.value / V.share_price - 1) * 100 : null, '%', 0, true)}`))));
+        p.appendChild(h('p', { class: 'mdl-note' }, `Each preset at its weight, with your edits${st.anchor && st.anchor !== 'base' ? ` (relative to ${str((scen.find(s => s.id === st.anchor) || {}).name)})` : ''} laid on top of every one of them.`));
       }
-      p.appendChild(h('h4', { class: 'mdl-h4' }, 'Implied forward multiples'));
-      p.appendChild(h('p', { class: 'mdl-note' }, `Today’s enterprise value at the price = market cap ${money(V.market_cap)} + net debt ${money(V.net_debt_now)} = ${money(V.ev_now)}. `
-        + 'Multiples use each year’s projected revenue, adj. EBITDA, EPS and free cash flow; n/m (—) where the denominator is negative.'));
-      p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Implied forward multiples' },
+      const AP = V.implied_fwd_multiples_at_price, AV = V.implied_multiples_at_value;
+      const mt = [['ev_sales', 'EV / sales', 'x', 1], ['ev_ebitda', 'EV / adj. EBITDA', 'x', 1], ['ev_ebit', 'EV / EBIT', 'x', 1], ['pe', 'P/E', 'x', 1], ['fcf_yield', 'FCF yield', '%', 1]];
+      const row = (label, note, vals, unit, dp, cls) => h('tr', { class: cls || null }, h('th', { scope: 'row', class: 'l' }, label, note ? h('span', { class: 'mdl-th-note' }, note) : null),
+        years.map((_, i) => h('td', { class: 'r' }, unit === 'US$m' ? money(vals[i]) : fmt(vals[i], unit, dp))));
+      const rows = [row('Enterprise value', `at ${fmt(V.share_price, 'US$', 2)}: price × shares + net debt at the start of the year`, AP.ev, 'US$m', 0)];
+      for (const [k, label, unit, dp] of mt) rows.push(row(label, `at ${fmt(V.share_price, 'US$', 2)} price`, AP[k], unit, dp));
+      rows.push(row('EV / adj. EBITDA', `at the ${fmt(V.exit_value_per_share, 'US$', 2)} value at ${str(V.valuation_date)}`, AV.ev_ebitda, 'x', 1, 'mdl-sub-row'));
+      rows.push(row('P/E', `at the ${fmt(V.exit_value_per_share, 'US$', 2)} value at ${str(V.valuation_date)}`, AV.pe, 'x', 1, 'mdl-sub-row'));
+      rows.push(row('Today’s EV / future EBITDA', 'ignores the debt needed to reach that EBITDA', res.rows.ev_ebitda_static, 'x', 1, 'mdl-sub-row'));
+      if (cons && cons.rows.ev_ebitda) rows.push(row('Consensus EV / EBITDA', str(cons.label).split(',')[0] + ', each year’s own year-end net debt', years.map(y => consAt('ev_ebitda', y)), 'x', 2, 'mdl-sub-row'));
+      p.appendChild(h('h4', { class: 'mdl-h4' }, 'Forward multiples (funded EV)'));
+      p.appendChild(h('p', { class: 'mdl-note' }, `A year’s EV counts the shares and net debt at the start of that year, so the borrowing that builds the year’s EBITDA is in the price paid for it (today’s EV at the price: market cap ${money(V.market_cap)} + net debt ${money(V.net_debt_now)} = ${money(V.ev_now)}). `
+        + `“At value” uses the model’s value per share at the exit date, so ${ylong(V.exit_year)} reproduces the effective exit multiple. n/m (—) where the denominator is zero or negative.`));
+      p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Forward multiples' },
         h('table', { class: 'rpt-table mdl-table' }, h('thead', null, h('tr', null, h('th', { scope: 'col', class: 'l' }, 'Multiple'), years.map(y => h('th', { scope: 'col', class: 'r' }, ylong(y))))),
           h('tbody', null, rows))));
       const sp = byId.get('share_price');
-      if (sp && Array.isArray(sp.src) && sp.src.length) p.appendChild(h('p', { class: 'mdl-src' }, 'Share price', rich.cite(sp.src)));
+      if (sp && Array.isArray(sp.src) && sp.src.length) p.appendChild(h('p', { class: 'mdl-src' }, 'Share price', rich.cite(sp.src), cons ? [' · consensus: ', str(cons.label), rich.cite(cons.src || [])] : null));
 
       const step = (label, value, note) => h('li', { class: 'mdl-step' }, h('span', { class: 'mdl-step-l' }, label), h('span', { class: 'mdl-step-v' }, value), note ? h('span', { class: 'mdl-step-n' }, note) : null);
-      const bsY = V.balance_sheet_year;
+      const bsY = V.balance_sheet_year, rerated = isNum(V.rate_adjustment) && Math.abs(V.rate_adjustment - 1) > 1e-9;
       p.appendChild(h('h4', { class: 'mdl-h4' }, 'Exit valuation bridge'));
       p.appendChild(h('ol', { class: 'mdl-bridge', 'aria-label': 'Exit valuation bridge' },
         step(`${ylong(V.exit_year)} adj. EBITDA`, money(V.exit_ebitda)),
-        step('× exit EV/EBITDA', fmt(V.exit_multiple, 'x', 1)),
+        step('× exit EV/EBITDA (at base financing costs)', fmt(V.exit_multiple, 'x', 1)),
+        isNum(V.wacc) ? step('× cost-of-capital re-rating', fmt(V.rate_adjustment, '', 3),
+          `WACC ${fmt(V.wacc_base, '%', 1)} → ${fmt(V.wacc, '%', 1)} (new debt ${fmt(V.new_debt_rate_exit, '%', 1)}); effective ${fmt(V.exit_multiple_eff, 'x', 2)}${rerated ? '' : ' (unchanged)'}`) : null,
         step('= enterprise value', money(V.exit_ev)),
         step(`− net debt${bsY ? ` (end ${bsY})` : ''}`, money(V.exit_net_debt)),
         step('= equity value', money(V.exit_equity), isNum(V.exit_equity) && V.exit_equity <= 0 ? 'debt exceeds EV: value floored at 0' : null),
-        step(`÷ shares${bsY ? ` (end ${bsY})` : ''}`, fmt(V.exit_shares, 'm', 0)),
+        step(`÷ shares${bsY ? ` (end ${bsY})` : ''}`, fmt(V.exit_shares + (V.conv_shares || 0), 'm', 0), V.conv_shares > 0.05 ? `incl. ${fmt(V.conv_shares, 'm', 1)} net convertible shares above the caps` : null),
         step(`= value at ${str(V.valuation_date)}`, fmt(V.exit_value_per_share, 'US$', 2)),
         step(`× discount (${fmt(cur('discount_rate'), '%', 1)} for ${fmt(V.years_to_valuation, '', 1)} yrs)`, fmt(V.discount_factor, '', 3)),
         step('= value per share today', fmt(V.value_per_share, 'US$', 2), `vs ${fmt(V.share_price, 'US$', 2)}: ${fmt(V.upside_pct, '%', 0, true)}`)));
+      if (spec.valuation && spec.valuation.note) p.appendChild(h('p', { class: 'mdl-src' }, rich.inline(spec.valuation.note)));
     }
 
     // ---- Calibration ----
@@ -830,11 +1133,12 @@
     }
     function renderCal(p, res) {
       const unitOf = mk => (RM[mk] ? RM[mk].unit : mk === 'value_per_share' ? 'US$' : '');
-      const rng = (c, u) => (c.lo !== null && c.hi !== null ? `${fmt(c.lo, u, 0)} – ${fmt(c.hi, u, 0)}` : c.lo !== null ? `≥ ${fmt(c.lo, u, 0)}` : c.hi !== null ? `≤ ${fmt(c.hi, u, 0)}` : '—');
+      const dpOf = u => (u === '%' || u === 'x' ? 1 : u === 'US$' ? 2 : 0);
+      const rng = (c, u) => (c.lo !== null && c.hi !== null ? `${fmt(c.lo, u, dpOf(u))} – ${fmt(c.hi, u, dpOf(u))}` : c.lo !== null ? `≥ ${fmt(c.lo, u, dpOf(u))}` : c.hi !== null ? `≤ ${fmt(c.hi, u, dpOf(u))}` : '—');
       const rows = res.checks.map(c => {
         const u = unitOf(c.metric);
         return h('tr', null, h('th', { scope: 'row', class: 'l' }, str(c.label), c.src && c.src.length ? rich.cite(c.src) : null),
-          h('td', { class: 'r' }, fmt(c.value, u, u === '%' || u === 'x' ? 1 : 0)), h('td', { class: 'r' }, rng(c, u)), h('td', { class: 'l' }, passPill(c.pass)));
+          h('td', { class: 'r' }, fmt(c.value, u, dpOf(u))), h('td', { class: 'r' }, rng(c, u)), h('td', { class: 'l' }, passPill(c.pass)));
       });
       for (const g of guides) {
         const mv = guideValue(res, spec, g), u = unitOf(g.metric);
@@ -844,8 +1148,8 @@
           h('td', { class: 'r' }, fmt(mv, u, 0)), h('td', { class: 'r' }, rng(c, u)), h('td', { class: 'l' }, passPill(pass))));
       }
       const nOk = rows.length ? res.checks.filter(c => c.pass === true).length : 0;
-      p.appendChild(h('p', { class: 'mdl-note' }, `How the model, under the current drivers, compares with the company’s guidance and other cited targets `
-        + `(${nOk} of ${res.checks.length} checks within range). A miss is a prompt to revisit a driver, not proof the model is wrong.`));
+      p.appendChild(h('p', { class: 'mdl-note' }, `How the model, under the current drivers, compares with the company’s guidance, consensus and other cited targets `
+        + `(${nOk} of ${res.checks.length} checks within range). A miss is a prompt to revisit a driver, or a deliberate difference of view, not proof the model is wrong.`));
       if (rows.length) {
         p.appendChild(h('div', { class: 'rpt-tablewrap', role: 'region', tabindex: '0', 'aria-label': 'Calibration checks' },
           h('table', { class: 'rpt-table mdl-table' }, h('thead', null, h('tr', null, ['Check', 'Model', 'Target', 'Result'].map((c, i) => h('th', { scope: 'col', class: i % 3 === 0 ? 'l' : 'r' }, c)))),
@@ -865,6 +1169,7 @@
         if (k === 'pl') renderPL(p, st.res);
         else if (k === 'debt') renderDebt(p, st.res);
         else if (k === 'sens') renderSens(p);
+        else if (k === 'be') renderBE(p);
         else if (k === 'val') renderVal(p, st.res);
         else if (k === 'cal') renderCal(p, st.res);
       } catch (e) { clear(p); p.appendChild(h('p', { class: 'mdl-note' }, 'This view couldn’t be drawn for these settings.')); }
@@ -874,7 +1179,7 @@
     // ---- Key P&L drivers callout ----
     function renderKeyDrivers() {
       clear(keyd);
-      const m = sensMetrics[1];
+      const m = mdef('net_income', st.ky);
       const s = E.sensitivity(spec, st.ov, { metric: m.metric, year: m.year });
       const lines = keyDriverLines(s, D, m.what, m.unit);
       keyd.appendChild(h('div', { class: 'rpt-callout-t' }, `Key P&L drivers — ${m.what}`));
@@ -893,14 +1198,15 @@
       st.snapT = 0;
       if (!st.res || st.res.error) return;
       clear(printBox);
-      const changed = D.filter(d => Math.abs(cur(d.id) - d.base) > 1e-12).map(d => `${d.label} ${fmt(cur(d.id), d.unit, d.dp, /^shift|^scale/.test(d.kind))}`);
+      const changed = D.filter(d => Math.abs(cur(d.id) - d.base) > 1e-12).map(d => (d.kind === 'choice' ? `${d.label} ${str((d.choices[cur(d.id)] || {}).name)}`
+        : `${d.label} ${fmt(cur(d.id), d.unit, d.dp, /^shift|^scale/.test(d.kind))}`));
       const today = new Date().toISOString().slice(0, 10);
       printBox.appendChild(h('h3', { class: 'mdl-title' }, 'Stress test & projections'));
       printBox.appendChild(h('p', { class: 'mdl-note' }, `Scenario as of print (${today}): ${scenarioName()}. `
         + (changed.length ? `Drivers changed from base: ${changed.join('; ')}.` : 'All drivers at base.')));
-      printBox.appendChild(h('div', { class: 'mdl-kpis' }, kpiList(st.res).map(kpiTile)));
+      printBox.appendChild(h('div', { class: 'mdl-kpis' }, kpiList(st.res, st.ky).map(kpiTile)));
       printBox.appendChild(plTable(st.res, false));
-      const m = sensMetrics[0], t0 = E.sensitivity(spec, st.ov, { metric: m.metric });
+      const m = mdef('value_per_share'), t0 = E.sensitivity(spec, st.ov, { metric: m.metric });
       if (!t0.error) printBox.appendChild(h('div', { class: 'mdl-chart' }, h('div', { class: 'mdl-cap' }, `Tornado: ${m.label} (${m.unit})`),
         tornado({ id: `${uid}-ptor`, sens: t0, drivers: D, unit: m.unit, dp: m.dp, title: `Tornado: ${m.label}` }),
         legend([['Driver at its low end', C_LOW], ['Driver at its high end', C_HIGH]])));
@@ -918,43 +1224,56 @@
     }
     function copyLink() {
       const url = shareUrl();
-      const shown = () => { copyBox.hidden = false; copyBox.value = url; try { copyBox.focus(); copyBox.select(); } catch { /* old browsers */ } status('Copy the link from the box.'); };
+      const shownBox = () => { copyBox.hidden = false; copyBox.value = url; try { copyBox.focus(); copyBox.select(); } catch { /* old browsers */ } status('Copy the link from the box.'); };
       try {
         if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(() => { copyBox.hidden = true; status('Link to this scenario copied.'); }, shown);
-        } else shown();
-      } catch { shown(); }
+          navigator.clipboard.writeText(url).then(() => { copyBox.hidden = true; status('Link to this scenario copied.'); }, shownBox);
+        } else shownBox();
+      } catch { shownBox(); }
     }
 
-    // ---- update ----
+    // ---- update: the projection, KPIs and the visible fast tab on every frame; the tornado,
+    // grid and breakevens (tens of model runs each) once the sliders rest ----
     function update() {
       const res = E.project(spec, st.ov);
       st.res = res;
       if (res.error) { clear(kpis); kpis.appendChild(h('p', { class: 'mdl-note' }, 'The model couldn’t be run with these settings.')); return; }
+      st.w = E.weighted ? E.weighted(spec, st.ov, st.anchor) : null;
       syncDrivers();
       const id = E.matchScenario(spec, st.ov);
       for (const [sid, b] of chipEls) { const on = sid === id; b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.classList.toggle('on', on); }
       customChip.hidden = !!id;
       const sc = id && scen.find(x => x.id === id);
       scenNote.textContent = sc ? (sc.note ? `${str(sc.name)}: ${str(sc.note)}` : '') : 'Custom: drivers edited by hand.';
-      clear(kpis);
-      for (const k of kpiList(res)) kpis.appendChild(kpiTile(k));
-      renderKeyDrivers();
+      renderKpis(); renderMini();
       for (const [k] of TABS) st.stale.add(k);
-      renderPanel(st.tab);
+      if (!SLOW_TABS.has(st.tab)) renderPanel(st.tab);
       st.enc = E.encodeState(spec, st.ov);
       if (fullLink) fullLink.setAttribute('href', str(links.full) + (st.enc ? `?m=${st.enc}` : ''));
       if (typeof o.onState === 'function') { try { o.onState(st.enc); } catch { /* caller's problem */ } }
+      scheduleSlow();
       clearTimeout(st.snapT);
       st.snapT = setTimeout(renderPrint, 600);
+    }
+    function slow() {
+      clearTimeout(st.slowT); st.slowT = 0;
+      if (!st.alive || !st.res || st.res.error) return;
+      renderKeyDrivers();
+      if (SLOW_TABS.has(st.tab)) renderPanel(st.tab);
     }
 
     decode(o.state);
     update();
+    slow();
+    // a phone opens only the first two driver groups; a shared link also opens the ones it moved
+    if (narrow && drvPanel.querySelectorAll) for (const box of drvPanel.querySelectorAll('details.mdl-group')) {
+      const c = box.querySelector ? box.querySelector('[data-mdl-gcount]') : null;
+      if (c && c.textContent) box.open = true;
+    }
 
     const dispose = () => {
       st.alive = false;
-      clearTimeout(st.snapT); clearTimeout(statusT);
+      clearTimeout(st.snapT); clearTimeout(statusT); clearTimeout(st.slowT);
       if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('beforeprint', onBeforePrint);
       if (root.parentNode) root.parentNode.removeChild(root);
     };

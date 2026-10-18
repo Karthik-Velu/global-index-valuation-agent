@@ -55,6 +55,23 @@
 .mdl-kpi-d { font-size: 11px; font-weight: 600; margin-top: 3px; color: var(--rpt-faint); }
 .mdl-kpi-d.pos { color: var(--rpt-pos); }
 .mdl-kpi-d.neg { color: var(--rpt-neg); }
+.mdl-kpi-d.chg { color: var(--rpt-accent); }
+.mdl-kpi.breach { border-color: #f8717199; }
+.mdl-badge { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; padding: 0 6px; border-radius: 999px;
+  color: var(--rpt-neg); background: #f871711a; border: 1px solid #f8717166; vertical-align: 1px; white-space: nowrap; }
+/* the year the headline figures show */
+.mdl-kyr { display: flex; gap: 4px; margin: 10px 0 -2px; }
+.mdl .mdl-kybtn { font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 10px; border-radius: 6px; color: var(--rpt-dim); background: transparent; border: 1px solid var(--rpt-line); }
+.mdl .mdl-kybtn[aria-pressed="true"] { color: var(--rpt-strong); border-color: var(--rpt-accent); background: #60a5fa1f; }
+/* phone: a compact strip that stays in view while the drivers scroll */
+.mdl-mini { display: none; }
+@media (max-width: 700px) {
+  .mdl-mini { display: flex; flex-wrap: wrap; gap: 2px 12px; position: sticky; top: 0; z-index: 3; margin: 0 -10px 10px; padding: 6px 10px;
+    font-size: 11px; color: var(--rpt-dim); background: var(--rpt-panel); border-bottom: 1px solid var(--rpt-line); }
+  .mdl-mini b { color: var(--rpt-strong); font-size: 12.5px; }
+}
+.mdl-readout { font-size: 12.5px; color: var(--rpt-text); background: var(--rpt-panel2); border: 1px solid var(--rpt-line); border-left: 3px solid var(--rpt-accent);
+  border-radius: 8px; padding: 6px 10px; margin: 2px 0 8px !important; max-width: 90ch; }
 .mdl-keyd { margin: 0 0 14px; }
 .mdl-keyd .rpt-bul { margin-bottom: 6px; }
 
@@ -62,7 +79,7 @@
 .mdl-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .mdl-side, .mdl-main { min-width: 0; }
 @container mdl (min-width: 560px) { .mdl-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@container mdl (min-width: 1000px) { .mdl-kpis { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+
 @container mdl (min-width: 900px) {
   .mdl-body { grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
   .mdl-side { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
@@ -127,6 +144,10 @@
 .mdl-cd { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.2; }
 .mdl-cd.pos { color: var(--rpt-pos); }
 .mdl-cd.neg { color: var(--rpt-neg); }
+.mdl-cd.chg { color: var(--rpt-accent); }
+.mdl-table td.mdl-breach { color: var(--rpt-neg); font-weight: 700; }
+.mdl .mdl-pathsel { max-width: 100%; width: 100%; margin-top: 4px; }
+.mdl-row .mdl-sel-l .mdl-pathsel { width: auto; margin-top: 0; }
 .mdl-sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
 .mdl-grid2 td.mdl-heat { color: var(--rpt-strong); min-width: 4.2em; }
 .mdl-grid2 td.now { outline: 2px solid var(--rpt-strong); outline-offset: -2px; font-weight: 700; }
@@ -179,7 +200,7 @@
 /* print: the controls give way to a static snapshot of the scenario on screen */
 @media print {
   .mdl { border: 0; border-top: 2pt solid #000; border-radius: 0; padding: 6pt 0 0; background: none; }
-  .mdl-live { display: none !important; }
+  .mdl-live, .mdl-mini { display: none !important; }
   .mdl-print { display: block !important; }
   .mdl-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .mdl-kpi, .mdl-scroll { background: none !important; border-radius: 0; }

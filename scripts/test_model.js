@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 // Model engine tests (Node, zero dependencies) for dashboard/model-engine.js against the
 // synthetic Fixture Corp spec (tests/fixtures/models/fxr.json): accounting identities,
-// hand-computed interest, rate pass-through, monotonicity, the stub year, funding-gap
-// dilution, tornado / grid / scenarios, the share-link codec under hostile input,
-// never-throw on malformed specs, determinism, speed and the browser (UMD) load path.
+// hand-computed interest, rate pass-through (contractual margins never move with spreads),
+// rate paths, committed facilities, schedules / issuance / fees, monotonicity, the stub
+// year, depreciation (CIP, lag, re-spread book value), revenue following capex, funding-gap
+// dilution, the cost-of-capital re-rating, convertible dilution, covenants, funded-EV
+// multiples, tornado / grid / breakevens / scenarios and their weighted value, the
+// share-link codec under hostile input, never-throw on malformed specs, determinism, speed
+// and the browser (UMD) load path. The published CoreWeave model's calibration is pinned
+// at the end (checks, presets, the interest stress).
 //
 //   node scripts/test_model.js
 'use strict';
@@ -53,8 +58,8 @@ check('template metadata: required driver ids, groups, kinds, units, rows', () =
   eq(t.drivers.filter(d => d.required).map(d => d.id).sort(), req.slice().sort());
   for (const d of t.drivers) {
     assert(t.groups.includes(d.group), `${d.id}: group`);
-    assert(['shift_pp', 'shift_bp', 'scale_pct', 'scalar'].includes(d.kind), `${d.id}: kind`);
-    assert(['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m'].includes(d.unit), `${d.id}: unit`);
+    assert(['shift_pp', 'shift_bp', 'scale_pct', 'scalar', 'choice'].includes(d.kind), `${d.id}: kind`);
+    assert(['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m', 'path'].includes(d.unit), `${d.id}: unit`);
     assert(d.min <= d.base && d.base <= d.max && d.step > 0 && d.label && d.help, `${d.id}: range/label/help`);
   }
   for (const k of Object.keys(t.rows)) assert(Array.isArray(BASE.rows[k]) && BASE.rows[k].length === N, `row ${k}`);
@@ -154,22 +159,26 @@ check('interest hand-computed: floating term loan + fixed notes', () => {
   near(I['notes-2028'][2], 500 * (0.08 * 0.5 + 0.10 * 0.5), 'notes 2028: matures mid-year, refinanced at 10%');
   near(I['notes-2028'][3], 500 * 0.10, 'notes 2029 at the refinancing rate');
   near(I.ddtl[0], (600 + 500) / 2 * 0.08 * 0.5, 'ddtl H2-2026 on average balance');
-  near(I.ddtl[3], (100 + 0) / 2 * 0.07, 'ddtl 2029 final half-year of amortisation');
+  // time-weighted balance: 100 -> 0 over Jan-Jun 2029, nothing after (avg 25 over the year)
+  near(I.ddtl[3], 100 / 2 * 0.5 * 0.07, 'ddtl 2029 final half-year of amortisation');
   near(Rt['term-loan'][1], 6.5, 'rate_by_tranche %');
   const nd = BASE.rows.new_debt;
   near(I[M.NEW_DEBT_ID][0], 0.10 * nd[0] / 2 * 0.5, 'new debt: half-year convention in the stub');
   near(I[M.NEW_DEBT_ID][1], 0.10 * (nd[0] + nd[0] + nd[1]) / 2, 'new debt 2027 on average pool');
 });
-check('floating tranches move 1:1 with sofr_shift and spread_shift; fixed do not until refinanced', () => {
+check('floating tranches move 1:1 with sofr_shift; spread_shift moves only new and refinanced debt', () => {
   const up = run({ sofr_shift: 100 }).rows.interest_by_tranche, sp = run({ spread_shift: 100 }).rows.interest_by_tranche;
   const b = BASE.rows.interest_by_tranche;
+  near(up['term-loan'][1] - b['term-loan'][1], 1000 * 0.01, 'TL +1% x 1000');
+  near(up['term-loan'][0] - b['term-loan'][0], 1000 * 0.01 * 0.5, 'TL stub half-year');
+  near(up.ddtl[1] - b.ddtl[1], (500 + 300) / 2 * 0.01, 'ddtl +1% on avg balance');
+  near(sp['term-loan'][1], b['term-loan'][1], 'contractual margin: spread shift does not touch it');
+  near(sp.ddtl[1], b.ddtl[1], 'contractual margin (ddtl)');
   for (const S of [up, sp]) {
-    near(S['term-loan'][1] - b['term-loan'][1], 1000 * 0.01, 'TL +1% x 1000');
-    near(S['term-loan'][0] - b['term-loan'][0], 1000 * 0.01 * 0.5, 'TL stub half-year');
-    near(S.ddtl[1] - b.ddtl[1], (500 + 300) / 2 * 0.01, 'ddtl +1% on avg balance');
     near(S['notes-2028'][0], b['notes-2028'][0], 'fixed unchanged (stub)');
     near(S['notes-2028'][1], b['notes-2028'][1], 'fixed unchanged (2027)');
     near(S['notes-2028'][3] - b['notes-2028'][3], 500 * 0.01, 'refinanced notes now reprice');
+    assert(S[M.NEW_DEBT_ID][1] > b[M.NEW_DEBT_ID][1], 'new debt reprices');
   }
   const R = run({ sofr_shift: 100 }).rows;
   near(R.sofr[1], 4.5, 'sofr row shows the shifted path');
@@ -219,7 +228,7 @@ check('shorter useful_life: higher D&A, lower EBIT, unchanged EBITDA', () => {
   }
   assert(tot(s.da) > tot(l.da) && tot(s.ebit) < tot(l.ebit), 'cumulative');
 });
-check('opening.dep_base: existing assets depreciate on it (not gross PP&E); default = gross', () => {
+check('opening.dep_base: existing assets depreciate on it (not gross PP&E); default = gross less CIP', () => {
   const s = spec();
   s.opening.dep_base = 1800;                          // e.g. gross less construction in progress
   const r = M.project(s, {});
@@ -316,8 +325,13 @@ check('valuation: exit EV on exit-year EBITDA, balance sheet at valuation date, 
   near(V.upside_pct, (V.value_per_share / 20 - 1) * 100, 'upside');
   const ev0 = 20 * 100 + (1000 + 500 + 600 - 300);
   near(V.ev_now, ev0, 'EV now');
-  near(R.ev_ebitda[1], ev0 / R.ebitda[1], 'ev/ebitda at price'); near(R.pe[2], 20 / R.eps[2], 'pe at price');
-  near(V.implied_multiples_at_value.ev_ebitda[2], (V.value_per_share * 100 + 1800) / R.ebitda[2], 'multiple at value');
+  // funded EV: price x shares + net debt at the end of the year before (opening for the stub)
+  near(R.ev_ebitda[0], ev0 / R.ebitda[0], 'first year: today\'s EV');
+  near(R.ev_ebitda[1], (20 * R.shares_end[0] + R.net_debt[0]) / R.ebitda[1], 'ev/ebitda at price, funded');
+  near(R.ev_ebitda_static[1], ev0 / R.ebitda[1], 'static EV row kept, labelled');
+  near(R.pe[2], 20 / R.eps[2], 'pe at price');
+  near(V.implied_multiples_at_value.ev_ebitda[2], V.exit_multiple_eff, 'at value, the exit year reproduces the exit multiple');
+  near(V.implied_multiples_at_value.ev_ebitda[1], (V.exit_value_per_share * R.shares_end[0] + R.net_debt[0]) / R.ebitda[1], 'at value, FY27');
   const s = spec(); s.valuation.net_debt_at = 'exit_year_end';
   near(M.project(s, {}).valuation.exit_net_debt, at(BASE, 'net_debt', 2028), 'exit_year_end option');
 });
@@ -428,6 +442,191 @@ check('project: overrides are sanitised (unknown, NaN, Infinity, strings, out of
   for (const ov of [null, undefined, 5, 'x', [1, 2]]) assert(!M.project(FIX, ov).error);
 });
 
+// ---- debt mechanics: schedules, issuance, fees, committed facilities ----
+check('schedule amortisation: per-year principal, spread inside each year; the balance follows', () => {
+  const s = spec(); const t = s.debt.find(x => x.id === 'ddtl');
+  t.amort = 'schedule'; t.schedule = { 2026: 300, 2027: 200, 2028: 100 };
+  const r = M.project(s, {}); assert(!r.error, r.error); eq(r.warnings, []);
+  const D = r.rows.debt_by_tranche.ddtl;
+  eq(D.map(x => Math.round(x)), [300, 100, 0, 0, 0]);
+  eq(r.rows.repayments.map(x => Math.round(x)), [300, 200, 100, 0, 0]);
+  near(r.rows.interest_by_tranche.ddtl[0], (600 + 300) / 2 * 0.08 * 0.5, 'H2-26 on the time-weighted balance');
+});
+check('issued tranches: zero before the date, issue cash in that period, fee_bp is non-cash', () => {
+  const s = spec();
+  s.debt.push({ id: 'conv', name: 'Convert', balance: 400, kind: 'fixed', coupon_pct: 2, fee_bp: 50, maturity: '2031-06', amort: 'bullet',
+    issued: '2026-10-01', issue_cash: 350, issue_equity: -30, secured: false, recourse: true, src: ['s1'] });
+  const r = M.project(s, {}), b = BASE.rows; assert(!r.error, r.error); eq(r.warnings, []);
+  near(r.rows.issued[0], 400, 'principal issued in H2-26'); eq(r.rows.issued.slice(1), [0, 0, 0, 0]);
+  near(r.rows.interest_by_tranche.conv[0], 400 * 0.025 * 3 / 12, 'Oct-Dec only, coupon + fee');
+  near(r.rows.interest_by_tranche.conv[1], 400 * 0.025, 'full year');
+  near(r.rows.interest_noncash[1] - b.interest_noncash[1], 400 * 0.005, 'fee is the non-cash part');
+  near(r.rows.debt_end[1] - r.rows.debt_by_tranche.conv[1], r.rows.debt_end[1] - 400, 'balance 400');
+  // OCF adds the fee back: ΔOCF = ΔNI + Δnon-cash interest
+  const dNi = r.rows.net_income[2] - b.net_income[2], dOcf = r.rows.ocf[2] - b.ocf[2];
+  near(dOcf - dNi, 400 * 0.005, 'fee added back in operating cash flow');
+  near(r.rows.book_equity[0] - b.book_equity[0], -30 + (r.rows.net_income[0] - b.net_income[0]) + (r.rows.new_equity_m[0] - b.new_equity_m[0]),
+    'issue_equity hits book equity');
+  near(r.valuation.net_debt_now, BASE.valuation.net_debt_now, 'not in today\'s net debt');
+});
+check('committed facilities: drawn first at their own terms while open, then new debt', () => {
+  const s = spec();
+  s.funding = { new_debt_secured_pct: 50, committed: [
+    { id: 'rcf', name: 'RCF', amount: 150, kind: 'floating', spread_bp: 200, fee_bp: 25, available_until: '2027-06', maturity: '2030-06', secured: true, src: ['s1'] }] };
+  const r = M.project(s, {}); assert(!r.error, r.error); eq(r.warnings, []);
+  const R = r.rows;
+  near(R.committed_draws[0], Math.min(150, R.new_debt[0]), 'H2-26 draws the facility first');
+  near(R.uncommitted_debt[0], R.new_debt[0] - R.committed_draws[0], 'the rest is new debt');
+  const used = R.committed_draws[0];
+  near(R.interest_by_tranche.rcf[0], (0.04 + 0.02 + 0.0025) * used / 2 * 0.5, 'half-year convention at SOFR + spread + fee');
+  near(R.debt_by_tranche.rcf[1], used + R.committed_draws[1], 'drawn balance carries');
+  if (used >= 150 - 1e-9) eq(R.committed_draws.slice(1).every(x => x === 0), true, 'exhausted');
+  eq(R.committed_draws[2], 0, 'window closed after Jun 2027');
+  near(R.uncommitted_cum[4], R.funding_cum[4] - R.committed_draws.reduce((a, b) => a + b, 0), 'uncommitted = all funding - committed draws');
+  const sec = R.secured_debt[1];
+  near(sec, R.debt_by_tranche['term-loan'][1] + R.debt_by_tranche.ddtl[1] + R.debt_by_tranche.rcf[1] + 0.5 * R.debt_by_tranche[M.NEW_DEBT_ID][1], 'secured debt');
+  // a spread shift leaves the facility's contractual margin alone
+  near(M.project(s, { spread_shift: 200 }).rows.rate_by_tranche.rcf[0], R.rate_by_tranche.rcf[0], 'contractual');
+});
+
+// ---- rates: paths, the new-debt link, shift timing ----
+function rateSpec() {
+  const s = spec();
+  s.rates.alt_paths = [{ id: 'low', name: 'Low path', path: { 2026: 4.0, 2027: 2.5, 2028: 2.25, 2029: 2.0, 2030: 2.0 }, note: 'test', src: ['s2'] }];
+  s.rates.new_debt_ref_year = 2027;
+  s.rates.shift_from = '2026-10';
+  return s;
+}
+check('rate_path: a choice driver (index or id); floating debt and new debt follow the selected path', () => {
+  const s = rateSpec(), d = M.drivers(s).find(x => x.id === 'rate_path');
+  eq([d.kind, d.min, d.max, d.base], ['choice', 0, 1, 0]);
+  eq(d.choices.map(x => x.id), ['base', 'low']);
+  eq(M.ratePaths(s).map(x => x.path[1]), [3.5, 2.5]);
+  const b = M.project(s, {}), lo = M.project(s, { rate_path: 'low' }), lo1 = M.project(s, { rate_path: 1 });
+  eq(JSON.stringify(lo.rows), JSON.stringify(lo1.rows), 'id == index');
+  near(lo.rows.sofr[1], 2.5, 'sofr row'); near(lo.rows.interest_by_tranche['term-loan'][1], 1000 * (0.025 + 0.03), 'floating on the path');
+  near(b.rows.new_debt_rate[1], 10, 'reference year: new_debt_rate as set');
+  near(b.rows.new_debt_rate[2], 10 - 0.25, 'base path 2028 is 25bp below 2027');
+  near(lo.rows.new_debt_rate[1], 10 - 1.0, 'low path: 100bp below the base reference');
+  near(M.project(s, { rate_path: 7 }).overrides.rate_path, 1, 'clamped to the last path');
+  assert(M.project(s, { rate_path: 'nope' }).warnings.some(w => w.includes('unknown choice')));
+});
+check('shift_from: realised months keep the path; shifts start at the month given', () => {
+  const s = rateSpec(), b = M.project(s, {}), up = M.project(s, { sofr_shift: 120, spread_shift: 60 });
+  // H2-26 = Jul..Dec; shifts apply Oct..Dec = half the months
+  near(up.rows.sofr[0] - b.rows.sofr[0], 1.2 * 0.5, 'avg SOFR moves by half the shift');
+  near(up.rows.interest_by_tranche['term-loan'][0] - b.rows.interest_by_tranche['term-loan'][0], 1000 * 0.012 * 3 / 12, 'Oct-Dec only');
+  near(up.rows.new_debt_rate[0] - b.rows.new_debt_rate[0], (1.2 + 0.6) * 0.5, 'new-debt rate: weighted by months');
+  near(up.rows.new_debt_rate[1] - b.rows.new_debt_rate[1], 1.8, 'full shift from 2027');
+});
+check('without new_debt_ref_year the new-debt rate is flat (back-compatible)', () => {
+  eq(BASE.rows.new_debt_rate, [10, 10, 10, 10, 10]);
+});
+
+// ---- depreciation and revenue capacity ----
+check('CIP and in-service lag: CIP is a vintage; new capex depreciates from mid-period + lag', () => {
+  const s = spec(); s.opening.cip = 300;
+  const r = M.project(s, { in_service_lag: 0.5 }); assert(!r.error, r.error); eq(r.warnings, []);
+  const life = 6, R = r.rows;
+  // existing book value = net - cip = 1700 at the base rate (gross - cip) / life = 450
+  near(R.da_existing[0], (3000 - 300) / life * 0.5, 'existing H2-26');
+  near(R.da_new[0], 300 / life * 0.5, 'CIP from the opening date; H2 capex not yet in service');
+  near(R.da_new[1], 300 / life + 500 / life * 0.75, 'H2-26 capex in service from Apr 2027');
+});
+check('useful life re-spreads book value and never depreciates more than exists', () => {
+  const s = spec(); s.opening.dep_nbv = 1500; s.opening.dep_rate = 300;
+  const r3 = M.project(s, { useful_life: 3 }).rows, r6 = M.project(s, {}).rows;
+  near(r6.da_existing[1], 300, 'base life: dep_rate'); near(r3.da_existing[1], 600, 'half the life, twice the rate');
+  near(r3.da_existing.reduce((a, b) => a + b, 0), 1500, 'capped at the book value');
+  assert(r6.da_existing.reduce((a, b) => a + b, 0) <= 1500 + 1e-9);
+});
+check('capex_revenue_link: revenue follows in-service capacity; 0 = ignores capex', () => {
+  const b = run({ capex_revenue_link: 100 }), lo = run({ capex_revenue_link: 100, capex: -30 }), off = run({ capex: -30 });
+  eq(b.rows.capacity_mult.every(x => Math.abs(x - 1) < 1e-12), true, 'base capex: multiplier 1');
+  for (let i = 1; i < N; i++) assert(lo.rows.revenue[i] < b.rows.revenue[i], `less capex, less revenue ${Y[i]}`);
+  eq(off.rows.revenue, BASE.rows.revenue, 'link off: revenue unchanged');
+  assert(lo.rows.capacity_mult[4] < lo.rows.capacity_mult[1], 'the effect builds as vintages enter service');
+});
+check('stub_weight 0 keeps the stub year on its path', () => {
+  const s = spec(); s.drivers.find(d => d.id === 'revenue_growth').stub_weight = 0;
+  const r = M.project(s, { revenue_growth: -10 });
+  near(r.rows.revenue[0], BASE.rows.revenue[0], 'FY2026 unchanged');
+  near(r.rows.revenue[1], BASE.rows.revenue[0] * 1.30, 'FY2027 from the unchanged base, at 40 - 10');
+});
+check('min_tax floor and SBC paid in shares', () => {
+  const r = run({ min_tax: 20, sbc_share_pct: 100 }).rows;
+  for (let i = 0; i < N; i++) assert(r.tax[i] >= 20 * r.proj_frac[i] - 1e-9, `tax floor ${Y[i]}`);
+  near(r.sbc_shares[1], r.sbc[1] / 20, 'SBC / share price');
+  near(r.shares_end[1], r.shares_end[0] * 1.01 + r.new_shares[1] + r.sbc_shares[1], 'shares roll with SBC shares');
+});
+
+// ---- valuation extensions ----
+check('rate_link: the multiple re-rates with the cost of debt and equity; 1 at the defaults', () => {
+  const s = spec(); s.valuation.rate_link = { debt_weight: 0.5, growth_pct: 4 };
+  const b = M.project(s, {}).valuation;
+  near(b.rate_adjustment, 1, 'defaults'); near(b.exit_multiple_eff, 10, 'effective = set');
+  const up = M.project(s, { sofr_shift: 100 }).valuation;
+  // WACC0 = .5 x 10 + .5 x 15 = 12.5; +100bp on debt -> 13.0; (12.5 - 4) / (13 - 4)
+  near(up.rate_adjustment, 8.5 / 9, 'debt +100bp'); near(up.exit_multiple_eff, 10 * 8.5 / 9, 'effective multiple');
+  near(M.project(s, { discount_rate: 17 }).valuation.rate_adjustment, 8.5 / 9.5, 'cost of equity +2pp');
+  assert(up.value_per_share < b.value_per_share);
+});
+check('convertibles: net shares above the cap at the exit price; none below it', () => {
+  const s = spec();
+  s.debt.push({ id: 'cv', name: 'Convert', balance: 300, kind: 'fixed', coupon_pct: 1, maturity: '2031-06', amort: 'bullet',
+    conv_price: 10, cap_price: 15, secured: false, recourse: true, src: ['s1'] });
+  const r = M.project(s, { exit_ev_ebitda: 14 }).valuation; assert(r.exit_value_per_share > 15, String(r.exit_value_per_share));
+  const P = r.exit_value_per_share;
+  near(P * (r.exit_shares + r.conv_shares), r.exit_equity, 'equity = price x (shares + net conversion shares)', 1e-6);
+  near(r.conv_shares, 300 / 10 * (P - 15) / P, 'net shares above the cap');
+  s.debt[s.debt.length - 1].cap_price = 1000;
+  const lo = M.project(s, { exit_ev_ebitda: 14 }).valuation;
+  assert(lo.exit_value_per_share < 1000, String(lo.exit_value_per_share)); eq(lo.conv_shares, 0, 'below the cap: no dilution');
+});
+check('covenants: per-year values, breaches and the first breach year; warnings', () => {
+  const s = spec();
+  s.covenants = [{ id: 'lev', label: 'Leverage', metric: 'gross_debt_ebitda', max: 3, kind: 'covenant', src: ['s1'] },
+    { id: 'cov', label: 'Cover', metric: 'interest_cover', min: 50, kind: 'threshold' }];
+  const r = M.project(s, {}); assert(!r.error, r.error);
+  const [lev, cv] = r.covenants;
+  eq(lev.values, r.rows.gross_debt_ebitda);
+  eq(lev.breach, lev.values.map(v => v > 3));
+  eq(lev.first_breach, lev.breach.indexOf(true) >= 0 ? Y[lev.breach.indexOf(true)] : null);
+  eq(cv.breach.every(Boolean), true); eq(cv.first_breach, 2026);
+  assert(r.warnings.some(w => w.includes('threshold Cover: crossed in FY2026')));
+});
+
+// ---- breakevens + weighted value ----
+check('solve: driver value where the metric hits a target (bisection), null when it never does', () => {
+  const V0 = BASE.valuation.value_per_share;
+  const r = M.solve(FIX, {}, 'exit_ev_ebitda', 'value_per_share', 20);
+  assert(!r.error && r.found, JSON.stringify(r));
+  near(run({ exit_ev_ebitda: r.value }).valuation.value_per_share, 20, 'solves', 1e-3);
+  near(r.at_current, V0, 'value at the current setting');
+  const g = M.solve(FIX, {}, 'revenue_growth', 'gross_debt_ebitda@2027', 4);
+  if (g.found) near(at(run({ revenue_growth: g.value }), 'gross_debt_ebitda', 2027), 4, 'row metric', 1e-3);
+  eq(M.solve(FIX, {}, 'exit_ev_ebitda', 'value_per_share', 1e9).found, false);
+  assert(M.solve(FIX, {}, 'nope', 'value_per_share', 1).error && M.solve(FIX, {}, 'rate_path', 'value_per_share', 1).error);
+});
+check('weighted: probability-weighted value; the viewer\'s edits carry into every scenario', () => {
+  const s = spec(); s.scenarios[0].prob = 50; s.scenarios[1].prob = 30; s.scenarios[2].prob = 20;
+  const w = M.weighted(s, {}, 'base');
+  const v = id => M.project(s, M.applyScenario(s, id)).valuation.value_per_share;
+  near(w.value, 0.5 * v('base') + 0.3 * v('bear') + 0.2 * v('bull'), 'weights');
+  eq(w.rows.map(r => r.id), ['base', 'bear', 'bull']);
+  const w2 = M.weighted(s, { discount_rate: 20 }, 'base');
+  near(w2.rows[1].value, M.project(s, Object.assign(M.applyScenario(s, 'bear'), { discount_rate: 20 })).valuation.value_per_share, 'delta on top');
+  near(M.weighted(s, M.applyScenario(s, 'bear'), 'bear').value, w.value, 'anchored on the chip: no double count');
+  eq(M.weighted(FIX, {}, 'base').value, null, 'no probabilities: no weighted value');
+});
+check('choice drivers travel as ids in the share link', () => {
+  const s = rateSpec(), e = M.encodeState(s, { rate_path: 1 });
+  eq(JSON.parse(Buffer.from(e, 'base64url').toString()).o, { rate_path: 'low' });
+  eq(M.decodeState(s, e).overrides, { rate_path: 1 });
+  const bad = Buffer.from(JSON.stringify({ v: 1, m: 'fxr', o: { rate_path: 'nope', sofr_shift: 'x' } })).toString('base64url');
+  eq(M.decodeState(s, bad).overrides, {});
+});
+
 // ---- robustness ----
 check('never throws on malformed specs; returns {error}', () => {
   const bads = [null, undefined, 0, 'x', [], {}, { v: 1 }, { v: 1, template: 'levered_growth_v1' },
@@ -495,6 +694,40 @@ check('formatValue', () => {
   eq(M.formatValue(25, 'bp', 0, true), '+25 bp'); eq(M.formatValue(7, 'x', 1), '7.0x');
   eq(M.formatValue(61.39, 'US$', 2), 'US$61.39'); eq(M.formatValue(null, '%'), '—'); eq(M.formatValue(NaN, 'x'), '—');
 });
+
+// ---- the published CoreWeave model (dashboard/reports/models/crwv.json) ----
+const CRWV_PATH = path.join(ROOT, 'dashboard', 'reports', 'models', 'crwv.json');
+if (fs.existsSync(CRWV_PATH)) {
+  const C = JSON.parse(fs.readFileSync(CRWV_PATH, 'utf8'));
+  const cr = ov => { const r = M.project(C, ov || {}); assert(!r.error, r.error); return r; };
+  check('crwv: base passes the FY2026 guidance checks; the FY2028 consensus gap shows as a miss', () => {
+    const r = cr(), byKey = Object.fromEntries(r.checks.map(c => [`${c.metric}@${c.year}`, c.pass]));
+    for (const k of ['revenue@2026', 'capex@2026', 'adj_op_income@2026', 'interest@2026', 'ebitda@2026', 'revenue@2027', 'eps@2027'])
+      eq(byKey[k], true, k);
+    eq(byKey['net_income@2028'], false, 'FY28 net income below published estimates is visible');
+    const q3 = (r.rows.interest[0] - C.stub.actuals.interest) / 2;
+    assert(q3 >= 860 && q3 <= 940, `Q3 interest guide ${q3}`);
+  });
+  check('crwv: presets reproduce the report (bear ~US$5, bull above base, restructuring 0); FY2026 held at guidance', () => {
+    const v = id => cr(M.applyScenario(C, id));
+    const bear = v('bear'), bull = v('bull'), res = v('restructuring'), base = cr();
+    assert(bear.valuation.value_per_share > 2 && bear.valuation.value_per_share < 10, String(bear.valuation.value_per_share));
+    assert(bull.valuation.value_per_share > 1.8 * base.valuation.value_per_share);
+    eq(res.valuation.value_per_share, 0);
+    for (const r of [bear, bull]) { near(r.rows.revenue[0], base.rows.revenue[0], 'FY26 revenue'); near(r.rows.capex[0], base.rows.capex[0], 'FY26 capex'); }
+    const w = M.weighted(C, {}, 'base');
+    assert(w.value > 55 && w.value < 75, `weighted ${w.value}`);
+  });
+  check('crwv: the interest stress reaches value; SOFR moves new-debt cost; spreads do not touch existing margins', () => {
+    const base = cr(), up = cr({ sofr_shift: 100 }), sp = cr({ spread_shift: 100 });
+    assert(up.rows.interest[2] - base.rows.interest[2] > 600, 'FY28 interest +100bp');
+    assert(base.valuation.value_per_share - up.valuation.value_per_share > 5, 'value responds to rates');
+    for (const t of C.debt) near(sp.rows.interest_by_tranche[t.id][1], base.rows.interest_by_tranche[t.id][1], `${t.id} contractual`);
+    const fed = cr({ rate_path: 'fed_sep' });
+    near(fed.rows.interest[0], base.rows.interest[0], 'FY26 (realised) unchanged on the Fed path', 1e-2);
+    assert(fed.rows.new_debt_rate[4] < base.rows.new_debt_rate[4] - 0.9, 'new debt follows the path gap by 2030');
+  });
+}
 
 // ---- browser (UMD) load path ----
 check('browser: window.ModelEngine and no other global', () => {

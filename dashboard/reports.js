@@ -539,7 +539,7 @@
           ctl = ReportModel.mount(slot, {
             model: m, report: r, rich: richText(r, base), state: urlState ? route.m : '', standalone: route.view === 'model',
             links: { self: base, full: `#/reports/${route.slug}/model`, report: `#/reports/${route.slug}` },
-            onState: urlState ? enc => syncUrl(base, enc, route.onUrl) : null,
+            onState: urlState ? enc => { syncUrl(base, enc, route.onUrl); if (route.view === 'model') backLink(route.root, route.slug, enc); } : null,
           });
         } catch { slot.appendChild(h('div', { class: 'rpt-chart-na' }, 'The stress-test model couldn’t be displayed.')); return; }
         if (typeof ctl === 'function') {
@@ -548,6 +548,11 @@
         }
       });
     });
+  }
+  // The full-width model page's "Back to the report" carries the model's current state.
+  function backLink(root, slug, enc) {
+    const a = root && root.querySelector ? root.querySelector('a.rpt-back') : null;
+    if (a) a.setAttribute('href', `#/reports/${slug}` + (enc && MODEL_STATE_RE.test(enc) ? `?m=${enc}` : ''));
   }
   // The model's state, written into the route's query in place (no hashchange, no history
   // entry) — only while the route is still this page.
@@ -641,6 +646,8 @@
       for (const ctl of S.models) if (ctl.getState && ctl.getState() !== m) ctl.setState(m);
       return Promise.resolve();
     }
+    // back from the full-width model (or a shared ?m link): land on the model block, not the top
+    const toModel = view === 'report' && (S.shown === `model:${s}` || !!m);
     unmount();
     const seq = S.seq;
     shown(`${view}:${s}`);
@@ -660,7 +667,12 @@
       el.appendChild(out.el);
       setReportMode(r);
       for (const fn of out.charts) fn();
-      if (out.models.length) mountModels(out.models, r, { slug: s, view, m, onUrl: o.onUrl }, seq);
+      if (view === 'model') backLink(out.el, s, m);
+      if (toModel && out.models.length) {
+        const fig = out.el.querySelector ? out.el.querySelector('.rpt-model') : null;
+        if (fig && fig.scrollIntoView) { try { fig.scrollIntoView({ block: 'start' }); } catch { fig.scrollIntoView(); } }
+      }
+      if (out.models.length) mountModels(out.models, r, { slug: s, view, m, onUrl: o.onUrl, root: out.el }, seq);
     });
   }
 

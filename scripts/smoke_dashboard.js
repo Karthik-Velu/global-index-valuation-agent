@@ -1071,13 +1071,13 @@ async function main() {
       await a.page.click('.mdl [data-mdl-copy]');
       await a.page.waitForFunction(() => /copied|Copy the link/.test(document.querySelector('.mdl-status').textContent));
       // every tab draws; the tornado + grid render on the Sensitivity tab
-      for (const t of ['debt', 'sens', 'val', 'cal', 'pl']) {
+      for (const t of ['debt', 'sens', 'be', 'val', 'cal', 'pl']) {
         await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
         await settle(a.page, 150);
         assert.strictEqual(await a.page.$eval(`.mdl [data-mdl-panel="${t}"]`, p => !p.hidden && p.childElementCount > 0), true, `tab ${t}`);
         if (t === 'debt') {
           assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] svg title'), 'rate chart');
-          assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Predicted rate path.*Interest expense by tranche.*Q3 2026 interest expense guide.*Debt maturity ladder.*Debt stack/);
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Predicted rate paths.*\+100bp on SOFR.*Interest expense by tranche.*Q3 2026 interest expense guide.*Funding the gap.*Leverage & coverage by year.*Debt maturity ladder.*Debt stack/);
           assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] path.mdl-mark'), 'guide marker on the stub year');
           await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_debt.png') });
         }
@@ -1090,14 +1090,24 @@ async function main() {
           await a.page.selectOption('.mdl select[aria-label="Grid metric"]', 'interest');
           await settle(a.page, 200);
           assert.strictEqual(await a.page.$eval('.mdl select[aria-label="Grid columns driver"]', s => s.value), 'sofr_shift');
-          assert.strictEqual(await a.page.$eval('.mdl select[aria-label="Grid rows driver"]', s => s.value), 'spread_shift');
+          assert.strictEqual(await a.page.$eval('.mdl select[aria-label="Grid rows driver"]', s => s.value), 'new_debt_rate');
           await a.page.selectOption('.mdl select[aria-label="Tornado metric"]', 'interest');
           await settle(a.page, 200);
           assert.match(await a.page.$eval('.mdl svg.mdl-tornado title', t => t.textContent), /interest/);
+          // a metric / year change by keyboard keeps focus on the select (the panel re-renders)
+          await a.page.focus('.mdl select[aria-label="Tornado year"]');
+          await a.page.keyboard.press('ArrowDown');
+          await settle(a.page, 200);
+          assert.strictEqual(await a.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('aria-label')), 'Tornado year', 'focus kept on the select');
+          assert.match(await a.page.$eval('.mdl svg.mdl-tornado title', t => t.textContent), /FY2028E interest/);
           await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_sens.png') });
         }
+        if (t === 'be') {
+          await a.page.waitForFunction(() => [...document.querySelectorAll('.mdl [data-mdl-be]')].every(c => c.textContent !== '…'));
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="be"]'), /Priced in at US\$20\.00.*Price implies.*Exit EV\/EBITDA/);
+        }
         if (t === 'val') {
-          assert.match(await text(a.page, '.mdl [data-mdl-panel="val"]'), /Implied forward multiples.*at US\$20\.00 price.*model value.*Exit valuation bridge.*value per share today/);
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="val"]'), /Forward multiples \(funded EV\).*at US\$20\.00 price.*value at 2027-12-31.*Today’s EV \/ future EBITDA.*Exit valuation bridge.*value per share today/);
           await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_val.png') });
         }
         if (t === 'cal') assert.match(await text(a.page, '.mdl [data-mdl-panel="cal"]'), /✗ outside/, 'the deliberate miss shows');
@@ -1149,8 +1159,12 @@ async function main() {
       await a.page.evaluate(() => closeDrawer());
       await settle(a.page, 300);
       assert.strictEqual(await a.page.evaluate(() => location.hash), hNow, 'drawer close restores the model state');
+      // back to the report keeps the scenario and lands on the model block
       await a.page.click('.rpt-modelpage .rpt-back');
       await a.page.waitForSelector('#view-reports .rpt-report:not(.rpt-modelpage) .mdl [data-mdl-kpi="interest"]');
+      assert.strictEqual(await a.page.evaluate(() => location.hash), hNow.replace('/model?', '?'), 'back link carries ?m');
+      assert.strictEqual(await a.page.$eval('.mdl input[data-mdl-driver="sofr_shift"]', e => e.value), '-100', 'scenario kept');
+      assert.ok(await a.page.evaluate(() => { const r = document.querySelector('.rpt-model').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }), 'model block in view');
       await go(a.page, '#/reports/fxr/oops');
       await a.page.waitForFunction(() => /Report not found/.test(document.getElementById('view-reports').textContent));
       noErrors(a);
@@ -1163,7 +1177,7 @@ async function main() {
       for (const route of ['#/reports/fxr', '#/reports/fxr/model']) {
         await go(a.page, route);
         await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
-        for (const t of ['pl', 'debt', 'sens', 'val', 'cal']) {
+        for (const t of ['pl', 'debt', 'sens', 'be', 'val', 'cal']) {
           await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
           await settle(a.page, 200);
           assert.ok(await noHScroll(a.page), `${route} tab ${t} scrolls horizontally at 360 px`);
@@ -1235,6 +1249,34 @@ async function main() {
           noErrors(a);
           await a.ctx.close();
         }
+        // The CoreWeave model: weighted value, covenant badges, the year toggle, rate paths, breakevens.
+        const m = await newCtx(browser, NEW, { viewport: { width: 1280, height: 900 } });
+        await boot(m, NEW, '#/reports/crwv/model');
+        await m.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="weighted"]', { timeout: 15000 });
+        assert.strictEqual(await m.page.$$eval('.mdl .mdl-kpi', k => k.length), 8, 'eight headline KPIs with the weighted value');
+        assert.match(await text(m.page, '.mdl [data-mdl-kpi="weighted"]'), /Probability-weighted value.*Restructuring 15%.*Bear 40%.*Base 35%.*Bull 10%/);
+        const iBase = money(await kpi(m.page, 'interest'));
+        await m.page.selectOption('.mdl select.mdl-pathsel[data-mdl-driver="rate_path"]', { label: 'Fed projections (Sep 2026 SEP median)' });
+        await settle(m.page, 400);
+        assert.ok(money(await kpi(m.page, 'interest')) < iBase, 'the Fed path lowers FY2027E interest');
+        assert.match(await m.page.evaluate(() => location.hash), /^#\/reports\/crwv\/model\?m=/);
+        await m.page.click('.mdl [data-mdl-scen="bear"]');
+        await settle(m.page, 400);
+        await m.page.click('.mdl [data-mdl-ky="2028"]');
+        await settle(m.page, 200);
+        assert.match(await text(m.page, '.mdl [data-mdl-kpi="gross_debt_ebitda"]'), /FY2028E total debt \/ EBITDA.*Breach FY28E/, 'bear FY28 leverage above the 6.0x cap');
+        assert.strictEqual(await m.page.$eval('.mdl [data-mdl-kpi="gross_debt_ebitda"]', e => e.classList.contains('breach')), true);
+        await m.page.click('.mdl [data-mdl-tab="debt"]');
+        await settle(m.page, 300);
+        assert.match(await text(m.page, '.mdl [data-mdl-panel="debt"]'), /Fed projections.*Re-hike.*Funding the gap.*DDTL 4\.0 undrawn.*First year each limit is crossed/);
+        await m.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_crwv_debt.png') });
+        await m.page.click('.mdl [data-mdl-reset]');
+        await m.page.click('.mdl [data-mdl-tab="be"]');
+        await m.page.waitForFunction(() => { const c = [...document.querySelectorAll('.mdl [data-mdl-be]')]; return c.length && c.every(x => x.textContent !== '…'); }, null, { timeout: 15000 });
+        assert.match(await m.page.$eval('.mdl [data-mdl-be="exit_ev_ebitda"]', c => c.textContent), /^\d+\.\dx$/, 'price-implied exit multiple');
+        await m.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_crwv_be.png') });
+        noErrors(m);
+        await m.ctx.close();
         // Tailwind CDN blocked: the report still sits on its own dark background.
         const c = await newCtx(browser, NEW, { cdn: false });
         await boot(c, NEW, '#/reports/crwv');
