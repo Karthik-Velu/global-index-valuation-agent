@@ -10,7 +10,8 @@
 //    the page as text nodes, and only whitelisted attributes / https: links come out;
 //  - the stress-test model behind a {"type":"model","src":"<slug>"} block: its file
 //    (dashboard/reports/models/<src>.json; the fixture's in tests/fixtures/models/) against
-//    MODEL SPEC v1 + the template's driver ids, citations against the PARENT report's sources;
+//    MODEL SPEC v1 + the template's driver ids, the v2 sections (revenue_model capacity_v1,
+//    events, hedges, watchlist), citations against the PARENT report's sources;
 //    the lazy mount wiring (assets loaded once, model fetched, state passed through);
 //  - wiring: index.html loads it, .vercelignore does not drop dashboard/reports.
 //
@@ -274,12 +275,21 @@ const modelBlocks = r => (Array.isArray(r && r.sections) ? r.sections : []).flat
 // template driver present with the template's kind, ranges coherent, scenarios on known
 // drivers, every citation in the PARENT report's sources, and a share price that cites one.
 const MODEL_KEYS = ['v', 'slug', 'template', 'currency', 'unit', 'asof', 'years', 'prior', 'stub', 'opening', 'debt', 'rates',
-  'funding', 'drivers', 'scenarios', 'valuation', 'covenants', 'consensus', 'checks', 'guides', '_comment'];
+  'funding', 'drivers', 'scenarios', 'valuation', 'covenants', 'consensus', 'checks', 'guides', 'revenue_model', 'events', 'hedges', 'watchlist', 'regimes', 'uncertainty', '_comment'];
 const DRIVER_KEYS = ['id', 'label', 'group', 'kind', 'unit', 'base', 'min', 'max', 'step', 'path', 'low', 'high', 'help', 'src', 'dp', 'stub_weight'];
 const TRANCHE_KEYS = ['id', 'name', 'balance', 'kind', 'coupon_pct', 'spread_bp', 'fee_bp', 'maturity', 'amort', 'schedule', 'amort_start',
   'issued', 'issue_cash', 'issue_equity', 'conv_price', 'cap_price', 'secured', 'recourse', 'src', 'note'];
-const FACILITY_KEYS = ['id', 'name', 'amount', 'kind', 'coupon_pct', 'spread_bp', 'fee_bp', 'available_until', 'maturity', 'secured', 'src', 'note'];
+const FACILITY_KEYS = ['id', 'name', 'amount', 'kind', 'coupon_pct', 'spread_bp', 'fee_bp', 'available_until', 'maturity', 'secured', 'amortises', 'src', 'note'];
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const SNAKE_RE = /^[a-z][a-z0-9_]{0,39}$/;                 // driver / event / customer ids
+const RM_KEYS = ['kind', 'note', 'src', 'opening', 'adjust_from', 'billing_lag_months', 'max_delay_months', 'delay_capex_ahead', 'contract_years', 'active_mw_path', 'utilization', 'revenue_per_mw',
+  'renewing_share', 'renewal_price_reset', 'renewal_churn', 'capex', 'cost_of_revenue', 'extra_capacity', 'backlog', 'customers', 'backstop', 'self_build', 'leases', 'sites'];
+const EVENT_KEYS = ['id', 'kind', 'label', 'short_label', 'mechanism', 'prob', 'prob_note', 'from', 'until', 'group', 'impacts', 'indicators', 'src', 'note'];
+const HEDGE_KEYS = ['id', 'name', 'tranche', 'type', 'notional', 'ratio', 'fixed_rate', 'rate_estimated', 'start', 'maturity', 'amortises_with_tranche', 'notional_eur', 'usd_rate_est',
+  'required', 'src', 'note'];
+const WATCH_KEYS = ['id', 'label', 'metric', 'unit', 'dp', 'threshold', 'direction', 'signal', 'latest', 'informs', 'note', 'src'];
+// the engine's text caps (model-engine.js CAPS): published text must fit, never be truncated
+const TEXT_CAPS = { label: 160, help: 1200, mechanism: 1200, prob_note: 900, indicator: 300, watch_note: 600, latest_note: 600, scenario_note: 900, short_label: 26 };
 function validateModel(m, report, { file } = {}) {
   const errs = [];
   const err = (where, msg) => errs.push(`${where}: ${msg}`);
@@ -329,7 +339,10 @@ function validateModel(m, report, { file } = {}) {
     if (pct) for (const y of ys) if (isNum(p[y]) && (p[y] < -100 || p[y] > 1000)) err(where, `path: ${y} = ${p[y]} looks wrong`);
   };
 
-  // drivers: exactly the template's, with its kind; ranges coherent
+  // drivers: exactly the template's, with its kind; ranges coherent. With a revenue_model the
+  // growth-path drivers (revenue_growth, capex_revenue_link, capex, cost_of_revenue_pct) are
+  // replaced by the capacity drivers; without one the capacity drivers mean nothing.
+  const capMode = m.revenue_model !== undefined;
   const tplById = new Map(tpl.drivers.map(d => [d.id, d]));
   const seen = new Set();
   (Array.isArray(m.drivers) ? m.drivers : []).forEach((d, i) => {
@@ -338,20 +351,24 @@ function validateModel(m, report, { file } = {}) {
     for (const k of Object.keys(d)) if (!DRIVER_KEYS.includes(k)) err(w, `unknown key "${k}"`);
     const t = tplById.get(d.id);
     if (!t) { err(w, `"${d.id}" is not a ${tpl.id} driver`); return; }
+    if (t.mode === 'growth' && capMode) err(w, `${d.id} is a growth-path driver: not allowed with a revenue_model (revenue is built from capacity drivers)`);
+    if (t.mode === 'capacity' && !capMode) err(w, `${d.id} needs a revenue_model (capacity_v1)`);
     if (seen.has(d.id)) err(w, 'duplicate id');
     seen.add(d.id);
     if (d.kind !== t.kind) err(w, `kind must be ${t.kind} (the template's semantics)`);
     if (!tpl.groups.includes(d.group)) err(w, `group must be one of ${tpl.groups.join(' | ')}`);
-    if (t.kind === 'choice') {             // a picker over rates.path + rates.alt_paths: index 0..n
-      const n = isObj(m.rates) && Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths.length : 0;
-      if (d.unit !== 'path' || d.base !== 0 || d.min !== 0 || d.max !== n || d.step !== 1) err(w, `a choice driver is {unit: "path", base: 0, min: 0, max: ${n} (alt paths), step: 1}`);
+    if (t.kind === 'choice') {             // a picker over rates.path + rates.alt_paths (or rates.shift_options): index 0..n
+      const shift = t.choice_set === 'shift';
+      const n = isObj(m.rates) && Array.isArray(shift ? m.rates.shift_options : m.rates.alt_paths) ? (shift ? m.rates.shift_options : m.rates.alt_paths).length : 0;
+      if (d.unit !== 'path' || d.base !== 0 || d.min !== 0 || d.max !== n || d.step !== 1) err(w, `a choice driver is {unit: "path", base: 0, min: 0, max: ${n} (${shift ? 'shift options' : 'alt paths'}), step: 1}`);
       if (d.low != null || d.high != null || d.path !== undefined || d.stub_weight !== undefined) err(w, 'a choice driver takes no low/high/path/stub_weight');
       if (!isStr(d.label) || !isStr(d.help)) err(w, 'label and help required');
       return;
     }
     if (d.stub_weight !== undefined && (!isNum(d.stub_weight) || d.stub_weight < 0 || d.stub_weight > 1 || !['shift_pp', 'shift_bp', 'scale_pct'].includes(t.kind))) err(w, 'stub_weight must be 0–1, on a shift/scale driver');
-    if (!['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m'].includes(d.unit)) err(w, 'unit must be pp | bp | % | x | yrs | US$ | US$m');
+    if (!['pp', 'bp', '%', 'x', 'yrs', 'US$', 'US$m', 'months', 'MW'].includes(d.unit)) err(w, 'unit must be pp | bp | % | x | yrs | US$ | US$m | months | MW');
     if (!isStr(d.label) || !isStr(d.help)) err(w, 'label and help required');
+    for (const k of ['label', 'help']) if (isStr(d[k]) && d[k].length > TEXT_CAPS[k]) err(w, `${k} is ${d[k].length} characters (the engine keeps ${TEXT_CAPS[k]})`);
     for (const k of ['base', 'min', 'max', 'step']) if (!isNum(d[k])) err(w, `${k} must be a number`);
     if (isNum(d.min) && isNum(d.max)) {
       if (d.min >= d.max) err(w, 'min must be < max');
@@ -364,7 +381,7 @@ function validateModel(m, report, { file } = {}) {
     if (t.kind === 'shift_pp' || t.kind === 'scale_pct') path0(d.path, w, { pct: t.kind === 'shift_pp' });
     else if (d.path !== undefined) err(w, `a ${t.kind} driver takes no path`);
   });
-  for (const t of tpl.drivers) if (t.required && !seen.has(t.id)) err('drivers', `missing ${t.id}`);
+  for (const t of tpl.drivers) if ((capMode ? (t.required && t.mode !== 'growth') || t.cap_required : t.required && t.mode !== 'capacity') && !seen.has(t.id)) err('drivers', `missing ${t.id}`);
   const sp = (Array.isArray(m.drivers) ? m.drivers : []).find(d => d && d.id === 'share_price');
   if (sp && (!Array.isArray(sp.src) || !sp.src.length)) err('drivers (share_price)', 'a published price must cite a public source (src)');
   if (sp && !(sp.base > 0)) err('drivers (share_price)', 'base must be the cited close (> 0)');
@@ -375,7 +392,18 @@ function validateModel(m, report, { file } = {}) {
   else m.scenarios.forEach((s, i) => {
     const w = `scenarios[${i}]`;
     if (!isObj(s)) { err(w, 'not an object'); return; }
-    for (const k of Object.keys(s)) if (!['id', 'name', 'values', 'note', 'prob'].includes(k)) err(w, `unknown key "${k}"`);
+    for (const k of Object.keys(s)) if (!['id', 'name', 'values', 'events', 'note', 'prob', 'representative'].includes(k)) err(w, `unknown key "${k}"`);
+    if (s.representative !== undefined && typeof s.representative !== 'boolean') err(w, 'representative must be a boolean (a point of the outcome distribution)');
+    if (isStr(s.note) && s.note.length > TEXT_CAPS.scenario_note) err(w, `note is ${s.note.length} characters (the engine keeps ${TEXT_CAPS.scenario_note})`);
+    if (s.events !== undefined) {
+      const evs = Array.isArray(m.events) ? m.events.filter(isObj) : [], groups = new Set();
+      if (!Array.isArray(s.events)) err(w, 'events must be a list of event ids');
+      else for (const id of s.events) {
+        const e = evs.find(x => x.id === id);
+        if (!e) { err(w, `events: "${id}" is not an event`); continue; }
+        if (e.group) { if (groups.has(e.group)) err(w, `events: two events of group ${e.group}`); groups.add(e.group); }
+      }
+    }
     if (s.prob !== undefined && (!isNum(s.prob) || s.prob < 0 || s.prob > 100)) err(w, 'prob must be a percentage 0–100');
     if (!isStr(s.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(s.id)) err(w, 'id must be lower-case');
     else if (sIds.has(s.id)) err(w, `duplicate id ${s.id}`);
@@ -386,7 +414,9 @@ function validateModel(m, report, { file } = {}) {
       const d = (m.drivers || []).find(x => x && x.id === k);
       if (!d) { err(w, `values: "${k}" is not a driver`); continue; }
       if (d.kind === 'choice') {
-        const ids = [isObj(m.rates) && m.rates.base_id || 'base'].concat(isObj(m.rates) && Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths.map(p => p && p.id) : []);
+        const shift = (tplById.get(k) || {}).choice_set === 'shift';
+        const ids = shift ? [isObj(m.rates) && m.rates.shift_id || 'now'].concat(isObj(m.rates) && Array.isArray(m.rates.shift_options) ? m.rates.shift_options.map(p => p && p.id) : [])
+          : [isObj(m.rates) && m.rates.base_id || 'base'].concat(isObj(m.rates) && Array.isArray(m.rates.alt_paths) ? m.rates.alt_paths.map(p => p && p.id) : []);
         if (!ids.includes(v)) err(w, `values: ${k} must be one of ${ids.join(' | ')}`);
         continue;
       }
@@ -443,7 +473,15 @@ function validateModel(m, report, { file } = {}) {
   if (!isObj(m.rates)) err('rates', 'required object');
   else {
     path0(m.rates.path, 'rates'); if (!isStr(m.rates.note)) err('rates', 'note required (how the path was derived, dated)');
-    for (const k of Object.keys(m.rates)) if (!['base_name', 'base_id', 'base_label', 'path', 'alt_paths', 'new_debt_sofr_beta', 'new_debt_ref_year', 'shift_from', 'src', 'note'].includes(k)) err('rates', `unknown key "${k}"`);
+    for (const k of Object.keys(m.rates)) if (!['base_name', 'base_id', 'base_label', 'path', 'alt_paths', 'new_debt_sofr_beta', 'new_debt_ref_year', 'shift_from', 'shift_id', 'shift_label', 'shift_options', 'src', 'note'].includes(k)) err('rates', `unknown key "${k}"`);
+    if (m.rates.shift_options !== undefined) {
+      const so = Array.isArray(m.rates.shift_options) ? m.rates.shift_options : [null], sid = new Set([m.rates.shift_id || 'now']);
+      if (!isStr(m.rates.shift_label)) err('rates', 'shift_label (what the shift month means) required with shift_options');
+      so.forEach((p, i) => {
+        if (!isObj(p) || !isStr(p.id) || !/^[a-z][a-z0-9_]{0,39}$/.test(p.id) || sid.has(p.id) || !isStr(p.name) || !MONTH_RE.test(String(p.from))) err(`rates.shift_options[${i}]`, '{id (unique, lower-case), name, from: YYYY-MM} required');
+        else sid.add(p.id);
+      });
+    }
     if (m.rates.new_debt_ref_year !== undefined && !years.includes(m.rates.new_debt_ref_year)) err('rates', 'new_debt_ref_year must be a model year');
     if (m.rates.shift_from !== undefined && !MONTH_RE.test(String(m.rates.shift_from))) err('rates', 'shift_from must be YYYY-MM');
     const pids = new Set([m.rates.base_id || 'base']);
@@ -461,7 +499,11 @@ function validateModel(m, report, { file } = {}) {
     const F = m.funding;
     if (!isObj(F)) err('funding', 'must be an object');
     else {
-      for (const k of Object.keys(F)) if (!['committed', 'new_debt_secured_pct', 'src', 'note'].includes(k)) err('funding', `unknown key "${k}"`);
+      for (const k of Object.keys(F)) if (!['committed', 'new_debt_secured_pct', 'new_debt_amort_years', 'when_short', 'shortfall_penalty_pp', 'src', 'note'].includes(k)) err('funding', `unknown key "${k}"`);
+      if (F.when_short !== undefined && !['record', 'defer_build'].includes(F.when_short)) err('funding', 'when_short must be record | defer_build');
+      if (F.when_short === 'defer_build' && !capMode) err('funding', 'when_short "defer_build" needs a revenue_model (it defers MW)');
+      if (F.shortfall_penalty_pp !== undefined && (!isNum(F.shortfall_penalty_pp) || F.shortfall_penalty_pp < 0 || F.shortfall_penalty_pp > 50)) err('funding', 'shortfall_penalty_pp must be 0–50');
+      if (F.new_debt_amort_years !== undefined && (!isNum(F.new_debt_amort_years) || F.new_debt_amort_years < 0 || F.new_debt_amort_years > 30)) err('funding', 'new_debt_amort_years must be 0–30');
       if (F.new_debt_secured_pct !== undefined && (!isNum(F.new_debt_secured_pct) || F.new_debt_secured_pct < 0 || F.new_debt_secured_pct > 100)) err('funding', 'new_debt_secured_pct must be 0–100');
       (Array.isArray(F.committed) ? F.committed : []).forEach((x, i) => {
         const w = `funding.committed[${i}]${x && x.id ? ` (${x.id})` : ''}`;
@@ -473,9 +515,12 @@ function validateModel(m, report, { file } = {}) {
         if (!MONTH_RE.test(String(x.available_until)) || !MONTH_RE.test(String(x.maturity))) err(w, 'available_until and maturity must be YYYY-MM');
         if (x.kind === 'fixed' ? !isNum(x.coupon_pct) : x.kind === 'floating' ? !isNum(x.spread_bp) : true) err(w, 'kind fixed (coupon_pct) | floating (spread_bp)');
         if (typeof x.secured !== 'boolean' || !Array.isArray(x.src)) err(w, 'secured (boolean) and src required');
+        if (x.amortises !== undefined && typeof x.amortises !== 'boolean') err(w, 'amortises must be a boolean (repaid to maturity once the draw period ends)');
       });
     }
   }
+
+  validateV2(m, { err, isObj, isNum, isStr, years, ys, tpl, tIds, capMode });
 
   // valuation, checks, guides
   const v = m.valuation;
@@ -519,6 +564,324 @@ function validateModel(m, report, { file } = {}) {
   for (const x of vs.warnings) err('engine warning', x);
   if (vs.ok) { const r = ME.project(m, {}); if (r.error) err('engine', r.error); }
   return errs;
+}
+
+// MODEL v2 sections: revenue_model (capacity_v1), events, hedges, watchlist.
+function validateV2(m, { err, isObj, isNum, isStr, years, ys, tpl, tIds, capMode }) {
+  const inR = (x, lo, hi) => isNum(x) && x >= lo && x <= hi;
+  const yearPath = (p, where, lo, hi, { need = true, extra } = {}) => {
+    if (p === undefined && !need) return;
+    if (!isObj(p)) { err(where, `must be {"<year>": number} covering ${ys[0]}–${ys[ys.length - 1]}`); return; }
+    for (const y of ys) if (!isNum(p[y])) err(where, `${y} missing or not a number`);
+    for (const [k, x] of Object.entries(p)) {
+      if (!ys.includes(k) && !(extra && extra(k))) err(where, `${k} is not a model year`);
+      else if (!inR(x, lo, hi)) err(where, `${k} = ${x} outside [${lo}, ${hi}]`);
+    }
+  };
+  const mIdx = s => (MONTH_RE.test(String(s)) ? +String(s).slice(0, 4) * 12 + +String(s).slice(5, 7) : null);
+  const first = years[0] * 12 - 11, last = years[years.length - 1] * 12 + 12;   // Jan of the first model year .. Dec of the last
+  const R = m.revenue_model, custIds = new Set();
+  if (R !== undefined) {
+    const w = 'revenue_model';
+    if (!isObj(R)) { err(w, 'must be an object'); return; }
+    for (const k of Object.keys(R)) if (!RM_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    if (R.kind !== 'capacity_v1') err(w, 'kind must be "capacity_v1"');
+    if (!Array.isArray(R.src)) err(w, 'src required');
+    const op = R.opening;
+    if (!isObj(op) || op.date !== (isObj(m.opening) ? m.opening.date : null) || !inR(op.active_mw, 0, 1e6) || (op.contracted_mw !== undefined && !inR(op.contracted_mw, 0, 1e6)) || !Array.isArray(op.src))
+      err(`${w}.opening`, '{date: <opening.date>, active_mw, contracted_mw?, src} required');
+    if (R.adjust_from !== undefined && !MONTH_RE.test(String(R.adjust_from))) err(w, 'adjust_from must be YYYY-MM');
+    if (R.billing_lag_months !== undefined && !inR(R.billing_lag_months, 0, 12)) err(w, 'billing_lag_months must be 0–12');
+    if (R.max_delay_months !== undefined && !inR(R.max_delay_months, 0, 36)) err(w, 'max_delay_months must be 0–36');
+    if (R.delay_capex_ahead !== undefined && !inR(R.delay_capex_ahead, 0, 1)) err(w, 'delay_capex_ahead must be a share 0–1 (GPU capex spent on the original schedule)');
+    if (R.contract_years !== undefined && !inR(R.contract_years, 1, 15)) err(w, 'contract_years must be 1–15');
+    if (isObj(op) && (op.contracted_mw_latest !== undefined || op.contracted_latest_date !== undefined) && !(inR(op.contracted_mw_latest, 0, 1e6) && validDate(String(op.contracted_latest_date || ''))))
+      err(`${w}.opening`, 'contracted_mw_latest and contracted_latest_date (YYYY-MM-DD) go together');
+    // active MW: year-ends for every model year (+ optional month-ends), never falling
+    const P = R.active_mw_path;
+    if (!isObj(P)) err(`${w}.active_mw_path`, 'required: {"<year>": year-end MW, "<YYYY-MM>": month-end MW}');
+    else {
+      for (const y of ys) if (!isNum(P[y])) err(`${w}.active_mw_path`, `"${y}" (year-end active MW) missing`);
+      const pts = [];
+      for (const [k, x] of Object.entries(P)) {
+        const mi = /^\d{4}$/.test(k) ? +k * 12 + 12 : mIdx(k);
+        if (mi === null || mi < first - 24 || mi > last) err(`${w}.active_mw_path`, `${k} is not a model year or a YYYY-MM month in range`);
+        else if (!inR(x, 0, 1e6)) err(`${w}.active_mw_path`, `${k} = ${x} must be MW >= 0`);
+        else pts.push([mi, x]);
+      }
+      if (isObj(op) && isNum(op.active_mw)) pts.push([mIdx(String(op.date).slice(0, 7)), op.active_mw]);
+      pts.sort((a, b) => a[0] - b[0]);
+      for (let i = 1; i < pts.length; i++) if (pts[i][1] < pts[i - 1][1] - 1e-9) err(`${w}.active_mw_path`, 'active MW must not fall over time (the engine never de-energises capacity)');
+    }
+    yearPath(R.utilization, `${w}.utilization`, 0, 1);
+    yearPath(R.revenue_per_mw, `${w}.revenue_per_mw`, 0, 1000, { extra: k => /^\d{4}-?Q[1-4]$/.test(k) && ys.includes(k.slice(0, 4)) });
+    yearPath(R.renewing_share, `${w}.renewing_share`, 0, 1, { need: false });
+    yearPath(R.renewal_price_reset, `${w}.renewal_price_reset`, -1, 1, { need: false });
+    yearPath(R.renewal_churn, `${w}.renewal_churn`, 0, 1, { need: false });
+    const CX = R.capex;
+    if (!isObj(CX)) err(`${w}.capex`, 'required: {capex_per_mw: path, lead_months?, maintenance_capex_pct?}');
+    else {
+      for (const k of Object.keys(CX)) if (!['capex_per_mw', 'lead_months', 'maintenance_capex_pct', 'unsold_capex_share', 'note', 'src'].includes(k)) err(`${w}.capex`, `unknown key "${k}"`);
+      if (CX.unsold_capex_share !== undefined && !inR(CX.unsold_capex_share, 0, 1)) err(`${w}.capex`, 'unsold_capex_share must be a share 0–1');
+      yearPath(CX.capex_per_mw, `${w}.capex.capex_per_mw`, 0, 1000);
+      if (CX.lead_months !== undefined && !inR(CX.lead_months, -12, 12)) err(`${w}.capex`, 'lead_months must be -12–12');
+      if (CX.maintenance_capex_pct !== undefined && !inR(CX.maintenance_capex_pct, 0, 0.5)) err(`${w}.capex`, 'maintenance_capex_pct must be a share 0–0.5');
+    }
+    const CR = R.cost_of_revenue;
+    if (!isObj(CR)) err(`${w}.cost_of_revenue`, 'required: {cor_per_mw: path, rent_share?, power_share?, power_exposed?, cor_other_pct?}');
+    else {
+      for (const k of Object.keys(CR)) if (!['cor_per_mw', 'rent_share', 'power_share', 'power_exposed', 'cor_other_pct', 'note', 'src'].includes(k)) err(`${w}.cost_of_revenue`, `unknown key "${k}"`);
+      yearPath(CR.cor_per_mw, `${w}.cost_of_revenue.cor_per_mw`, 0, 100);
+      for (const k of ['rent_share', 'power_share', 'power_exposed', 'cor_other_pct']) if (CR[k] !== undefined && !inR(CR[k], 0, 1)) err(`${w}.cost_of_revenue`, `${k} must be a share 0–1`);
+      if ((CR.rent_share || 0) + (CR.power_share || 0) > 1 + 1e-9) err(`${w}.cost_of_revenue`, 'rent_share + power_share exceed 1');
+    }
+    // the unit-cost sliders scale their paths: base = a level the path takes
+    for (const [id, p] of [['capex_per_mw', isObj(CX) && CX.capex_per_mw], ['cor_per_mw', isObj(CR) && CR.cor_per_mw]]) {
+      const d = (Array.isArray(m.drivers) ? m.drivers : []).find(x => x && x.id === id), vals = isObj(p) ? Object.values(p).filter(isNum) : [];
+      if (d && vals.length && isNum(d.base) && (d.base < Math.min(...vals) - 1e-9 || d.base > Math.max(...vals) + 1e-9)) err(`drivers (${id})`, `base ${d.base} must be a level of the revenue_model path (${Math.min(...vals)}–${Math.max(...vals)}); the slider scales the path by value / base`);
+    }
+    if (R.extra_capacity !== undefined) {
+      const X = R.extra_capacity;
+      if (!isObj(X) || (X.from !== undefined && !MONTH_RE.test(String(X.from)))) err(`${w}.extra_capacity`, '{from: YYYY-MM, phase: {"<year>": share of the slider phased in by year-end}} required');
+      else if (X.phase !== undefined) for (const [k, x] of Object.entries(isObj(X.phase) ? X.phase : { bad: null })) if (!ys.includes(k) || !inR(x, 0, 5)) err(`${w}.extra_capacity`, `phase.${k} must be a model year -> 0–5`);
+    }
+    // customers: shares of revenue by year (sum to 1), the backlog split, look-through
+    const C = Array.isArray(R.customers) ? R.customers : R.customers === undefined ? [] : null;
+    if (C === null) err(`${w}.customers`, 'must be a list');
+    else {
+      C.forEach((x, i) => {
+        const cw = `${w}.customers[${i}]${x && x.id ? ` (${x.id})` : ''}`;
+        if (!isObj(x)) { err(cw, 'not an object'); return; }
+        for (const k of Object.keys(x)) if (!['id', 'name', 'contracted_share', 'share_path', 'backlog_share', 'aggregate', 'look_through', 'note', 'src'].includes(k)) err(cw, `unknown key "${k}"`);
+        if (!isStr(x.id) || !SNAKE_RE.test(x.id)) err(cw, 'id must be lower_snake');
+        else if (x.id === 'uncontracted') err(cw, '"uncontracted" is computed by the engine (capacity not under contract)');
+        else if (custIds.has(x.id)) err(cw, 'duplicate id'); else custIds.add(x.id);
+        if (!isStr(x.name)) err(cw, 'name required');
+        if (x.contracted_share !== undefined && x.share_path !== undefined) err(cw, 'contracted_share or share_path (its old name), not both');
+        const key = x.contracted_share !== undefined ? 'contracted_share' : 'share_path';
+        yearPath(x[key], `${cw}.${key}`, 0, 1);
+        if (x.backlog_share !== undefined && !inR(x.backlog_share, 0, 1)) err(cw, 'backlog_share must be a share 0–1');
+        if (x.aggregate !== undefined && typeof x.aggregate !== 'boolean') err(cw, 'aggregate must be a boolean');
+        if (x.aggregate !== true && !Array.isArray(x.src)) err(cw, 'a named customer must cite its share (src)');
+      });
+      for (const x of C.filter(isObj)) if (x.look_through !== undefined) for (const [k, s] of Object.entries(isObj(x.look_through) ? x.look_through : { bad: null }))
+        if (!custIds.has(k) || k === x.id || !inR(s, 0, 1)) err(`${w}.customers (${x.id})`, `look_through.${k} must be another customer id -> share 0–1`);
+      if (C.length) for (const y of ys) {
+        const sh = x => (isObj(x.contracted_share) ? x.contracted_share : x.share_path);
+        const t = C.filter(isObj).reduce((a, x) => a + (isObj(sh(x)) && isNum(sh(x)[y]) ? sh(x)[y] : 0), 0);
+        if (Math.abs(t - 1) > 0.01) err(`${w}.customers`, `contracted shares sum to ${t.toFixed(3)} in ${y}, not 1 (add an aggregate "other contracted" customer)`);
+      }
+      const bt = C.filter(isObj).reduce((a, x) => a + (isNum(x.backlog_share) ? x.backlog_share : 0), 0);
+      if (bt > 1.01) err(`${w}.customers`, `backlog shares sum to ${bt.toFixed(3)} (> 1)`);
+      if (C.some(x => isObj(x) && x.backlog_share !== undefined) && Math.abs(bt - 1) > 0.02) err(`${w}.customers`, `backlog shares sum to ${bt.toFixed(3)}, not 1`);
+    }
+    if (R.backlog !== undefined) {
+      const B = R.backlog, bw = `${w}.backlog`;
+      if (!isObj(B)) err(bw, 'must be an object');
+      else {
+        for (const k of Object.keys(B)) if (!['rpo', 'as_of', 'conversion', 'committed_share', 'coverage_warn', 'post_period_commitments', 'undelivered_credit', 'note', 'src'].includes(k)) err(bw, `unknown key "${k}"`);
+        if (B.undelivered_credit !== undefined && !inR(B.undelivered_credit, 0, 1)) err(bw, 'undelivered_credit must be a share 0–1 (credits on contracted capacity delivered late)');
+        if (!inR(B.rpo, 0, 1e9) || !validDate(String(B.as_of || '')) || !Array.isArray(B.src)) err(bw, 'rpo, as_of (YYYY-MM-DD) and src required');
+        const cv = Array.isArray(B.conversion) ? B.conversion : [];
+        if (!cv.length) err(bw, 'conversion [{months: [a, b], share}] required');
+        let tot = 0;
+        cv.forEach((b, i) => {
+          if (!isObj(b) || !Array.isArray(b.months) || b.months.length !== 2 || !b.months.every(Number.isInteger) || b.months[0] < 1 || b.months[1] < b.months[0] || b.months[1] > 240 || !inR(b.share, 0, 1))
+            err(`${bw}.conversion[${i}]`, '{months: [first, last] (1–240, months after as_of), share 0–1} required');
+          else tot += b.share;
+        });
+        if (cv.length && Math.abs(tot - 1) > 0.01) err(bw, `conversion shares sum to ${tot.toFixed(3)}, not 1`);
+        for (const k of ['committed_share', 'coverage_warn']) if (B[k] !== undefined && !inR(B[k], 0, 1)) err(bw, `${k} must be a share 0–1`);
+        const PP = B.post_period_commitments;
+        if (PP !== undefined) {
+          if (!isObj(PP) || (PP.by_year !== undefined && !isObj(PP.by_year))) err(bw, 'post_period_commitments must be {amount?, as_of?, by_year: {"<year>": US$m}}');
+          else for (const [k, x] of Object.entries(PP.by_year || {})) if (!ys.includes(k) || !isNum(x)) err(bw, `post_period_commitments.by_year.${k} must be a model year -> number`);
+        }
+      }
+    }
+    if (R.backstop !== undefined) {
+      const S = R.backstop, sw = `${w}.backstop`;
+      if (!isObj(S)) err(sw, 'must be an object');
+      else {
+        for (const k of Object.keys(S)) if (!['name', 'customer', 'cap', 'until', 'coverage', 'basis', 'covers', 'note', 'src'].includes(k)) err(sw, `unknown key "${k}"`);
+        if (!inR(S.cap, 0, 1e9) || !MONTH_RE.test(String(S.until)) || !Array.isArray(S.src)) err(sw, 'cap (US$m), until (YYYY-MM) and src required');
+        if (S.customer !== undefined && !custIds.has(S.customer)) err(sw, `customer "${S.customer}" is not in customers`);
+        if (S.coverage !== undefined && !inR(S.coverage, 0, 1)) err(sw, 'coverage must be a share 0–1');
+        if (S.basis !== undefined && !['stress', 'all'].includes(S.basis)) err(sw, 'basis must be stress | all');
+        if (S.covers !== undefined && !(Array.isArray(S.covers) && S.covers.every(x => ['utilization', 'churn', 'cuts'].includes(x)))) err(sw, 'covers must list utilization | churn | cuts');
+      }
+    }
+    if (R.self_build !== undefined) {
+      const S = R.self_build;
+      if (!isObj(S) || !MONTH_RE.test(String(S.from)) || !inR(S.capex_per_mw, 0, 1000) || (S.life !== undefined && !inR(S.life, 5, 60))
+        || (S.opex_per_mw !== undefined && !inR(S.opex_per_mw, 0, 100)) || (S.opening_mw !== undefined && !inR(S.opening_mw, 0, 1e6)) || !Array.isArray(S.src))
+        err(`${w}.self_build`, '{from: YYYY-MM, capex_per_mw (shell & power, US$m), life 5–60 yrs, opex_per_mw?, opening_mw?, src} required');
+      else {
+        for (const k of Object.keys(S)) if (!['from', 'capex_per_mw', 'life', 'opex_per_mw', 'opening_mw', 'lead_months', 'identified', 'note', 'src'].includes(k)) err(`${w}.self_build`, `unknown key "${k}"`);
+        if (S.lead_months !== undefined && !inR(S.lead_months, 0, 36)) err(`${w}.self_build`, 'lead_months must be 0–36 (shell capex booked before the MW go live)');
+        (Array.isArray(S.identified) ? S.identified : S.identified === undefined ? [] : [null]).forEach((x, i) => {
+          if (!isObj(x) || !isStr(x.name) || !inR(x.mw, 0, 1e5) || !MONTH_RE.test(String(x.online))) err(`${w}.self_build.identified[${i}]`, '{name, mw, online: YYYY-MM} required (an owned site already in the MW path)');
+        });
+      }
+    }
+    if (R.leases !== undefined && (!isObj(R.leases) || !inR(R.leases.not_commenced, 0, 1e9) || !validDate(String(R.leases.as_of || '')) || !Array.isArray(R.leases.src)))
+      err(`${w}.leases`, '{not_commenced (US$m), as_of, note?, src} required');
+    else if (R.leases !== undefined) {
+      const LS = R.leases;
+      for (const k of Object.keys(LS)) if (!['not_commenced', 'as_of', 'terms', 'leased_mw', 'sublet_recovery', 'commenced_liability', 'undiscounted_commenced', 'lease_cost', 'note', 'src'].includes(k)) err(`${w}.leases`, `unknown key "${k}"`);
+      if (LS.leased_mw !== undefined && !inR(LS.leased_mw, 0, 1e6)) err(`${w}.leases`, 'leased_mw must be MW >= 0 (rent payable whether or not GPUs arrive)');
+      if (LS.sublet_recovery !== undefined && !inR(LS.sublet_recovery, 0, 1)) err(`${w}.leases`, 'sublet_recovery must be a share 0–1');
+    }
+    const sids = new Set();
+    (Array.isArray(R.sites) ? R.sites : R.sites === undefined ? [] : [null]).forEach((x, i) => {
+      const sw = `${w}.sites[${i}]`;
+      if (!isObj(x)) { err(sw, 'not an object'); return; }
+      for (const k of Object.keys(x)) if (!['id', 'name', 'mw', 'expected_online', 'developer', 'status', 'note', 'src'].includes(k)) err(sw, `unknown key "${k}"`);
+      if (!isStr(x.id) || sids.has(x.id)) err(sw, 'unique id required'); else sids.add(x.id);
+      if (!isStr(x.name) || !inR(x.mw, 0, 1e5) || !MONTH_RE.test(String(x.expected_online)) || !Array.isArray(x.src)) err(sw, 'name, mw, expected_online (YYYY-MM) and src required');
+    });
+  }
+
+  // events: business risks / upsides acting on the drivers
+  const driverIds = new Set((Array.isArray(m.drivers) ? m.drivers : []).filter(isObj).map(d => d.id)), evIds = new Set(), groupProb = new Map();
+  (Array.isArray(m.events) ? m.events : m.events === undefined ? [] : [null]).forEach((e, i) => {
+    const w = `events[${i}]${e && e.id ? ` (${e.id})` : ''}`;
+    if (!isObj(e)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(e)) if (!EVENT_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    if (!isStr(e.id) || !SNAKE_RE.test(e.id)) err(w, 'id must be lower_snake');
+    else if (evIds.has(e.id)) err(w, 'duplicate id');
+    else if (driverIds.has(e.id)) err(w, 'id clashes with a driver id');
+    else evIds.add(e.id);
+    if (!['risk', 'upside', 'strategic'].includes(e.kind)) err(w, 'kind must be risk | upside | strategic');
+    if (!isStr(e.label) || !isStr(e.mechanism)) err(w, 'label and mechanism (why it moves revenue or costs) required');
+    for (const k of ['label', 'short_label', 'mechanism', 'prob_note']) if (isStr(e[k]) && e[k].length > TEXT_CAPS[k]) err(w, `${k} is ${e[k].length} characters (the engine keeps ${TEXT_CAPS[k]})`);
+    for (const t of Array.isArray(e.indicators) ? e.indicators : []) if (isStr(t) && t.length > TEXT_CAPS.indicator) err(w, `an indicator is ${t.length} characters (the engine keeps ${TEXT_CAPS.indicator})`);
+    if (e.until !== undefined && (mIdx(e.until) === null || (e.from !== undefined && mIdx(e.until) <= mIdx(e.from)))) err(w, 'until must be YYYY-MM after from');
+    if (!inR(e.prob, 0, 1)) err(w, 'prob must be a probability 0–1');
+    if (e.prob_note !== undefined && !isStr(e.prob_note)) err(w, 'prob_note must be text');
+    const f = mIdx(e.from);
+    if (e.from !== undefined && (f === null || f < first || f > last)) err(w, 'from must be YYYY-MM inside the model years');
+    if (e.group !== undefined) {
+      if (!isStr(e.group) || !SNAKE_RE.test(e.group)) err(w, 'group must be lower_snake');
+      else groupProb.set(e.group, (groupProb.get(e.group) || 0) + (isNum(e.prob) ? e.prob : 0));
+    }
+    if (!Array.isArray(e.indicators) || !e.indicators.length || !e.indicators.every(isStr)) err(w, 'indicators (what to watch) required');
+    if (!Array.isArray(e.src)) err(w, 'src required');
+    const I = e.impacts;
+    if (!isObj(I) || !Object.keys(I).length) { err(w, 'impacts required'); return; }
+    for (const [k, x] of Object.entries(I)) {
+      const T = tpl.event_impacts[k];
+      if (!T || !Object.prototype.hasOwnProperty.call(tpl.event_impacts, k)) { err(w, `impact "${k}" is not in the vocabulary (${Object.keys(tpl.event_impacts).join(' | ')})`); continue; }
+      if (T.cap && !capMode) err(w, `impact ${k} needs a revenue_model`);
+      if (T.type === 'num') { if (!inR(x, T.min, T.max)) err(w, `impact ${k} must be a number in [${T.min}, ${T.max}] (${T.unit})`); }
+      else if (T.type === 'year_map') {
+        if (!isObj(x) || !Object.keys(x).length) err(w, `impact ${k} must be {"<model year>": ${T.unit}}`);
+        else for (const [y, v] of Object.entries(x)) if (!ys.includes(y) || !inR(v, T.min, T.max)) err(w, `impact ${k}.${y} must be a model year -> number in [${T.min}, ${T.max}]`);
+      } else if (T.type === 'release') for (const c of Array.isArray(x) ? x : [x]) {
+        if (!isObj(c) || !inR(c.mw, 0, 1e5) || !MONTH_RE.test(String(c.from)) || !MONTH_RE.test(String(c.to)) || mIdx(c.to) < mIdx(c.from)
+          || (c.idle_months !== undefined && !inR(c.idle_months, 0, 60)) || (c.relet_pct !== undefined && c.relet_pct !== null && !inR(c.relet_pct, -100, 100)))
+          err(w, 'capacity_released needs {mw, from: YYYY-MM, to: YYYY-MM (>= from), idle_months?: 0–60, relet_pct?: -100–100 | null}');
+      } else for (const c of Array.isArray(x) ? x : [x]) {
+        if (!isObj(c) || !custIds.has(c.customer) || !inR(c.pct, 0, 1) || (c.from !== undefined && !MONTH_RE.test(String(c.from)))
+          || (c.idle_months !== undefined && !inR(c.idle_months, 0, 60)) || (c.relet_pct !== undefined && c.relet_pct !== null && !inR(c.relet_pct, -100, 100)))
+          err(w, 'customer_cut needs {customer: <revenue_model customer id>, pct: 0–1, from?: YYYY-MM, idle_months?: 0–60, relet_pct?: -100–100 | null}');
+      }
+    }
+  });
+  for (const [g, p] of groupProb) if (p > 1 + 1e-9) err('events', `group ${g}: probabilities sum to ${p.toFixed(2)} (> 1; its events are mutually exclusive)`);
+
+  // hedges: pay-fixed swaps on floating debt; cross-currency swaps are informational
+  const hIds = new Set(), tranches = new Map((Array.isArray(m.debt) ? m.debt : []).filter(isObj).map(t => [t.id, t]));
+  const facilities = new Map((isObj(m.funding) && Array.isArray(m.funding.committed) ? m.funding.committed : []).filter(isObj).map(x => [x.id, x]));
+  const hedged = new Map();
+  (Array.isArray(m.hedges) ? m.hedges : m.hedges === undefined ? [] : [null]).forEach((h, i) => {
+    const w = `hedges[${i}]${h && h.id ? ` (${h.id})` : ''}`;
+    if (!isObj(h)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(h)) if (!HEDGE_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    if (!isStr(h.id) || !ID_RE.test(h.id) || hIds.has(h.id) || tIds.has(h.id)) err(w, 'id must be kebab-case and unique'); else hIds.add(h.id);
+    const t = tranches.get(h.tranche), fa = facilities.get(h.tranche);
+    if (!t && !fa) { err(w, `tranche "${h.tranche}" is not a debt tranche or committed facility`); return; }
+    if (!Array.isArray(h.src)) err(w, 'src required');
+    for (const k of ['start', 'maturity']) if (h[k] !== undefined && !MONTH_RE.test(String(h[k]))) err(w, `${k} must be YYYY-MM`);
+    if (h.start !== undefined && h.maturity !== undefined && mIdx(h.start) >= mIdx(h.maturity)) err(w, 'start must be before maturity');
+    if (h.type !== undefined && !['swap', 'cross_currency'].includes(h.type)) err(w, 'type must be swap | cross_currency');
+    if (h.rate_estimated !== undefined && typeof h.rate_estimated !== 'boolean') err(w, 'rate_estimated must be a boolean (the swap rate is our estimate, not disclosed)');
+    if (h.type === 'cross_currency') { if (!inR(h.notional, 0, 1e9)) err(w, 'a cross-currency swap needs its notional'); return; }
+    if ((t || fa).kind !== 'floating') err(w, `${h.tranche} is fixed-rate: a pay-fixed swap has nothing to convert`);
+    if (!(h.fixed_rate === 'path' || inR(h.fixed_rate, -1, 20))) err(w, 'fixed_rate must be a % (-1–20) or "path" (the SOFR path at the start)');
+    if (h.ratio !== undefined && !(isNum(h.ratio) && h.ratio > 0 && h.ratio <= 1)) err(w, 'ratio must be in (0, 1]');
+    if (h.notional !== undefined && !(isNum(h.notional) && h.notional > 0)) err(w, 'notional must be > 0');
+    if (h.ratio === undefined && h.notional === undefined) err(w, 'needs a notional or a ratio of the balance');
+    if (fa && h.ratio === undefined) err(w, 'a hedge on a committed facility takes a ratio of the drawn balance');
+    if (t && isNum(t.balance)) hedged.set(t.id, (hedged.get(t.id) || 0) + (isNum(h.ratio) ? h.ratio * t.balance : isNum(h.notional) ? h.notional : 0));
+  });
+  for (const [id, x] of hedged) if (x > tranches.get(id).balance + 0.5) err('hedges', `swaps on ${id} (${x}) exceed its balance ${tranches.get(id).balance}`);
+
+  // the quarterly watch list: a model path against the threshold that would change the view
+  const wIds = new Set(), ltTargets = new Set();
+  if (isObj(R) && Array.isArray(R.customers)) for (const x of R.customers.filter(isObj)) for (const k of Object.keys(isObj(x.look_through) ? x.look_through : {})) ltTargets.add(k);
+  (Array.isArray(m.watchlist) ? m.watchlist : m.watchlist === undefined ? [] : [null]).forEach((x, i) => {
+    const w = `watchlist[${i}]${x && x.id ? ` (${x.id})` : ''}`;
+    if (!isObj(x)) { err(w, 'not an object'); return; }
+    for (const k of Object.keys(x)) if (!WATCH_KEYS.includes(k)) err(w, `unknown key "${k}"`);
+    if (!isStr(x.id) || !SNAKE_RE.test(x.id) || wIds.has(x.id)) err(w, 'unique lower_snake id required'); else wIds.add(x.id);
+    if (!isStr(x.label)) err(w, 'label required');
+    const cm = /^(customer_share|lookthrough_share):(.+)$/.exec(String(x.metric));
+    if (x.metric !== 'none' && (cm ? !(cm[1] === 'customer_share' ? custIds.has(cm[2]) : ltTargets.has(cm[2])) : !tpl.row_names.includes(x.metric)))
+      err(w, `metric ${x.metric} must be a model row, customer_share:<customer>, lookthrough_share:<look-through target> or "none" (tracked, not modelled)`);
+    if (x.dp !== undefined && !(Number.isInteger(x.dp) && x.dp >= 0 && x.dp <= 3)) err(w, 'dp must be 0–3 decimals');
+    if (isStr(x.label) && x.label.length > TEXT_CAPS.label) err(w, `label is ${x.label.length} characters (the engine keeps ${TEXT_CAPS.label})`);
+    if (isStr(x.note) && x.note.length > TEXT_CAPS.watch_note) err(w, `note is ${x.note.length} characters (the engine keeps ${TEXT_CAPS.watch_note})`);
+    if (isObj(x.latest) && isStr(x.latest.note) && x.latest.note.length > TEXT_CAPS.latest_note) err(w, `latest.note is ${x.latest.note.length} characters (the engine keeps ${TEXT_CAPS.latest_note})`);
+    if (!isNum(x.threshold) || !['above', 'below'].includes(x.direction)) err(w, 'threshold (number) and direction (above | below: the side that changes the view) required');
+    if (x.signal !== undefined && !['risk', 'positive'].includes(x.signal)) err(w, 'signal must be risk | positive');
+    if (!isObj(x.latest) || !isNum(x.latest.value) || !isStr(x.latest.period) || !Array.isArray(x.latest.src)) err(w, 'latest {value, period, src} (the latest reported value, cited) required');
+    if (!Array.isArray(x.informs) || !x.informs.length) err(w, 'informs (the drivers / events it informs) required');
+    else for (const id of x.informs) if (!driverIds.has(id) && !evIds.has(id)) err(w, `informs "${id}", which is not a driver or event`);
+  });
+
+  // the outcome distribution: regimes (a common factor: event lifts, driver centres) and the
+  // drivers each draw takes from their stress range
+  const drv = id => (Array.isArray(m.drivers) ? m.drivers : []).find(d => isObj(d) && d.id === id);
+  if (m.regimes !== undefined) {
+    const G = m.regimes, rIds = new Set();
+    if (!isObj(G) || !Array.isArray(G.states) || G.states.length < 2) err('regimes', '{note, states: [{id, name, p, lift: {event: factor}, drivers: {driver: centre}}] (two or more)} required');
+    else {
+      for (const k of Object.keys(G)) if (!['states', 'note', 'src'].includes(k)) err('regimes', `unknown key "${k}"`);
+      if (!isStr(G.note)) err('regimes', 'note required (what the common factor is, and whose judgement the probabilities are)');
+      G.states.forEach((x, i) => {
+        const rw = `regimes.states[${i}]${x && x.id ? ` (${x.id})` : ''}`;
+        if (!isObj(x)) { err(rw, 'not an object'); return; }
+        for (const k of Object.keys(x)) if (!['id', 'name', 'p', 'lift', 'drivers', 'note'].includes(k)) err(rw, `unknown key "${k}"`);
+        if (!isStr(x.id) || !SNAKE_RE.test(x.id) || rIds.has(x.id)) err(rw, 'unique lower_snake id required'); else rIds.add(x.id);
+        if (!isStr(x.name) || !inR(x.p, 0, 1)) err(rw, 'name and p (0–1) required');
+        for (const [k, f] of Object.entries(isObj(x.lift) ? x.lift : x.lift === undefined ? {} : { bad: null })) if (!evIds.has(k) || !inR(f, 0, 20)) err(rw, `lift.${k} must be an event id -> factor 0–20`);
+        for (const [k, v] of Object.entries(isObj(x.drivers) ? x.drivers : x.drivers === undefined ? {} : { bad: null })) {
+          const d = drv(k);
+          if (!d || d.kind === 'choice' || !isNum(v) || v < d.min || v > d.max) err(rw, `drivers.${k} must be a (non-choice) driver -> a value in its range`);
+        }
+      });
+      const tp = G.states.filter(isObj).reduce((a, x) => a + (isNum(x.p) ? x.p : 0), 0);
+      if (Math.abs(tp - 1) > 1e-6) err('regimes', `probabilities sum to ${tp.toFixed(3)}, not 1`);
+      // a lifted event keeps its catalogue probability on average: no regime may need more than certainty
+      for (const e of (Array.isArray(m.events) ? m.events : []).filter(isObj)) {
+        const den = G.states.filter(isObj).reduce((a, x) => a + (isNum(x.p) ? x.p : 0) * (isObj(x.lift) && isNum(x.lift[e.id]) ? x.lift[e.id] : 1), 0);
+        for (const x of G.states.filter(isObj)) {
+          const l = isObj(x.lift) && isNum(x.lift[e.id]) ? x.lift[e.id] : 1;
+          if (den > 0 && isNum(e.prob) && e.prob * l / den > 1 + 1e-9) err(`regimes (${x.id})`, `${e.id} would be ${(e.prob * l / den * 100).toFixed(0)}% likely: lower its lift`);
+        }
+      }
+    }
+  }
+  if (m.uncertainty !== undefined) {
+    const U = m.uncertainty;
+    if (!isObj(U) || !Array.isArray(U.drivers) || !U.drivers.length) err('uncertainty', '{drivers: [driver ids drawn over their stress range], note} required');
+    else {
+      for (const k of Object.keys(U)) if (!['drivers', 'note', 'src'].includes(k)) err('uncertainty', `unknown key "${k}"`);
+      for (const id of U.drivers) { const d = drv(id); if (!d || d.kind === 'choice' || !isNum(d.low) || !isNum(d.high)) err('uncertainty', `${id} must be a driver with a stress range (low, high)`); }
+      if (new Set(U.drivers).size !== U.drivers.length) err('uncertainty', 'duplicate driver');
+    }
+  }
 }
 
 function validateIndex(idx, reports) {
@@ -568,6 +931,40 @@ check('dashboard/reports/index.json: present, matches the report files', () => {
   assert.strictEqual(errs.length, 0, errs.join('\n'));
 });
 
+// The CoreWeave report quotes the model: the numbers in its stress-test text must be the
+// engine's (re-run here), so an edit to the spec or the engine that moves them fails until
+// the text follows.
+if (reportFiles.includes('crwv.json') && fs.existsSync(path.join(MDIR, 'crwv.json'))) check('crwv.json stress-test text agrees with the engine (base, presets, distribution, fixed / floating, +100bp)', () => {
+  const r = readJSON(path.join(RDIR, 'crwv.json')), m = readJSON(path.join(MDIR, 'crwv.json'));
+  const sec = r.sections.find(x => x.id === 'stress-test');
+  const txt = sec.blocks.map(b => [b.text || '', b.note || '', JSON.stringify(b.rows || [])].join(' ')).join(' ');
+  const has = (re, what) => assert.ok(re.test(txt), `${what}: ${re} not found in the stress-test text`);
+  const usd = x => Math.round(x);
+  const base = ME.project(m, {}), V = base.valuation;
+  has(new RegExp(`about US\\$${usd(V.value_per_share)} a share`), 'base value');
+  has(new RegExp(`it gives about US\\$${usd(V.value_forward_basis)}`), 'forward-basis value');
+  const pv = id => { const st = ME.scenarioState(m, id); return ME.project(m, st.overrides, { events: st.events }).valuation.value_per_share; };
+  has(new RegExp(`about US\\$${usd(pv('bear'))} a share, the \\d+th percentile`), 'bear preset');
+  has(new RegExp(`at 8\\.5x: about US\\$${usd(pv('bull'))}`), 'bull preset');
+  has(new RegExp(`from about US\\$${usd(V.value_per_share)} to about US\\$${usd(pv('burry_case'))}`), 'Burry case');
+  const d = ME.distribution(m, {}, { metrics: ['value_per_share', 'net_income@2028'] }), D = d.metrics.value_per_share;
+  has(new RegExp(`mean of about \\*\\*US\\$${usd(D.mean)}\\*\\*, a P10 of about US\\$${usd(D.p10)}, a median of about US\\$${usd(D.p50)} and a P90 of about US\\$${usd(D.p90)}`), 'distribution');
+  const pw = d.presets.reduce((a, p) => a + p.mass * p.value, 0);
+  has(new RegExp(`the presets give about US\\$${usd(pw)}`), 'preset-weighted value');
+  const mix = ME.debtMix(m, {});
+  has(new RegExp(`about \\*\\*US\\$${(mix.floating / 1000).toFixed(1)}bn \\(${usd(mix.floating_share)}%\\) floats\\*\\* and US\\$${(mix.fixed / 1000).toFixed(1)}bn \\(${usd(100 - mix.floating_share)}%\\) is fixed`), 'fixed / floating today');
+  has(new RegExp(`Of about US\\$${(mix.total / 1000).toFixed(1)}bn of principal`), 'principal today');
+  const fmt = x => usd(x).toLocaleString('en-US');
+  has(new RegExp(`adds about US\\$${fmt(base.rows.rate_exposure_100bp[1])}m to FY2027E interest, US\\$${fmt(base.rows.rate_exposure_100bp[2])}m to FY2028E`), '+100bp by year');
+  const fl = base.rows.floating_share_of_interest.map(usd);
+  has(new RegExp(`\\*\\*Floating share of interest\\*\\*: ${fl[0]}% in H2 2026E, then ${fl[1]}%, ${fl[2]}%, ${fl[3]}% and ${fl[4]}%`), 'floating share of interest');
+  // the base table is the engine's base
+  const tb = sec.blocks.find(b => b.type === 'table' && /from capacity to net income/.test(b.caption));
+  const row = k => tb.rows.find(x => x[0] === k).slice(1).map(v => +String(v).replace(/[,%]/g, '').replace('−', '-').split(' ')[0]);
+  for (const [label, k] of [['Revenue', 'revenue'], ['Interest expense', 'interest'], ['Capex', 'capex'], ['Free cash flow', 'fcf'], ['Net income', 'net_income']])
+    eq(row(label), base.rows[k].map(usd), `table: ${label}`);
+});
+
 // Every model block of every published report has its model file, valid against the report.
 for (const f of reportFiles) {
   let r = null;
@@ -589,6 +986,69 @@ check('fixture model fxr.json against the fixture report: MODEL SPEC v1', () => 
   const errs = validateModel(FIX_MODEL, FIX, { file: 'fxr.json' });
   assert.strictEqual(errs.length, 0, errs.join('\n'));
 });
+const FIX_CAP = readJSON(path.join(FIX_MDIR, 'fxr_capacity.json'));
+check('fixture model fxr_capacity.json (capacity_v1, events, hedges, watch list) against the fixture report: MODEL SPEC v1', () => {
+  const errs = validateModel(FIX_CAP, FIX);
+  assert.strictEqual(errs.length, 0, errs.join('\n'));
+});
+const brokenCapModels = [
+  ['revenue_growth alongside a revenue_model', m => { m.drivers.push({ ...FIX_MODEL.drivers[0] }); }, /revenue_growth is a growth-path driver: not allowed with a revenue_model/],
+  ['missing capacity driver', m => { m.drivers = m.drivers.filter(d => d.id !== 'delivery_delay_months'); }, /missing delivery_delay_months/],
+  ['missing year-end MW', m => { delete m.revenue_model.active_mw_path['2029']; }, /"2029" \(year-end active MW\) missing/],
+  ['falling MW', m => { m.revenue_model.active_mw_path['2030'] = 200; }, /must not fall/],
+  ['utilisation above 1', m => { m.revenue_model.utilization['2027'] = 1.2; }, /utilization: 2027 = 1.2 outside/],
+  ['unknown revenue_model key', m => { m.revenue_model.growth = 5; }, /revenue_model: unknown key "growth"/],
+  ['unit-cost base outside its path', m => { m.drivers.find(d => d.id === 'capex_per_mw').base = 40; }, /base 40 must be a level of the revenue_model path/],
+  ['customer shares not summing to 1', m => { m.revenue_model.customers[0].contracted_share['2028'] = 0.6; }, /shares sum to 1.200 in 2028/],
+  ['"uncontracted" is computed, not a customer', m => { m.revenue_model.customers[3].id = 'uncontracted'; }, /"uncontracted" is computed by the engine/],
+  ['backlog shares not summing to 1', m => { m.revenue_model.customers[0].backlog_share = 0.1; }, /backlog shares sum to 0.680, not 1/],
+  ['a released-capacity impact without its months', m => { m.events.push(Object.assign({}, m.events[0], { id: 'rel', group: undefined, impacts: { capacity_released: [{ mw: 50 }] } })); }, /capacity_released needs \{mw, from/],
+  ['until before from', m => { m.events[0].until = '2026-01'; }, /until must be YYYY-MM after from/],
+  ['a short label too long for the tornado', m => { m.events[0].short_label = 'x'.repeat(27); }, /short_label is 27 characters \(the engine keeps 26\)/],
+  ['a regime lift that needs more than certainty', m => { m.regimes = { note: 'n', states: [{ id: 'a', name: 'A', p: 0.1, lift: { alpha_cut: 20 } }, { id: 'b', name: 'B', p: 0.9 }] }; }, /alpha_cut would be \d+% likely/],
+  ['an uncertain driver without a stress range', m => { m.uncertainty = { drivers: ['nope'] }; }, /nope must be a driver with a stress range/],
+  ['defer_build is not "defer"', m => { m.funding.when_short = 'defer'; }, /when_short must be record \| defer_build/],
+  ['duplicate customer', m => { m.revenue_model.customers.push({ ...m.revenue_model.customers[1] }); }, /duplicate id/],
+  ['look-through to nobody', m => { m.revenue_model.customers[0].look_through = { zeta: 0.5 }; }, /look_through.zeta/],
+  ['backlog conversion shares', m => { m.revenue_model.backlog.conversion[0].share = 0.5; }, /conversion shares sum to 1.200/],
+  ['backstop customer unknown', m => { m.revenue_model.backstop.customer = 'nvidia'; }, /customer "nvidia" is not in customers/],
+  ['duplicate site', m => { m.revenue_model.sites[1].id = 'north'; }, /unique id required/],
+  ['duplicate event id', m => { m.events.push({ ...m.events[0] }); }, /duplicate id/],
+  ['event id = a driver id', m => { m.events[0].id = 'utilization'; m.scenarios[1].events[0] = 'utilization'; }, /clashes with a driver id/],
+  ['event probability above 1', m => { m.events[2].prob = 1.5; }, /prob must be a probability 0–1/],
+  ['unknown impact', m => { m.events[2].impacts.magic = 1; }, /impact "magic" is not in the vocabulary/],
+  ['impact out of range', m => { m.events[0].impacts.delay_months = 99; }, /impact delay_months must be a number in \[-12, 24\]/],
+  ['customer cut on an unknown customer', m => { m.events[2].impacts.customer_cut.customer = 'zeta'; }, /customer_cut needs/],
+  ['group probabilities above 1', m => { m.events[1].prob = 0.8; }, /group delivery: probabilities sum to 1.10/],
+  ['event without indicators', m => { m.events[3].indicators = []; }, /indicators \(what to watch\) required/],
+  ['event from outside the model', m => { m.events[3].from = '2040-01'; }, /from must be YYYY-MM inside the model years/],
+  ['event citation not in the report', m => { m.events[3].src = ['s77']; }, /"s77" is not in the report's sources/],
+  ['scenario on an unknown event', m => { m.scenarios[1].events.push('meteor'); }, /events: "meteor" is not an event/],
+  ['scenario with two events of one group', m => { m.scenarios[1].events.push('early'); }, /two events of group delivery/],
+  ['hedge on an unknown tranche', m => { m.hedges[0].tranche = 'nope'; }, /tranche "nope" is not a debt tranche/],
+  ['swap on a fixed tranche', m => { m.hedges[0].tranche = 'notes-2028'; }, /fixed-rate: a pay-fixed swap has nothing to convert/],
+  ['hedge without notional or ratio', m => { delete m.hedges[0].notional; }, /needs a notional or a ratio/],
+  ['hedge rate out of range', m => { m.hedges[0].fixed_rate = 45; }, /fixed_rate must be/],
+  ['swaps above the balance', m => { m.hedges[0].notional = 1200; }, /swaps on term-loan \(1200\) exceed its balance 1000/],
+  ['watch list on an unknown metric', m => { m.watchlist[1].metric = 'vibes'; }, /metric vibes must be a model row/],
+  ['watch list informing nothing known', m => { m.watchlist[0].informs = ['meteor']; }, /informs "meteor", which is not a driver or event/],
+  ['watch list without a cited latest value', m => { delete m.watchlist[0].latest.src; }, /latest \{value, period, src\}/],
+  ['capacity driver in a growth spec', null, /delivery_delay_months needs a revenue_model/],
+  ['capacity impact in a growth spec', null, /impact utilization_pp needs a revenue_model/],
+];
+for (const [name, mutate, re] of brokenCapModels) {
+  check(`model validator rejects (v2): ${name}`, () => {
+    let m;
+    if (mutate) { m = clone(FIX_CAP); mutate(m); }
+    else {
+      m = clone(FIX_MODEL);
+      if (/driver/.test(name)) m.drivers.push(clone(FIX_CAP.drivers[0]));
+      else m.events = [{ id: 'dip', kind: 'risk', label: 'Dip', mechanism: 'x', prob: 0.1, impacts: { utilization_pp: -5 }, indicators: ['x'], src: ['s1'] }];
+    }
+    const errs = validateModel(m, FIX);
+    assert.ok(errs.some(e => re.test(e)), `expected ${re} in:\n${errs.join('\n') || '(no errors)'}`);
+  });
+}
 const brokenModels = [
   ['unknown driver id', m => { m.drivers.push({ ...m.drivers[0], id: 'fx_rate' }); }, /"fx_rate" is not a levered_growth_v1 driver/],
   ['missing template driver', m => { m.drivers = m.drivers.filter(d => d.id !== 'sofr_shift'); }, /missing sofr_shift/],
@@ -1118,6 +1578,27 @@ check('model.js helpers: formatting, axis values, plain-English driver lines, qu
   assert.ok(Math.abs(q3 - (res.rows.interest[0] - FIX_MODEL.stub.actuals.interest) / 2) < 1e-9, 'Q3 inside the stub = projected remainder / 2 quarters');
   eq(MI.guideValue(res, FIX_MODEL, { metric: 'interest', period: '2026-Q1' }), null, 'a reported quarter has no model value');
   assert.ok(Math.abs(MI.guideValue(res, FIX_MODEL, { metric: 'interest', period: '2027-Q2' }) - res.rows.interest[1] / 4) < 1e-9);
+});
+check('model.js v2 helpers: probabilities, P(below) from a histogram, a year\'s average MW, event impacts in words, event lines', () => {
+  const MI = require(path.join(DASH, 'model.js'))._internal;
+  eq(MI.pctP(0.35), '35%'); eq(MI.pctP(0.004), '0.4%'); eq(MI.pctP(0), '0%'); eq(MI.pctP(null), '—');
+  const hist = { edges: [0, 10, 20, 30], probs: [0.2, 0.5, 0.3] };
+  eq(MI.pBelow(hist, -1), 0); eq(MI.pBelow(hist, 31), 1); eq(MI.pBelow(hist, 10), 0.2);
+  assert.ok(Math.abs(MI.pBelow(hist, 15) - 0.45) < 1e-12, 'linear inside the straddling bin');
+  // month-end anchors, linear between them, flat outside; a month = mean of its opening and closing MW
+  const rm = { opening: { date: '2026-06-30', active_mw: 100 }, active_mw_path: { 2026: 160, '2025-12': 40 } };
+  eq(MI.yearAvgMW(rm, 2024), 40, 'before the first anchor: flat');
+  assert.ok(Math.abs(MI.yearAvgMW(rm, 2026) - (sumN(1, 6, m => 40 + 10 * (m - 0.5)) + sumN(7, 12, m => 100 + 10 * (m - 6.5))) / 12) < 1e-9);
+  eq(MI.yearAvgMW({}, 2025), null);
+  const vocab = ME.template('levered_growth_v1').event_impacts;
+  eq(MI.impactLines({ impacts: { delay_months: 3, capex_delta: { 2028: -100, 2027: 7500 }, customer_cut: { customer: 'msft', pct: 0.3, from: '2028-07' } } }, vocab,
+    [{ id: 'msft', name: 'Microsoft' }]), ['MW come online later: +3 mo', 'Capex added: FY27 +US$7.50bn · FY28 −US$100m', 'Microsoft cancels 30% of its contracted revenue from Jul 2028; the capacity stays idle']);
+  const sens = { base: 100, bars: [{ type: 'event', id: 'e1', label: 'Markets shut', kind: 'risk', prob: 0.15, current: 0, v_low: 100, v_high: 80, swing: 20 },
+    { type: 'event', id: 'e2', label: 'Big contract', kind: 'upside', prob: 0.3, current: 1, v_low: 90, v_high: 100, swing: 10 }] };
+  const lines = MI.keyDriverLines(sens, [], 'FY2027E net income', 'US$m');
+  eq(lines.map(l => l.text), ['“Markets shut” (risk, 15% likely), if it happens, cuts FY2027E net income by US$20m (to US$80m).',
+    'Without “Big contract” (switched on now) cuts FY2027E net income by US$10m (to US$90m).']);
+  function sumN(a, b, f) { let s = 0; for (let m = a; m <= b; m++) s += f(m); return s; }
 });
 check('renderReport: a model block lazy-mounts ReportModel with the model, the report, the route state; model page view', () => withDOM(async F => {
   const calls = [];

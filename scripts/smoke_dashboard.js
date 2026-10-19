@@ -71,8 +71,12 @@ const MODEL = readJSON(path.join(REPO, 'tests/fixtures/smoke_screen_builder.json
 // Key reports: the fixture is served as reports/fxr.json with a one-entry index (newCtx
 // {reports: 'fixture'}); otherwise the real dashboard/reports/ files are served as they are.
 const REPORT_FIX = readJSON(path.join(REPO, 'tests/fixtures/reports/sample.json'));
-// ...and its stress-test model (synthetic), served as reports/models/fxr.json.
+// ...and its stress-test model (synthetic), served as reports/models/fxr.json; newCtx
+// {model: 'capacity'} serves the MODEL v2 fixture there instead (revenue built from MW,
+// business events, a swap, a watch list).
 const MODEL_FIX = readJSON(path.join(REPO, 'tests/fixtures/models/fxr.json'));
+// (under the fixture report's slug: reports.js mounts a model only when its slug is the block's src)
+const MODEL_CAP = Object.assign(readJSON(path.join(REPO, 'tests/fixtures/models/fxr_capacity.json')), { slug: MODEL_FIX.slug });
 const REPORT_FIX_INDEX = { v: 1, reports: [{ slug: REPORT_FIX.slug, ticker: REPORT_FIX.ticker, company: REPORT_FIX.company,
   title: REPORT_FIX.title, published: REPORT_FIX.published, stance: { label: REPORT_FIX.stance.label, risk: REPORT_FIX.stance.risk },
   summary: REPORT_FIX.stance.summary, report_type: REPORT_FIX.report_type, sector: REPORT_FIX.sector }] };
@@ -419,7 +423,7 @@ async function serve(dir) {
 let LIB = {};
 const IGNORED_CONSOLE = /Failed to load resource|net::ERR_/;
 
-async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, user = null, trusted = false, cdn = true, db = null, reports = null } = {}) {
+async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, user = null, trusted = false, cdn = true, db = null, reports = null, model = null } = {}) {
   const ctx = await browser.newContext({ viewport, locale: 'en-US', timezoneId: 'UTC' });
   const page = await ctx.newPage();
   const errors = [];
@@ -437,7 +441,7 @@ async function newCtx(browser, base, { viewport = { width: 1280, height: 900 }, 
       if (reports === 'fixture' && u.pathname.startsWith('/reports/')) {
         db.reportFetches = (db.reportFetches || []).concat(u.pathname);
         const body = u.pathname === '/reports/index.json' ? REPORT_FIX_INDEX : u.pathname === `/reports/${REPORT_FIX.slug}.json` ? REPORT_FIX
-          : u.pathname === `/reports/models/${MODEL_FIX.slug}.json` ? MODEL_FIX : null;
+          : u.pathname === `/reports/models/${MODEL_FIX.slug}.json` ? (model === 'capacity' ? MODEL_CAP : MODEL_FIX) : null;
         return body ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
           : route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' });
       }
@@ -480,6 +484,18 @@ async function boot(a, base, hash = '') {
 }
 const text = (page, sel) => page.$eval(sel, e => e.textContent.replace(/\s+/g, ' ').trim());
 const noHScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 && document.body.scrollWidth <= window.innerWidth + 1);
+// what sticks out past the viewport (outside any box that scrolls sideways): for the failure message
+const overflowers = page => page.evaluate(() => {
+  const W = window.innerWidth, out = [];
+  for (const e of document.querySelectorAll('body *')) {
+    const r = e.getBoundingClientRect();
+    if (!(r.width > 0) || r.right <= W + 1 || getComputedStyle(e).position === 'fixed') continue;
+    let q = e.parentElement, clipped = false;
+    while (q && !clipped) { clipped = /(auto|scroll|hidden)/.test(getComputedStyle(q).overflowX) && q.getBoundingClientRect().right <= W + 1; q = q.parentElement; }
+    if (!clipped) out.push(`${e.tagName.toLowerCase()}.${String(e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className).split(' ')[0]} (${Math.round(r.right)}px): ${(e.textContent || '').replace(/\s+/g, ' ').slice(0, 60)}`);
+  }
+  return out.slice(0, 6).join(' | ');
+});
 const shot = (page, name, opts = {}) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), ...opts });
 async function go(page, hash) { await page.evaluate(h => { location.hash = h; }, hash); await settle(page); }
 
@@ -1019,7 +1035,10 @@ async function main() {
       assert.deepStrictEqual(await a.page.evaluate(() => [typeof ModelEngine, typeof ReportModel, document.querySelectorAll('script[src="model.js"]').length,
         document.querySelectorAll('link[href="model.css"]').length]), ['object', 'object', 1, 1], 'assets loaded once');
       assert.strictEqual(await a.page.$$eval('.mdl .mdl-chip[aria-pressed="true"]', c => c.map(x => x.textContent).join()), 'Base');
-      assert.strictEqual(await a.page.$$eval('.mdl .mdl-kpi', k => k.length), 7, 'seven headline KPIs');
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-live > .mdl-kpis > .mdl-kpi', k => k.length), 8, 'eight headline KPIs');
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="floating_interest"]'), /Floating share of FY2027E interest\s*\d+%.*of year-end debt floats/);
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="interest_to_ebitda"]'), /FY2027E interest as % of adj\. EBITDA\s*\d+%.*EBITDA covers interest/);
+      assert.strictEqual(await a.page.$('.mdl [data-mdl-tab="risk"]'), null, 'no Risks & upsides tab without events');
       assert.match(await text(a.page, '.mdl-keyd'), /Key P&L drivers.*(cuts|lifts) FY2027E net income by US\$/);
       const i0 = money(await kpi(a.page, 'interest')), v0 = money(await kpi(a.page, 'value_per_share'));
       assert.ok(i0 > 0 && v0 > 0, `${i0} ${v0}`);
@@ -1077,7 +1096,7 @@ async function main() {
         assert.strictEqual(await a.page.$eval(`.mdl [data-mdl-panel="${t}"]`, p => !p.hidden && p.childElementCount > 0), true, `tab ${t}`);
         if (t === 'debt') {
           assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] svg title'), 'rate chart');
-          assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Predicted rate paths.*\+100bp on SOFR.*Interest expense by tranche.*Q3 2026 interest expense guide.*Funding the gap.*Leverage & coverage by year.*Debt maturity ladder.*Debt stack/);
+          assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Fixed vs floating.*Today: \d+% of debt fixed \/ \d+% floating \(after hedges\).*Fixed vs floating and rate exposure by year.*\+200bp SOFR: extra interest.*Predicted rate paths.*\+100bp on SOFR.*Interest expense by tranche.*Q3 2026 interest expense guide.*Funding the gap.*Borrowing need.*Leverage & coverage by year.*Debt maturity ladder.*Debt stack/);
           assert.ok(await a.page.$('.mdl [data-mdl-panel="debt"] path.mdl-mark'), 'guide marker on the stub year');
           await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_fxr_debt.png') });
         }
@@ -1127,7 +1146,10 @@ async function main() {
       await a.page.click('.mdl input[data-mdl-driver="sofr_shift"]');
       await a.page.evaluate(() => { const r = document.querySelector('.mdl input[data-mdl-driver="sofr_shift"]'); r.value = '200'; r.dispatchEvent(new Event('input', { bubbles: true })); });
       await settle(a.page, 900);
+      // the snapshot is built only when printing (beforeprint, or the print media query)
+      assert.strictEqual(await a.page.$eval('.mdl-print', e => e.childElementCount), 0, 'no print snapshot built while dragging');
       await a.page.emulateMedia({ media: 'print' });
+      await a.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       const pr = await a.page.evaluate(() => {
         const vis = s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none'; };
         return { live: vis('.mdl-live'), print: vis('.mdl-print'), tornado: !!document.querySelector('.mdl-print svg.mdl-tornado'),
@@ -1191,6 +1213,186 @@ async function main() {
       await a.ctx.close();
     });
 
+    // 13c. MODEL v2 (tests/fixtures/models/fxr_capacity.json served as the fixture report's
+    // model): capacity drivers instead of a growth slider, business events with their
+    // distribution, fixed vs floating, the revenue build and the watch list.
+    const badText = page => page.evaluate(() => {
+      const t = document.querySelector('.mdl .mdl-live').textContent;
+      const m = /NaN|undefined|Infinity|\[object Object\]|null(?![-\w])/.exec(t);
+      return m ? t.slice(Math.max(0, m.index - 60), m.index + 40) : null;
+    });
+    const setRange = (page, sel, v) => page.evaluate(([s, x]) => { const r = document.querySelector(s); r.value = String(x); r.dispatchEvent(new Event('input', { bubbles: true })); }, [sel, v]);
+    const MODEL_TABS = ['pl', 'risk', 'debt', 'sens', 'be', 'val', 'watch', 'cal'];
+    await step('model v2 (capacity fixture): capacity drivers, delivery delay lowers FY2027E revenue, events switch value/share, distribution, fixed vs floating, revenue build, watch list, print', async () => {
+      const a = await newCtx(browser, NEW, { reports: 'fixture', model: 'capacity' });
+      await boot(a, NEW, '#/reports/fxr');
+      await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]', { timeout: 10000 });
+      // a) business drivers, not a revenue-growth slider; the revenue they add up to, inline
+      assert.strictEqual(await a.page.$('.mdl input[data-mdl-driver="revenue_growth"]'), null, 'no revenue-growth slider with a revenue_model');
+      assert.deepStrictEqual((await a.page.$$eval('.mdl details.mdl-group', g => g.map(x => x.getAttribute('data-mdl-group')))).slice(0, 3), ['Capacity & delivery', 'Pricing & mix', 'Unit costs']);
+      assert.ok(await a.page.$('.mdl details[data-mdl-group="Unit costs"] input[data-mdl-driver="self_build_share"]'), 'owned vs leased sits with the unit costs');
+      const revLine = () => text(a.page, '.mdl [data-mdl-revline="Capacity & delivery"]');
+      assert.match(await revLine(), /^→ FY2027E revenue US\$[\d.,]+(m|bn)/);
+      const r0 = money(await revLine()), v0 = money(await kpi(a.page, 'value_per_share'));
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-live > .mdl-kpis > .mdl-kpi', k => k.length), 10, 'ten headline KPIs (+ the distribution\'s expected value, + backlog coverage)');
+      // the expected value fills in once the distribution (computed in slices off the slider path) lands
+      await a.page.waitForFunction(() => { const e = document.querySelector('.mdl [data-mdl-kpi="weighted"]'); return e && /P10 US\$/.test(e.textContent); }, null, { timeout: 15000 });
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="weighted"]'), /Expected value \(outcome distribution\)\s*US\$[\d.]+.*P10 US\$\d+ · P50 US\$\d+ · P90 US\$\d+.*vs the US\$[\d.]+ price/);
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="backlog_coverage"]'), /Revenue covered by backlog \(FY2027E\)\s*\d+%.*contracted US\$/);
+      await setRange(a.page, '.mdl input[data-mdl-driver="delivery_delay_months"]', 6);
+      await settle(a.page, 300);
+      const r1 = money(await revLine());
+      assert.ok(r1 < r0, `a 6-month delivery delay lowers FY2027E revenue (${r0} -> ${r1})`);
+      assert.match(await text(a.page, '.mdl .mdl-drv[data-mdl-row="delivery_delay_months"] .mdl-eff'), /FY27E year-end MW 220 MW → \d+ MW · revenue US\$/);
+      await a.page.click('.mdl [data-mdl-reset]');
+      await settle(a.page, 300);
+      // c) P&L: revenue build (bridge, MW, backlog, customers, backstop, sites, unit costs), EBITDA -> FCF, the depreciation readout
+      assert.match(await text(a.page, '.mdl [data-mdl-panel="pl"]'), /Revenue build: capacity × price × billing.*Revenue bridge FY2025A → FY2027E.*Active and billing power.*Backlog: how much of each year is already signed.*Customers: concentration.*Largest customer’s share.*Beta Labs including what it buys through others.*Gamma purchase commitment: buys capacity left unsold.*Sites behind the MW path.*Unit costs: owned vs leased.*Leases signed, not yet commenced.*Unit economics: one MW energised in FY2028E.*From adj\. EBITDA to free cash flow.*Interest as % of adj\. EBITDA.*Depreciation: reported profit at a 6\.0-year vs a 3\.0-year GPU life/);
+      assert.strictEqual(await a.page.$$eval('.mdl [data-mdl-panel="pl"] svg.mdl-wf', s => s.length), 2, 'revenue bridge + cash bridge');
+      // the revenue bridge adds up: FY2025A + steps = FY2027E
+      const wf = await a.page.$$eval('.mdl [data-mdl-panel="pl"] svg.mdl-wf', s => s[0].querySelector('desc').textContent);
+      const parts = [...wf.matchAll(/: ([+−]?)US\$([\d.,]+)(m|bn)/g)].map(m => (m[1] === '−' ? -1 : 1) * parseFloat(m[2].replace(/,/g, '')) * (m[3] === 'bn' ? 1000 : 1));
+      assert.ok(Math.abs(parts.slice(0, -1).reduce((x, y) => x + y, 0) - parts[parts.length - 1]) <= 0.02 * Math.abs(parts[parts.length - 1]) + 15, `bridge adds up: ${wf}`);
+      await shot(a.page, 'model_cap_pl', { fullPage: true });
+      // b) Risks & upsides: second tab; a card per event; the distribution
+      assert.deepStrictEqual(await a.page.$$eval('.mdl [role="tab"]', t => t.map(x => x.getAttribute('data-mdl-tab'))), MODEL_TABS);
+      await a.page.click('.mdl [data-mdl-tab="risk"]');
+      await a.page.waitForSelector('.mdl [data-mdl-dist] svg.mdl-hist', { timeout: 10000 });
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-ev', c => c.length), MODEL_CAP.events.length, 'a card per event');
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-evcol', c => c.map(x => x.getAttribute('aria-label')).join()), 'Risks,Upsides');
+      assert.match(await text(a.page, '.mdl [data-mdl-evcard="alpha_cut"]'), /Alpha halves its spend.*Risk · from Jan 2028.*If it happens.*Value per share.*Revenue\s*FY27E.*FY30E.*Net income\s*FY27E.*Alpha Cloud cancels 50% of its contracted revenue from Jan 2028.*Probability.*What to watch.*Alpha.s share in each quarterly filing/);
+      assert.match(await text(a.page, '.mdl [data-mdl-dist]'), /Exact: all \d[\d,]* combinations.*Distribution mean.*P10 \/ P50 \/ P90.*P\(value below the price\).*P\(above a leverage cap, FY27E\+\).*P\(liquidity below zero\).*P\(more uncommitted debt\).*FY2027E net income across the outcomes.*P\(a loss\)/);
+      assert.strictEqual(await a.page.$$eval('.mdl [data-mdl-dist] svg.mdl-hist', s => s.length), 2, 'value + net income histograms');
+      assert.strictEqual(await a.page.$eval('.mdl [data-mdl-mode="base"]', b => b.getAttribute('aria-checked')), 'true');
+      assert.strictEqual(await a.page.$eval('.mdl .mdl-mode', e => e.getAttribute('role')), 'radiogroup');
+      const mean0 = await text(a.page, '.mdl [data-mdl-dstat="mean"] .mdl-kpi-v');
+      await shot(a.page, 'model_cap_risk', { fullPage: true });
+      // switching a risk on moves value per share (and the state rides in the link)
+      await a.page.click('.mdl .mdl-switch[data-mdl-ev="alpha_cut"]');
+      await settle(a.page, 500);
+      assert.deepStrictEqual(await a.page.$eval('.mdl .mdl-switch[data-mdl-ev="alpha_cut"]', b => [b.getAttribute('role'), b.getAttribute('aria-checked')]), ['switch', 'true']);
+      assert.strictEqual(await a.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-mdl-ev')), 'alpha_cut', 'focus stays on the switch');
+      assert.strictEqual(await a.page.$eval('.mdl [data-mdl-mode="custom"]', b => b.getAttribute('aria-checked')), 'true');
+      const v1 = money(await kpi(a.page, 'value_per_share'));
+      assert.ok(v1 < v0, `the largest customer halving its spend lowers value per share (${v0} -> ${v1})`);
+      assert.match(await text(a.page, '.mdl [data-mdl-kpi="value_per_share"] .mdl-kpi-d'), /▼ −US\$[\d.]+ vs base/);
+      assert.match(await text(a.page, '.mdl [data-mdl-readout="events"]'), /1 event on: value per share US\$[\d.]+ \(no events: US\$[\d.]+\)/);
+      const hash = await a.page.evaluate(() => location.hash);
+      assert.deepStrictEqual(await a.page.evaluate(([h, sp]) => ModelEngine.decodeState(sp, h.split('?m=')[1]).events, [hash, MODEL_CAP]), { alpha_cut: 1 });
+      // more switches; mutually exclusive events displace each other
+      await a.page.click('.mdl .mdl-switch[data-mdl-ev="markets_shut"]');
+      await a.page.click('.mdl .mdl-switch[data-mdl-ev="slip"]');
+      await a.page.click('.mdl .mdl-switch[data-mdl-ev="early"]');
+      await settle(a.page, 500);
+      assert.notStrictEqual(money(await kpi(a.page, 'value_per_share')), v1, 'each switch moves value per share');
+      assert.deepStrictEqual(await a.page.$$eval('.mdl .mdl-switch[aria-checked="true"]', b => b.map(x => x.getAttribute('data-mdl-ev')).sort()), ['alpha_cut', 'early', 'markets_shut']);
+      // the distribution does not depend on the switches (cached), but on the probabilities
+      assert.strictEqual(await text(a.page, '.mdl [data-mdl-dstat="mean"] .mdl-kpi-v'), mean0, 'switches leave the distribution alone');
+      await a.page.fill('.mdl input[data-mdl-prob="alpha_cut"]', '90');
+      await a.page.waitForFunction(m => { const e = document.querySelector('.mdl [data-mdl-dstat="mean"] .mdl-kpi-v'); return e && e.textContent !== m; }, mean0, { timeout: 10000 });
+      const h2 = await a.page.evaluate(() => location.hash);
+      assert.deepStrictEqual(await a.page.evaluate(([h, sp]) => ModelEngine.decodeState(sp, h.split('?m=')[1]).probs, [h2, MODEL_CAP]), { alpha_cut: 0.9 });
+      // a fresh page on that link: same switches, same probability
+      const b = await newCtx(browser, NEW, { reports: 'fixture', model: 'capacity' });
+      await boot(b, NEW, h2);
+      await b.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
+      assert.strictEqual(money(await kpi(b.page, 'value_per_share')), money(await kpi(a.page, 'value_per_share')), 'same value per share from the link');
+      await b.page.click('.mdl [data-mdl-tab="risk"]');
+      await b.page.waitForSelector('.mdl [data-mdl-dist] svg.mdl-hist', { timeout: 10000 });
+      assert.strictEqual(await b.page.$eval('.mdl input[data-mdl-prob="alpha_cut"]', e => e.value), '90');
+      assert.strictEqual(await b.page.$eval('.mdl .mdl-switch[data-mdl-ev="markets_shut"]', e => e.getAttribute('aria-checked')), 'true');
+      noErrors(b);
+      await b.ctx.close();
+      // probability-weighted mode: no events in the projection, switches show their probability
+      await a.page.click('.mdl [data-mdl-mode="weighted"]');
+      await settle(a.page, 500);
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-switch', s => s.every(x => x.disabled && x.getAttribute('aria-checked') === 'false')), true);
+      assert.strictEqual(money(await kpi(a.page, 'value_per_share')), v0, 'weighted mode: the projection has no events');
+      assert.match(await text(a.page, '.mdl [data-mdl-readout="events"]'), /Distribution mean: US\$[\d.]+/);
+      // the mode bar is a radio group: arrow keys move and select
+      await a.page.focus('.mdl [data-mdl-mode="weighted"]');
+      await a.page.keyboard.press('ArrowLeft');
+      await settle(a.page, 300);
+      assert.deepStrictEqual(await a.page.evaluate(() => [document.activeElement.getAttribute('data-mdl-mode'), document.querySelector('.mdl [data-mdl-mode="base"]').getAttribute('aria-checked')]), ['base', 'true']);
+      await a.page.click('.mdl [data-mdl-mode="custom"]');
+      await settle(a.page, 400);
+      assert.deepStrictEqual(await a.page.$$eval('.mdl .mdl-switch[aria-checked="true"]', b => b.map(x => x.getAttribute('data-mdl-ev')).sort()), ['alpha_cut', 'early', 'markets_shut'], 'custom restores the switches');
+      // a scenario preset is drivers + events: the bear names its business risks
+      await a.page.click('.mdl .mdl-chip[data-mdl-scen="bear"]');
+      await settle(a.page, 500);
+      assert.deepStrictEqual(await a.page.$$eval('.mdl .mdl-switch[aria-checked="true"]', b => b.map(x => x.getAttribute('data-mdl-ev')).sort()), ['markets_shut', 'price_war', 'slip']);
+      assert.match(await text(a.page, '.mdl .mdl-scen-note'), /Bear: .*Business events: Sites three months late · GPU rental price war · Debt markets shut/);
+      // e) tornado: events as bars, visually distinct
+      await a.page.click('.mdl [data-mdl-tab="sens"]');
+      await settle(a.page, 600);
+      assert.ok(await a.page.$$eval('.mdl svg.mdl-tornado rect.mdl-evbar', r => r.length) >= 3, 'event bars in the tornado');
+      assert.match(await text(a.page, '.mdl [data-mdl-panel="sens"] .mdl-legend'), /Risk switched on.*Upside switched on/);
+      // d) fixed vs floating, made prominent
+      await a.page.click('.mdl [data-mdl-tab="debt"]');
+      await settle(a.page, 300);
+      assert.match(await text(a.page, '.mdl [data-mdl-ff="headline"]'), /^Today: \d+% of debt fixed \/ \d+% floating \(after hedges\) — \d+% of interest reprices with SOFR/);
+      assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"]'), /Fixed rate today.*Floating today.*Interest that floats.*Year-end debt by rate type.*Interest expense by rate type.*Fixed vs floating and rate exposure by year.*\+100bp SOFR: extra interest.*at \+200bp SOFR.*Interest-rate hedges.*Pay-fixed swap on the term loan.*Borrowing need/);
+      assert.match(await text(a.page, '.mdl [data-mdl-panel="debt"] [data-mdl-readout="borrowing"]'), /What if they stop\? “Debt markets shut”/);
+      // the 12-month-old swap: 400 of the 1,000 term loan is fixed -> 900 fixed today (500 notes + 400 swapped), 1,200 floating
+      assert.match(await text(a.page, '.mdl [data-mdl-ff="fixed"]'), /US\$900m · 43%.*US\$500m fixed coupons \+ US\$400m swapped/);
+      assert.ok(await a.page.$('.mdl details[data-mdl-group="Financing & rates"] input[data-mdl-driver="new_debt_floating_share"]'), 'the new-financing mix is a driver');
+      await a.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_cap_debt.png') });
+      // V8: the quarterly watch list
+      await a.page.click('.mdl [data-mdl-tab="watch"]');
+      await settle(a.page, 200);
+      assert.strictEqual(await a.page.$$eval('.mdl .mdl-wcard', c => c.length), MODEL_CAP.watchlist.length);
+      assert.match(await text(a.page, '.mdl [data-mdl-watch="concentration"]'), /Alpha's share of revenue.*Latest reported\s*60% \(H1 2026\).*Changes the view\s*Below 50% — a positive signal.*This model.*Informs\s*“Alpha halves its spend”/);
+      // every tab: no NaN / undefined / [object Object] in the text
+      for (const t of MODEL_TABS) {
+        await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
+        await settle(a.page, t === 'risk' ? 900 : 300);
+        assert.strictEqual(await badText(a.page), null, `tab ${t}: bad text`);
+      }
+      // print: the snapshot lists the events on and the distribution summary
+      await a.page.emulateMedia({ media: 'print' });
+      await a.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+      const pt = await text(a.page, '.mdl-print');
+      assert.match(pt, /Business events switched on: Sites three months late \(risk, 30% likely\); GPU rental price war.*Probabilities edited: Alpha halves its spend 90%.*Outcome distribution over the 11 events \(exact.*mean value US\$/);
+      await a.page.pdf({ path: path.join(SHOTS, 'report_fxr_capacity_model.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
+      await a.page.emulateMedia({ media: 'screen' });
+      // the summary's tag switches an event off and hands focus to its card's switch
+      await a.page.click('.mdl [data-mdl-tab="risk"]');
+      await settle(a.page, 400);
+      const tag = await a.page.$eval('.mdl [data-mdl-evoff]', b => b.getAttribute('data-mdl-evoff'));
+      await a.page.click(`.mdl [data-mdl-evoff="${tag}"]`);
+      await settle(a.page, 400);
+      assert.deepStrictEqual(await a.page.evaluate(() => [document.activeElement.getAttribute('data-mdl-ev'), document.activeElement.getAttribute('aria-checked')]), [tag, 'false']);
+      // a card's "What if they stop?" link lands on the event card
+      await a.page.click('.mdl [data-mdl-tab="debt"]');
+      await settle(a.page, 300);
+      await a.page.click('.mdl [data-mdl-readout="borrowing"] [data-mdl-goto-ev="markets_shut"]');
+      await settle(a.page, 300);
+      assert.strictEqual(await a.page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-mdl-ev')), 'markets_shut');
+      noErrors(a);
+      await a.ctx.close();
+    });
+    await step('model v2 (capacity fixture) at 390 px: no page-level horizontal scroll on any tab, cards stack, switches inside the viewport', async () => {
+      const a = await newCtx(browser, NEW, { viewport: { width: 390, height: 844 }, reports: 'fixture', model: 'capacity' });
+      await boot(a, NEW, '#/reports/fxr/model');
+      await a.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="interest"]');
+      for (const t of MODEL_TABS) {
+        await a.page.click(`.mdl [data-mdl-tab="${t}"]`);
+        await settle(a.page, t === 'risk' ? 900 : 250);
+        assert.ok(await noHScroll(a.page), `tab ${t} scrolls horizontally at 390 px`);
+        if (t === 'risk') {
+          await a.page.waitForSelector('.mdl [data-mdl-dist] svg.mdl-hist', { timeout: 10000 });
+          assert.ok(await noHScroll(a.page), 'risk tab with the distribution scrolls horizontally at 390 px');
+          assert.strictEqual(await a.page.$eval('.mdl .mdl-evcols', e => getComputedStyle(e).gridTemplateColumns.split(' ').length), 1, 'cards stack on a phone');
+          const r = await a.page.$$eval('.mdl .mdl-switch', s => s.map(e => { const b = e.getBoundingClientRect(); return [b.left, b.right]; }));
+          assert.ok(r.every(([l, rr]) => l >= 0 && rr <= 390), `switches inside the viewport ${JSON.stringify(r.slice(0, 3))}`);
+          await shot(a.page, 'phone_model_cap_risk', { fullPage: true });
+        }
+        if (t === 'debt') await shot(a.page, 'phone_model_cap_debt', { fullPage: true });
+      }
+      noErrors(a);
+      await a.ctx.close();
+    });
+
     // 14. The real CoreWeave report, when it has been written (public content).
     if (fs.existsSync(path.join(DASH, 'reports', 'crwv.json'))) {
       await step('key reports: the real dashboard/reports/crwv.json renders (desktop + 360 px + A4 PDF), drawer link on #/stock/CRWV', async () => {
@@ -1203,8 +1405,9 @@ async function main() {
           await a.page.waitForSelector('#view-reports .rpt-report');
           await settle(a.page, 500);
           assert.strictEqual(await a.page.$$eval('#view-reports .rpt-sec', s => s.length), crwv.sections.length + 1);
-          assert.ok(await noHScroll(a.page), `crwv report scrolls horizontally at ${vp.width} px`);
-          await shot(a.page, `report_crwv_${vp.width}`, { fullPage: true });
+          assert.ok(await noHScroll(a.page), `crwv report scrolls horizontally at ${vp.width} px: ${await overflowers(a.page)}`);
+          // the report with its model runs to ~50,000 px at 1280 and ~100,000 px at 360: a full-page capture takes ~35 s
+          await shot(a.page, `report_crwv_${vp.width}`, { fullPage: true, timeout: 120000 });
           if (vp.width > 400) {
             // Bar charts: no two value labels overprint, and no chart is drawn past 1:1.
             const bars = await a.page.$$eval('#view-reports svg.rpt-bars', svgs => svgs.map(svg => {
@@ -1253,8 +1456,12 @@ async function main() {
         const m = await newCtx(browser, NEW, { viewport: { width: 1280, height: 900 } });
         await boot(m, NEW, '#/reports/crwv/model');
         await m.page.waitForSelector('#view-reports .mdl [data-mdl-kpi="weighted"]', { timeout: 15000 });
-        assert.strictEqual(await m.page.$$eval('.mdl .mdl-kpi', k => k.length), 8, 'eight headline KPIs with the weighted value');
-        assert.match(await text(m.page, '.mdl [data-mdl-kpi="weighted"]'), /Probability-weighted value.*Restructuring 15%.*Bear 40%.*Base 35%.*Bull 10%/);
+        const crwvSpec = readJSON(path.join(DASH, 'reports', 'models', 'crwv.json'));
+        const crwvKpis = 9 + (crwvSpec.revenue_model ? 1 : 0);
+        assert.strictEqual(await m.page.$$eval('.mdl .mdl-live > .mdl-kpis > .mdl-kpi', k => k.length), crwvKpis, `${crwvKpis} headline KPIs with the weighted value`);
+        // one probability system: the expected value is the outcome distribution's, and each preset is a point in it
+        await m.page.waitForFunction(() => { const e = document.querySelector('.mdl [data-mdl-kpi="weighted"]'); return e && /P10 US\$/.test(e.textContent); }, null, { timeout: 30000 });
+        assert.match(await text(m.page, '.mdl [data-mdl-kpi="weighted"]'), /Expected value \(outcome distribution\).*outcomes nearest each preset: Restructuring \d+% · Bear \d+% · Base[^·]* \d+% · Bull \d+%.*vs the US\$61\.39 price/);
         const iBase = money(await kpi(m.page, 'interest'));
         await m.page.selectOption('.mdl select.mdl-pathsel[data-mdl-driver="rate_path"]', { label: 'Fed projections (Sep 2026 SEP median)' });
         await settle(m.page, 400);
@@ -1264,17 +1471,70 @@ async function main() {
         await settle(m.page, 400);
         await m.page.click('.mdl [data-mdl-ky="2028"]');
         await settle(m.page, 200);
-        assert.match(await text(m.page, '.mdl [data-mdl-kpi="gross_debt_ebitda"]'), /FY2028E total debt \/ EBITDA.*Breach FY28E/, 'bear FY28 leverage above the 6.0x cap');
-        assert.strictEqual(await m.page.$eval('.mdl [data-mdl-kpi="gross_debt_ebitda"]', e => e.classList.contains('breach')), true);
+        // leverage on the covenant's basis (Q4 EBITDA x 4): the bear stays inside the 6.0x cap
+        assert.match(await text(m.page, '.mdl [data-mdl-kpi="gross_debt_ebitda"]'), /FY2028E total debt \/ EBITDA \(Q4 × 4\).*cap 6\.0x · never crossed · full year \d\.\dx/);
+        assert.strictEqual(await m.page.$eval('.mdl [data-mdl-kpi="gross_debt_ebitda"]', e => e.classList.contains('breach')), false);
         await m.page.click('.mdl [data-mdl-tab="debt"]');
         await settle(m.page, 300);
-        assert.match(await text(m.page, '.mdl [data-mdl-panel="debt"]'), /Fed projections.*Re-hike.*Funding the gap.*DDTL 4\.0 undrawn.*First year each limit is crossed/);
+        assert.match(await text(m.page, '.mdl [data-mdl-panel="debt"]'), /Fixed vs floating.*Today: \d+% of debt fixed.*Fed projections.*Re-hike.*Funding the gap.*DDTL 4\.0[^:]*undrawn.*First year each limit is crossed/);
         await m.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_crwv_debt.png') });
         await m.page.click('.mdl [data-mdl-reset]');
         await m.page.click('.mdl [data-mdl-tab="be"]');
         await m.page.waitForFunction(() => { const c = [...document.querySelectorAll('.mdl [data-mdl-be]')]; return c.length && c.every(x => x.textContent !== '…'); }, null, { timeout: 15000 });
         assert.match(await m.page.$eval('.mdl [data-mdl-be="exit_ev_ebitda"]', c => c.textContent), /^\d+\.\dx$/, 'price-implied exit multiple');
         await m.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_crwv_be.png') });
+        // MODEL v2 on the real spec: fixed vs floating today, the revenue build, the events and their distribution
+        await m.page.click('.mdl [data-mdl-tab="debt"]');
+        await settle(m.page, 400);
+        assert.match(await text(m.page, '.mdl [data-mdl-ff="headline"]'), /^Today: \d+% of debt fixed \/ \d+% floating \(after hedges\) — \d+% of interest reprices with SOFR/);
+        if (crwvSpec.revenue_model) {
+          await m.page.click('.mdl [data-mdl-tab="pl"]');
+          await settle(m.page, 400);
+          assert.match(await text(m.page, '.mdl [data-mdl-panel="pl"]'), /Revenue build: capacity × price × billing.*Revenue bridge FY2025A → FY20\d\dE.*Backlog: how much of each year is already signed.*From adj\. EBITDA to free cash flow.*Depreciation: reported profit/);
+          assert.strictEqual(await m.page.$('.mdl input[data-mdl-driver="revenue_growth"]'), null);
+          const rv = () => text(m.page, '.mdl [data-mdl-revline="Capacity & delivery"]');
+          const rA = money(await rv());
+          await setRange(m.page, '.mdl input[data-mdl-driver="delivery_delay_months"]', 6);
+          await settle(m.page, 400);
+          assert.ok(money(await rv()) < rA, 'CoreWeave: a 6-month delivery delay lowers FY2027E revenue');
+          await m.page.click('.mdl [data-mdl-reset]');
+          await settle(m.page, 400);
+        }
+        if (Array.isArray(crwvSpec.events) && crwvSpec.events.length) {
+          const vA = money(await kpi(m.page, 'value_per_share'));
+          await m.page.click('.mdl [data-mdl-tab="risk"]');
+          await m.page.waitForSelector('.mdl [data-mdl-dist] svg.mdl-hist', { timeout: 20000 });
+          assert.strictEqual(await m.page.$$eval('.mdl .mdl-ev', c => c.length), crwvSpec.events.length, 'a card per CoreWeave event');
+          assert.match(await text(m.page, '.mdl [data-mdl-dist]'), /Monte Carlo: 2,000 draws.*a regime \(boom.*Distribution mean.*P\(value below the price\).*P\(above a leverage cap, FY27E\+\).*Mean value by regime.*The presets as points of the distribution.*Bear.*P\d+ of the distribution/);
+          const risk = crwvSpec.events.find(e => e.kind === 'risk');
+          await m.page.click(`.mdl .mdl-switch[data-mdl-ev="${risk.id}"]`);
+          await settle(m.page, 700);
+          assert.notStrictEqual(money(await kpi(m.page, 'value_per_share')), vA, `switching on "${risk.label}" moves value per share`);
+          await m.page.locator('#view-reports .mdl').screenshot({ path: path.join(SHOTS, 'model_crwv_risk.png') });
+          for (const t of MODEL_TABS.filter(x => x !== 'watch' || (crwvSpec.watchlist || []).length)) {
+            await m.page.click(`.mdl [data-mdl-tab="${t}"]`);
+            await settle(m.page, t === 'risk' ? 900 : 300);
+            assert.strictEqual(await badText(m.page), null, `crwv tab ${t}: bad text`);
+          }
+          // a slider drag stays responsive: one projection per frame, the slow views (tornado,
+          // distribution in ~20 ms slices) only once it rests — no long task while dragging
+          await m.page.click('.mdl [data-mdl-tab="pl"]');
+          await settle(m.page, 600);
+          await m.page.evaluate(() => { window.__lt = []; try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__lt.push(e.duration); }).observe({ type: 'longtask' }); } catch { window.__lt = null; } });
+          for (let k = 1; k <= 12; k++) { await setRange(m.page, '.mdl input[data-mdl-driver="utilization"]', -k / 2); await m.page.waitForTimeout(30); }
+          const lt = await m.page.evaluate(() => window.__lt);
+          if (lt) assert.ok(Math.max(0, ...lt) < 120, `long tasks while dragging a slider: ${JSON.stringify(lt.map(Math.round))} ms`);
+          await m.page.click('.mdl [data-mdl-reset]');
+          await settle(m.page, 600);
+          // 360 px: every tab fits
+          await m.page.setViewportSize({ width: 360, height: 780 });
+          for (const t of MODEL_TABS.filter(x => x !== 'watch' || (crwvSpec.watchlist || []).length)) {
+            await m.page.click(`.mdl [data-mdl-tab="${t}"]`);
+            await settle(m.page, t === 'risk' ? 900 : 300);
+            assert.ok(await noHScroll(m.page), `crwv model tab ${t} scrolls horizontally at 360 px: ${await overflowers(m.page)}`);
+          }
+          await shot(m.page, 'phone_model_crwv_risk', { fullPage: true });
+        }
         noErrors(m);
         await m.ctx.close();
         // Tailwind CDN blocked: the report still sits on its own dark background.

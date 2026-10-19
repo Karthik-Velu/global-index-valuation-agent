@@ -1,0 +1,1091 @@
+{
+  "v": 1,
+  "slug": "fxr-capacity",
+  "template": "levered_growth_v1",
+  "currency": "USD",
+  "unit": "m",
+  "asof": "2026-10-18",
+  "_comment": "Synthetic 'Fixture Capacity Corp' for scripts/test_model.js: revenue built from MW (revenue_model capacity_v1), a swap, new-debt vintages, events. Small round numbers; not a real company. Billing lag 0 and utilisation 1 in 2026-28 so H2-2026 is hand-computable: MW +10 a month from 100 (Jun 2026) to 160 (Dec), +5 a month to 220 (2027) and 280 (2028), then flat.",
+  "years": [
+    2026,
+    2027,
+    2028,
+    2029,
+    2030
+  ],
+  "prior": {
+    "year": 2025,
+    "revenue": 1000,
+    "src": [
+      "s1"
+    ]
+  },
+  "stub": {
+    "year": 2026,
+    "actual_months": 6,
+    "actuals": {
+      "revenue": 700,
+      "cost_of_revenue": 210,
+      "opex_ex_da_sbc": 140,
+      "sbc": 35,
+      "da": 240,
+      "interest": 70,
+      "capex": 400,
+      "ocf": 300
+    },
+    "src": [
+      "s1"
+    ]
+  },
+  "opening": {
+    "date": "2026-06-30",
+    "cash": 300,
+    "gross_ppe": 3000,
+    "net_ppe": 2000,
+    "accum_dep": 1000,
+    "shares_m": 100,
+    "equity": 800,
+    "src": [
+      "s1"
+    ]
+  },
+  "debt": [
+    {
+      "id": "term-loan",
+      "name": "Term loan B",
+      "balance": 1000,
+      "kind": "floating",
+      "coupon_pct": null,
+      "spread_bp": 300,
+      "maturity": "2031-06",
+      "amort": "bullet",
+      "secured": true,
+      "recourse": true,
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "notes-2028",
+      "name": "8% senior notes due 2028",
+      "balance": 500,
+      "kind": "fixed",
+      "coupon_pct": 8,
+      "spread_bp": null,
+      "maturity": "2028-06",
+      "amort": "bullet",
+      "secured": false,
+      "recourse": true,
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "ddtl",
+      "name": "Delayed-draw term loan",
+      "balance": 600,
+      "kind": "floating",
+      "coupon_pct": null,
+      "spread_bp": 400,
+      "maturity": "2029-06",
+      "amort": "straight",
+      "secured": true,
+      "recourse": false,
+      "src": [
+        "s1"
+      ]
+    }
+  ],
+  "hedges": [
+    {
+      "id": "swap-tl",
+      "name": "Pay-fixed swap on the term loan",
+      "tranche": "term-loan",
+      "notional": 400,
+      "fixed_rate": 3.0,
+      "maturity": "2030-01",
+      "src": [
+        "s1"
+      ],
+      "note": "Synthetic: 400 of the term loan pays 3.0% + its 300bp margin until January 2030."
+    }
+  ],
+  "rates": {
+    "base_name": "SOFR",
+    "path": {
+      "2026": 4.0,
+      "2027": 3.5,
+      "2028": 3.25,
+      "2029": 3.0,
+      "2030": 3.0
+    },
+    "src": [
+      "s2"
+    ],
+    "note": "Synthetic path for tests."
+  },
+  "funding": {
+    "new_debt_secured_pct": 50,
+    "new_debt_amort_years": 4,
+    "src": [
+      "s3"
+    ],
+    "note": "Synthetic revolver; the asset-backed (floating) share of new debt amortises over four years.",
+    "committed": [
+      {
+        "id": "rcf",
+        "name": "Revolver",
+        "amount": 150,
+        "kind": "floating",
+        "spread_bp": 200,
+        "fee_bp": 25,
+        "available_until": "2027-06",
+        "maturity": "2030-06",
+        "secured": true,
+        "src": [
+          "s3"
+        ]
+      }
+    ]
+  },
+  "revenue_model": {
+    "kind": "capacity_v1",
+    "adjust_from": "2027-01",
+    "billing_lag_months": 0,
+    "max_delay_months": 12,
+    "note": "Revenue = billing MW x revenue per billing MW-year; costs and capex per MW.",
+    "src": [
+      "s1"
+    ],
+    "opening": {
+      "date": "2026-06-30",
+      "active_mw": 100,
+      "contracted_mw": 300,
+      "src": [
+        "s1"
+      ]
+    },
+    "active_mw_path": {
+      "2026": 160,
+      "2027": 220,
+      "2028": 280,
+      "2029": 280,
+      "2030": 280
+    },
+    "utilization": {
+      "2026": 1,
+      "2027": 1,
+      "2028": 1,
+      "2029": 0.95,
+      "2030": 0.95
+    },
+    "revenue_per_mw": {
+      "2026": 12,
+      "2027": 12,
+      "2028": 12,
+      "2029": 12,
+      "2030": 12
+    },
+    "renewing_share": {
+      "2026": 0,
+      "2027": 0.1,
+      "2028": 0.1,
+      "2029": 0,
+      "2030": 0
+    },
+    "renewal_price_reset": {
+      "2026": 0,
+      "2027": -0.2,
+      "2028": -0.2,
+      "2029": 0,
+      "2030": 0
+    },
+    "capex": {
+      "capex_per_mw": {
+        "2026": 25,
+        "2027": 25,
+        "2028": 25,
+        "2029": 25,
+        "2030": 25
+      },
+      "lead_months": 0,
+      "maintenance_capex_pct": 0.05
+    },
+    "cost_of_revenue": {
+      "cor_per_mw": {
+        "2026": 3,
+        "2027": 3,
+        "2028": 3,
+        "2029": 3,
+        "2030": 3
+      },
+      "rent_share": 0.5,
+      "power_share": 0.25,
+      "power_exposed": 1,
+      "cor_other_pct": 0
+    },
+    "extra_capacity": {
+      "from": "2027-01",
+      "phase": {
+        "2027": 0.5,
+        "2028": 1
+      }
+    },
+    "backlog": {
+      "rpo": 4800,
+      "as_of": "2026-06-30",
+      "coverage_warn": 0.1,
+      "conversion": [
+        {
+          "months": [
+            1,
+            12
+          ],
+          "share": 0.3
+        },
+        {
+          "months": [
+            13,
+            36
+          ],
+          "share": 0.5
+        },
+        {
+          "months": [
+            37,
+            60
+          ],
+          "share": 0.2
+        }
+      ],
+      "post_period_commitments": {
+        "by_year": {
+          "2028": 100
+        }
+      },
+      "src": [
+        "s1"
+      ]
+    },
+    "customers": [
+      {
+        "id": "alpha",
+        "name": "Alpha Cloud",
+        "contracted_share": {
+          "2026": 0.6,
+          "2027": 0.5,
+          "2028": 0.4,
+          "2029": 0.3,
+          "2030": 0.3
+        },
+        "backlog_share": 0.42,
+        "look_through": {
+          "beta": 0.5
+        },
+        "src": [
+          "s1"
+        ]
+      },
+      {
+        "id": "beta",
+        "name": "Beta Labs",
+        "contracted_share": {
+          "2026": 0.3,
+          "2027": 0.3,
+          "2028": 0.3,
+          "2029": 0.3,
+          "2030": 0.3
+        },
+        "backlog_share": 0.3,
+        "src": [
+          "s1"
+        ]
+      },
+      {
+        "id": "gamma",
+        "name": "Gamma (buyer of last resort)",
+        "contracted_share": {
+          "2026": 0,
+          "2027": 0,
+          "2028": 0,
+          "2029": 0,
+          "2030": 0
+        },
+        "backlog_share": 0,
+        "src": [
+          "s3"
+        ]
+      },
+      {
+        "id": "rest",
+        "name": "Other contracted customers",
+        "aggregate": true,
+        "contracted_share": {
+          "2026": 0.1,
+          "2027": 0.2,
+          "2028": 0.3,
+          "2029": 0.4,
+          "2030": 0.4
+        },
+        "backlog_share": 0.28,
+        "src": [
+          "s1"
+        ]
+      }
+    ],
+    "backstop": {
+      "name": "Gamma purchase commitment",
+      "customer": "gamma",
+      "cap": 100,
+      "until": "2029-06",
+      "coverage": 1,
+      "basis": "stress",
+      "src": [
+        "s3"
+      ]
+    },
+    "self_build": {
+      "from": "2027-01",
+      "capex_per_mw": 8,
+      "life": 25,
+      "src": [
+        "s3"
+      ]
+    },
+    "leases": {
+      "not_commenced": 900,
+      "as_of": "2026-06-30",
+      "note": "Synthetic leases signed, not yet commenced.",
+      "src": [
+        "s1"
+      ]
+    },
+    "sites": [
+      {
+        "id": "north",
+        "name": "North campus",
+        "mw": 120,
+        "expected_online": "2026-12",
+        "developer": "Fixture Developer",
+        "src": [
+          "s1"
+        ]
+      },
+      {
+        "id": "south",
+        "name": "South campus",
+        "mw": 120,
+        "expected_online": "2028-06",
+        "developer": "Fixture Developer",
+        "src": [
+          "s1"
+        ]
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "id": "delivery_delay_months",
+      "label": "Delivery delay",
+      "group": "Capacity & delivery",
+      "kind": "scalar",
+      "unit": "months",
+      "base": 0,
+      "min": -6,
+      "max": 24,
+      "step": 1,
+      "low": -2,
+      "high": 6,
+      "help": "Months."
+    },
+    {
+      "id": "extra_capacity_mw",
+      "label": "Capacity beyond plan",
+      "group": "Capacity & delivery",
+      "kind": "scalar",
+      "unit": "MW",
+      "base": 0,
+      "min": -200,
+      "max": 400,
+      "step": 10,
+      "low": -40,
+      "high": 80,
+      "help": "MW."
+    },
+    {
+      "id": "utilization",
+      "label": "Utilisation",
+      "group": "Capacity & delivery",
+      "kind": "scalar",
+      "unit": "pp",
+      "base": 0,
+      "min": -30,
+      "max": 10,
+      "step": 1,
+      "low": -5,
+      "high": 0,
+      "help": "pp."
+    },
+    {
+      "id": "revenue_per_mw_shift",
+      "label": "Price per MW",
+      "group": "Pricing & mix",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 0,
+      "min": -50,
+      "max": 50,
+      "step": 1,
+      "low": -10,
+      "high": 10,
+      "help": "%."
+    },
+    {
+      "id": "renewal_price_reset",
+      "label": "Renewal pricing",
+      "group": "Pricing & mix",
+      "kind": "scalar",
+      "unit": "pp",
+      "base": 0,
+      "min": -60,
+      "max": 40,
+      "step": 5,
+      "low": -30,
+      "high": 10,
+      "help": "pp."
+    },
+    {
+      "id": "cor_per_mw",
+      "label": "Cost of revenue per MW",
+      "group": "Unit costs",
+      "kind": "scalar",
+      "unit": "US$m",
+      "base": 3,
+      "min": 1,
+      "max": 6,
+      "step": 0.05,
+      "low": 2.7,
+      "high": 3.6,
+      "help": "US$m per MW-year."
+    },
+    {
+      "id": "power_cost_shift",
+      "label": "Power price",
+      "group": "Unit costs",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 0,
+      "min": -50,
+      "max": 200,
+      "step": 5,
+      "low": -10,
+      "high": 40,
+      "help": "%."
+    },
+    {
+      "id": "capex_per_mw",
+      "label": "Capex per MW",
+      "group": "Unit costs",
+      "kind": "scalar",
+      "unit": "US$m",
+      "base": 25,
+      "min": 5,
+      "max": 60,
+      "step": 0.5,
+      "low": 20,
+      "high": 32,
+      "help": "US$m per MW."
+    },
+    {
+      "id": "self_build_share",
+      "label": "Self-built share of new MW",
+      "group": "Capex & depreciation",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 0,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "low": 0,
+      "high": 50,
+      "help": "%."
+    },
+    {
+      "id": "opex_pct",
+      "label": "Operating costs",
+      "group": "Margins",
+      "kind": "shift_pp",
+      "unit": "pp",
+      "base": 0,
+      "min": -15,
+      "max": 15,
+      "step": 0.5,
+      "path": {
+        "2026": 20,
+        "2027": 18,
+        "2028": 17,
+        "2029": 16,
+        "2030": 16
+      },
+      "low": -2,
+      "high": 3,
+      "help": "Opex % revenue."
+    },
+    {
+      "id": "sbc_pct",
+      "label": "SBC",
+      "group": "Margins",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 5,
+      "min": 0,
+      "max": 30,
+      "step": 0.5,
+      "low": 3,
+      "high": 8,
+      "help": "SBC % revenue."
+    },
+    {
+      "id": "useful_life",
+      "label": "Depreciation life",
+      "group": "Capex & depreciation",
+      "kind": "scalar",
+      "unit": "yrs",
+      "base": 6,
+      "min": 2,
+      "max": 10,
+      "step": 0.5,
+      "low": 3,
+      "high": 7,
+      "help": "Years."
+    },
+    {
+      "id": "sofr_shift",
+      "label": "SOFR shift",
+      "group": "Financing & rates",
+      "kind": "shift_bp",
+      "unit": "bp",
+      "base": 0,
+      "min": -300,
+      "max": 500,
+      "step": 25,
+      "low": -100,
+      "high": 200,
+      "help": "bp."
+    },
+    {
+      "id": "spread_shift",
+      "label": "Spread shift",
+      "group": "Financing & rates",
+      "kind": "shift_bp",
+      "unit": "bp",
+      "base": 0,
+      "min": -300,
+      "max": 800,
+      "step": 25,
+      "low": -100,
+      "high": 300,
+      "help": "bp."
+    },
+    {
+      "id": "new_debt_rate",
+      "label": "New-debt rate",
+      "group": "Financing & rates",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 10,
+      "min": 2,
+      "max": 25,
+      "step": 0.25,
+      "low": 8,
+      "high": 14,
+      "help": "%."
+    },
+    {
+      "id": "new_debt_floating_share",
+      "label": "New debt raised floating",
+      "group": "Financing & rates",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 50,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "low": 20,
+      "high": 90,
+      "help": "%."
+    },
+    {
+      "id": "hedge_ratio_new",
+      "label": "New floating debt swapped",
+      "group": "Financing & rates",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 40,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "low": 0,
+      "high": 90,
+      "help": "%."
+    },
+    {
+      "id": "equity_funding_share",
+      "label": "Gap funded by equity",
+      "group": "Dilution",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 10,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "low": 0,
+      "high": 50,
+      "help": "%."
+    },
+    {
+      "id": "issue_discount",
+      "label": "Issue discount",
+      "group": "Dilution",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 10,
+      "min": 0,
+      "max": 60,
+      "step": 1,
+      "low": 0,
+      "high": 30,
+      "help": "%."
+    },
+    {
+      "id": "min_cash",
+      "label": "Minimum cash",
+      "group": "Financing & rates",
+      "kind": "scalar",
+      "unit": "US$m",
+      "base": 200,
+      "min": 0,
+      "max": 2000,
+      "step": 50,
+      "low": 100,
+      "high": 500,
+      "help": "US$m."
+    },
+    {
+      "id": "wc_prepay_pct",
+      "label": "Customer prepayments",
+      "group": "Revenue",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 10,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "low": 0,
+      "high": 30,
+      "help": "%."
+    },
+    {
+      "id": "tax_rate",
+      "label": "Tax rate",
+      "group": "Margins",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 21,
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "low": 15,
+      "high": 28,
+      "help": "%."
+    },
+    {
+      "id": "exit_ev_ebitda",
+      "label": "Exit EV/EBITDA",
+      "group": "Valuation",
+      "kind": "scalar",
+      "unit": "x",
+      "base": 10,
+      "min": 2,
+      "max": 30,
+      "step": 0.5,
+      "low": 7,
+      "high": 13,
+      "help": "x."
+    },
+    {
+      "id": "discount_rate",
+      "label": "Cost of equity",
+      "group": "Valuation",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 15,
+      "min": 5,
+      "max": 30,
+      "step": 0.5,
+      "low": 12,
+      "high": 20,
+      "help": "%."
+    },
+    {
+      "id": "share_price",
+      "label": "Share price",
+      "group": "Market",
+      "kind": "scalar",
+      "unit": "US$",
+      "base": 20,
+      "min": 1,
+      "max": 200,
+      "step": 0.01,
+      "low": 15,
+      "high": 25,
+      "help": "US$.",
+      "src": [
+        "s2"
+      ]
+    },
+    {
+      "id": "share_dilution_pct",
+      "label": "Share-count creep",
+      "group": "Dilution",
+      "kind": "scalar",
+      "unit": "%",
+      "base": 1,
+      "min": 0,
+      "max": 10,
+      "step": 0.5,
+      "low": 0,
+      "high": 3,
+      "help": "%."
+    }
+  ],
+  "events": [
+    {
+      "id": "slip",
+      "kind": "risk",
+      "label": "Sites three months late",
+      "mechanism": "The developer delivers the shells a quarter late; revenue and costs move right, the GPUs are bought on time.",
+      "prob": 0.3,
+      "prob_note": "Synthetic.",
+      "from": "2027-01",
+      "group": "delivery",
+      "impacts": {
+        "delay_months": 3,
+        "capex_delta": {
+          "2027": 100,
+          "2028": -100
+        }
+      },
+      "indicators": [
+        "Quarterly MW energised vs plan"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "early",
+      "kind": "upside",
+      "label": "Sites two months early",
+      "mechanism": "Shells arrive early.",
+      "prob": 0.1,
+      "from": "2027-01",
+      "group": "delivery",
+      "impacts": {
+        "delay_months": -2
+      },
+      "indicators": [
+        "Developer milestones"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "alpha_cut",
+      "kind": "risk",
+      "label": "Alpha halves its spend",
+      "mechanism": "The largest customer builds its own capacity and halves its spend at renewal.",
+      "prob": 0.2,
+      "from": "2028-01",
+      "impacts": {
+        "customer_cut": {
+          "customer": "alpha",
+          "pct": 0.5
+        }
+      },
+      "indicators": [
+        "Alpha's share in each quarterly filing"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "price_war",
+      "kind": "risk",
+      "label": "GPU rental price war",
+      "mechanism": "Oversupply cuts prices on renewals and new deals.",
+      "prob": 0.25,
+      "from": "2027-07",
+      "group": "market",
+      "impacts": {
+        "renewal_price_reset_pp": -30,
+        "revenue_per_mw_pct": -5,
+        "utilization_pp": -5
+      },
+      "indicators": [
+        "GPU rental price index"
+      ],
+      "src": [
+        "s2"
+      ]
+    },
+    {
+      "id": "tight_supply",
+      "kind": "upside",
+      "label": "Chips stay scarce",
+      "mechanism": "Scarcity lifts renewal and new-deal pricing.",
+      "prob": 0.2,
+      "from": "2027-01",
+      "group": "market",
+      "impacts": {
+        "renewal_price_reset_pp": 10,
+        "revenue_per_mw_pct": 5
+      },
+      "indicators": [
+        "GPU rental price index"
+      ],
+      "src": [
+        "s2"
+      ]
+    },
+    {
+      "id": "big_contract",
+      "kind": "upside",
+      "label": "A new anchor contract",
+      "mechanism": "A new customer contracts extra MW.",
+      "prob": 0.3,
+      "from": "2027-07",
+      "impacts": {
+        "mw_delta": {
+          "2027": 20,
+          "2028": 60,
+          "2029": 60,
+          "2030": 60
+        }
+      },
+      "indicators": [
+        "Contracted power"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "markets_shut",
+      "kind": "risk",
+      "label": "Debt markets shut",
+      "mechanism": "No new uncommitted debt in 2027-28; spreads gap out.",
+      "prob": 0.15,
+      "from": "2027-01",
+      "impacts": {
+        "spread_bp": 300,
+        "new_debt_rate_pp": 2,
+        "new_debt_cap": {
+          "2027": 0,
+          "2028": 0
+        }
+      },
+      "indicators": [
+        "High-yield spreads"
+      ],
+      "src": [
+        "s3"
+      ]
+    },
+    {
+      "id": "power_spike",
+      "kind": "risk",
+      "label": "Power prices jump",
+      "mechanism": "Grid tariffs rise.",
+      "prob": 0.2,
+      "from": "2028-01",
+      "impacts": {
+        "cor_per_mw_pct": 10,
+        "power_cost_pct": 40
+      },
+      "indicators": [
+        "Regional power forwards"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "short_life",
+      "kind": "risk",
+      "label": "Three-year economic GPU life",
+      "mechanism": "Newer chips make the fleet obsolete in three years.",
+      "prob": 0.2,
+      "from": "2027-01",
+      "impacts": {
+        "useful_life_delta": -3
+      },
+      "indicators": [
+        "Rental prices of older GPUs"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "churn",
+      "kind": "risk",
+      "label": "Half of renewals walk",
+      "mechanism": "Customers that build their own capacity do not re-sign.",
+      "prob": 0.15,
+      "from": "2028-01",
+      "impacts": {
+        "renewal_churn_pp": 50
+      },
+      "indicators": [
+        "Renewal disclosures"
+      ],
+      "src": [
+        "s1"
+      ]
+    },
+    {
+      "id": "equity_raise",
+      "kind": "risk",
+      "label": "Forced equity raise",
+      "mechanism": "Lenders demand equity; it is sold at a deep discount.",
+      "prob": 0.1,
+      "from": "2027-01",
+      "impacts": {
+        "equity_share_pp": 40,
+        "issue_discount_pp": 20
+      },
+      "indicators": [
+        "Share issuance"
+      ],
+      "src": [
+        "s2"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "base",
+      "name": "Base",
+      "values": {},
+      "note": "Spec paths as given."
+    },
+    {
+      "id": "bear",
+      "name": "Bear",
+      "values": {
+        "revenue_per_mw_shift": -5,
+        "exit_ev_ebitda": 7
+      },
+      "events": [
+        "slip",
+        "price_war",
+        "markets_shut"
+      ],
+      "note": "Late sites, a price war and shut markets."
+    },
+    {
+      "id": "bull",
+      "name": "Bull",
+      "values": {
+        "exit_ev_ebitda": 12
+      },
+      "events": [
+        "early",
+        "tight_supply",
+        "big_contract"
+      ],
+      "note": "Early sites, scarce chips, a new anchor."
+    }
+  ],
+  "valuation": {
+    "method": "exit_multiple",
+    "exit_year": 2028,
+    "valuation_date": "2027-12-31",
+    "net_debt_at": "exit"
+  },
+  "covenants": [
+    {
+      "id": "lev",
+      "label": "Total debt / EBITDA cap",
+      "metric": "gross_debt_ebitda",
+      "max": 6,
+      "kind": "covenant",
+      "src": [
+        "s3"
+      ]
+    },
+    {
+      "id": "liq",
+      "label": "Liquidity above zero",
+      "metric": "liquidity",
+      "min": 0,
+      "kind": "threshold"
+    }
+  ],
+  "watchlist": [
+    {
+      "id": "concentration",
+      "label": "Alpha's share of revenue",
+      "metric": "customer_share:alpha",
+      "unit": "%",
+      "threshold": 50,
+      "direction": "below",
+      "signal": "positive",
+      "latest": {
+        "value": 60,
+        "period": "H1 2026",
+        "src": [
+          "s1"
+        ]
+      },
+      "informs": [
+        "alpha_cut"
+      ],
+      "note": "Below half would be a milestone."
+    },
+    {
+      "id": "interest_vs_ebitda",
+      "label": "Interest as % of adj. EBITDA",
+      "metric": "interest_to_ebitda",
+      "unit": "%",
+      "threshold": 50,
+      "direction": "above",
+      "latest": {
+        "value": 15,
+        "period": "H1 2026",
+        "src": [
+          "s1"
+        ]
+      },
+      "informs": [
+        "markets_shut",
+        "sofr_shift"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "label": "FY2026E revenue vs guidance 1,400–1,600",
+      "metric": "revenue",
+      "year": 2026,
+      "lo": 1400,
+      "hi": 1600,
+      "src": [
+        "s3"
+      ]
+    }
+  ]
+}

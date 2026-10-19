@@ -9,6 +9,50 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-040 · Model v2: revenue from business drivers, a risk/upside catalogue, explicit fixed vs floating
+- **Context:** owner (2026-10-18): "how much of their interest is fixed rate and how much is
+  floating?… stress testing should not have revenue as a stress test pointer… drivers of it that
+  someone can predict… risks that could result in lower revenue, upsides… customised for the
+  specific business". The owner also supplied a reference explainer (Leo Cui, "CoreWeave
+  Explained", YouTube, about July 2026). Its 18 aspects are each mapped to a driver, event, output
+  or watch item.
+- **Choice:**
+  - **`revenue_model: capacity_v1`** replaces the revenue-growth slider.
+    - Revenue = billing MW (active MW, with a lag) × utilisation/sell-through × revenue per
+      billing MW-year.
+    - Contracted schedules are tracked per customer, with an uncontracted pool and the backlog
+      conversion.
+    - Renewal repricing is modelled.
+    - The NVIDIA backstop acts as a floor on unsold capacity.
+    - Capex and cost of revenue (rent + power per MW) scale with the same MW. A self-build share
+      swaps rent for long-life capex.
+  - **`events`:** 24 business-specific risks, upsides and strategic choices. Each has a mechanism,
+    an editable probability, timing, sized impacts, indicators to watch and sources.
+    `distribution()` combines them with boom/normal/bust regimes and driver uncertainty, and
+    outputs a P10/P50/P90 value range, the probability of ending below the share price, and
+    covenant odds.
+  - **Fixed vs floating made explicit:** debt and interest by year, split into fixed (including
+    swapped), floating, new fixed and new floating. A rate-exposure table covers +100bp and
+    +200bp. The disclosed pay-fixed swaps on DDTL 3.0/5.0/4.0 are modelled, and drivers set the
+    mix of new debt.
+  - **Quarterly watch list:** customer concentration, free cash flow before growth capex,
+    interest as % of EBITDA, backlog conversion, renewal pricing, revenue per MW, active MW and
+    bookings. Each shows the latest reported value, the model path and a threshold. A "next
+    prints" table compares Q3 and Q4 2026 against guidance.
+- **Why:**
+  - A growth slider is not something anyone can observe; MW, price per MW, utilisation,
+    backlog conversion and renewals are, every quarter.
+  - Risks expressed as named events with probabilities make the bear case explainable ("which
+    risks make it?").
+  - Fixed vs floating sets how much a rate shock bites: 72% of debt is fixed after swaps, but new
+    fixed debt locks in whatever rate prevails when it is raised.
+- **Rejected:**
+  - **A per-site cash-flow model:** too much undisclosed data.
+  - **Independent event sampling:** risks are correlated, so the distribution uses regimes.
+  - **Keeping a growth override "for convenience":** the validator rejects `revenue_growth`
+    alongside a `revenue_model`.
+- **Date:** 2026-10-19.
+
 ### ADR-039 · Key reports get an interactive driver model (stress test, predicted interest, projections)
 - **Context:** owner (2026-10-18) asked for a way to stress-test a report: "if the biggest risk
   is interest to predict how much they will pay… a sensitivity analysis tool to play around
