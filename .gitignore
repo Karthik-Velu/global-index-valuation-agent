@@ -22,7 +22,11 @@ data/tierb-store.tar.gz
 .env
 .env.*
 !.env.example
-.claude/
+.claude/*
+# Shared project settings + hooks are committed (owner's standing approval for read-only SQL,
+# 2026-10-19); personal .claude/settings.local.json stays ignored.
+!.claude/settings.json
+!.claude/hooks/
 .vercel/
 *.lock
 
