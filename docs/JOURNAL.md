@@ -8,6 +8,26 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-19 — Model v2: business drivers, risk/upside catalogue, fixed vs floating
+- **Built:**
+  - The `capacity_v1` revenue model, events with `distribution()` (regimes), fixed/floating
+    outputs with hedges, and the watch list and next-prints table.
+  - The CoreWeave spec, rebuilt from primary IR documents: 10-K, 10-Qs, call transcripts and
+    decks.
+- **Learned:**
+  - CoreWeave revenue is about 98% take-or-pay. Revenue per billing MW-year has been stable at
+    US$10.4–11.9m, the right unit to forecast.
+  - Backlog covers about 96–98% of 2026–27 revenue but about 33% by 2030, so revenue risk sits
+    in delivery timing and renewals, not utilisation.
+  - 72% of debt is fixed after swaps. A +100bp shock adds about US$0.35bn to FY27 interest and
+    US$0.69bn to FY28, mostly through new fixed debt priced at the higher rate.
+  - The sandbox reaches the company's IR file host (q4cdn) even though sec.gov is blocked.
+  - YouTube blocks transcript fetches from this cloud IP; the owner pasted the transcript
+    instead.
+- **Open:** see PLAN (the 10-Q re-read; the Microsoft renewal estimate).
+
+---
+
 ## 2026-10-18 — Stress-test & projection model for Key reports
 - **Built:** the `model-engine.js` + `model.js` interactive model, and a CoreWeave spec
   calibrated to guidance (FY26 revenue, capex, adjusted operating income and the Q3 interest

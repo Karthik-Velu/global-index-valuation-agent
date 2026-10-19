@@ -366,6 +366,13 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
   - **Base case:** about US$114 a share.
   - **Calibration:** 10 of 13 checks pass. The 3 misses are the report's base sitting below
     consensus for FY2028.
+- ✅ **Model v2 (ADR-040, 2026-10-19):** revenue built from capacity, pricing, utilisation,
+  backlog and customers; 24 CoreWeave risks and upsides with probabilities; outcome
+  distribution; fixed vs floating by year with swaps and rate exposure; a quarterly watch list.
+  - **Base:** about US$105 a share. Distribution mean about US$76; P10/P50/P90 about
+    US$17/70/142.
+  - ⬜ **Still owed:** re-read the Q2-2026 10-Q (backlog split, cost-of-revenue breakdown, leases
+    not yet commenced) once sec.gov is reachable. The Microsoft renewal window is an estimate.
   - ⬜ **Next:** a second template for profitable compounders (no levered build-out), so other
     reports can use the module.
   - ⬜ **Next:** model SBC dilution through share count everywhere, and link revenue to capex

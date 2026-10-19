@@ -10,7 +10,7 @@ Key reports <https://global-index-valuation-agent.vercel.app/#/reports>
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-10-18.
+> Last updated: 2026-10-19.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -33,7 +33,12 @@ secrets — a dev cloud session needs its own copy):
 ✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
 pasted into chat during setup).
 
-## Latest (2026-10-18): Stress test & projections in Key reports (ADR-039)
+## Latest (2026-10-19): Model v2 — business drivers, risks/upsides, fixed vs floating (ADR-040)
+- The CoreWeave model now builds revenue from MW, price per MW, utilisation, backlog and
+  customers. It has a risk/upside catalogue with probabilities and a distribution, explicit
+  fixed vs floating debt and interest with swaps, and a quarterly watch list.
+
+## Previous (2026-10-18): Stress test & projections in Key reports (ADR-039)
 - `#/reports/crwv/model` (also Section 9 of the CoreWeave report) is an interactive driver model.
   It covers predicted SOFR paths, interest by tranche, tornado and two-way sensitivity,
   breakevens, P&L to 2030 and implied multiples.
