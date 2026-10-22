@@ -1,6 +1,6 @@
 # Cloud DB (Tier A — Postgres/Supabase) + Tier B (Parquet queried by DuckDB).
 psycopg[binary]>=3.1
-duckdb>=1.0
+duckdb>=1.0,<2  # 2.0 refuses register() while a result is unread; upgrade deliberately, not via pip
 
 # Core data + compute (the "non-intelligent" deterministic layer)
 yfinance>=0.2.40

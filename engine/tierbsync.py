@@ -129,7 +129,9 @@ def export(incremental: bool = False) -> dict:
         # (e.g. a dual-write failed days ago while later writes advanced the mark).
         # Re-run the anti-join against the FULL table so nothing is orphaned.
         con = tierb.connect()  # re-register the view to include the new delta
-        tb_n = con.execute("select count(*) from fundamental_metrics").fetchone()[0]
+        # fetchall, not fetchone: DuckDB 2 rejects the register() in
+        # _export_filings_mirror while this result is left partly read.
+        tb_n = con.execute("select count(*) from fundamental_metrics").fetchall()[0][0]
         if pg_n > tb_n:
             print(f"   count drift (postgres {pg_n:,} vs tierb {tb_n:,}) — "
                   "self-healing with a full-table anti-join")
