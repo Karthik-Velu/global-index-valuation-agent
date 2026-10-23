@@ -86,11 +86,6 @@ jobs:
           python -m engine.backtest run \
             ${BACKTEST_START:+--start "$BACKTEST_START"} \
             ${BACKTEST_END:+--end "$BACKTEST_END"}
-      - name: Upload backtest report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backtest-report
-          path: data/backtest_report.json
-          if-no-files-found: warn
-          retention-days: 90
+      # No artifact upload (Phase 0 P0.5a): the report is computed from Massive
+      # prices (licensed, personal use) and this repo is public. Results stay
+      # readable in Postgres backtest_runs.

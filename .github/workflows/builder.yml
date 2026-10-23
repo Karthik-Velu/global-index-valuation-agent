@@ -12,12 +12,16 @@ name: Builder agent
 #     and import before a commit is made (engine/builder.py::_gate).
 #
 # Three phases per run, in this order:
-#   poll  — merge PRs whose checks went green, mark their proposals actioned
+#   poll  — track pushed PRs, mark proposals actioned once merged (no auto-merge)
 #   draft — write plain-English plans for newly-approved code proposals
 #   build — implement plans the admin marked "Build it"
 #
-# Scheduled hourly because the loop is admin-paced. Each phase is a no-op when
-# there's nothing in that state, so a quiet hour costs one Postgres query.
+# Manual dispatch only (Phase 0 P0.11, 2026-10-23): the hourly schedule is off
+# and poll() no longer merges green PRs by default — LLM-written code must not
+# auto-merge to the public site until the owner decides change control (D14a).
+# Each phase is a no-op when there's nothing in that state.
+#
+# The notes below date from when it ran hourly — kept for if a schedule returns.
 #
 # DO NOT read "hourly" as a guarantee — GitHub does not deliver it. Measured on
 # this repo 2026-08-01/02, against `cron: "20 * * * *"`, the actual fire times
@@ -33,8 +37,6 @@ name: Builder agent
 # widening beyond the Issues-only token the console uses today. Until then the
 # honest expectation is "within a few hours", and the console says so.
 on:
-  schedule:
-    - cron: "20 * * * *"
   workflow_dispatch:
     inputs:
       draft_limit:

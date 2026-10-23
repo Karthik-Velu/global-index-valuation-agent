@@ -83,23 +83,11 @@ jobs:
           if [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; then FULL="--full"; fi
           if [ "${{ inputs.full }}" = "true" ]; then FULL="--full"; fi
           python -m engine.datapipeline --agents $FULL
-      # The release asset is the durable hydration source for `tierbsync pull`
-      # post-cutover — Actions caches evict after ~7 idle days (a cache miss is
-      # what refilled Postgres on 2026-07-07), releases don't. Monthly is enough:
-      # the cache carries day-to-day, the release carries disaster recovery.
-      - name: Refresh store bundle release asset (monthly full sweep only)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if { [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; } || [ "${{ inputs.full }}" = "true" ]; then
-            python -m engine.tierbsync bundle
-            gh release view tierb-store >/dev/null 2>&1 || \
-              gh release create tierb-store --latest --title "Tier B store bundle" \
-                --notes "Rolling Parquet bundle of the Tier B metric store, refreshed by CI (monthly full sweep). Used by \`engine.tierbsync pull\` to hydrate fresh environments post-cutover."
-            gh release upload tierb-store data/tierb-store.tar.gz --clobber
-          else
-            echo "incremental day — bundle refresh skipped"
-          fi
+      # No monthly tierb-store release refresh any more (Phase 0 P0.5a): this repo
+      # is public and the bundle carries Massive bars licensed for personal use
+      # only. The 2026-10-04 asset stays frozen as the disaster-recovery copy that
+      # `tierbsync pull` falls back to, until private encrypted backups exist
+      # (P0.2) — then it is deleted.
       - name: Commit catalog self-corrections if any
         run: |
           git config user.name "github-actions[bot]"
@@ -107,6 +95,8 @@ jobs:
           git add engine/sources/metric_catalog.json
           if git diff --staged --quiet; then echo "No catalog changes."; else
             git commit -m "chore: data pipeline auto-corrected metric catalog [skip ci]"; git push; fi
+      # Public artifact — counts, EDGAR-derived quality issues and store counts
+      # only; nothing here may carry Massive prices or valuations (P0.5a).
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
