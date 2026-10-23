@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -101,6 +102,10 @@ def dump(preset: str, tickers: list[str] | None = None,
     if preset not in PRESETS:
         raise SystemExit(f"unknown preset {preset!r}; choose from {', '.join(sorted(PRESETS))}")
     sql, param_names = PRESETS[preset]
+    # The artifact is public (public repo) and Massive bars are licensed for personal
+    # use only: presets may read EDGAR fundamentals, never the prices view (P0.5a).
+    if re.search(r"\bprices\b", sql, re.I):
+        raise SystemExit(f"preset {preset!r} reads Tier B prices (licensed) — not dumpable")
     supplied = {"tickers": [t.upper() for t in (tickers or [])], "metrics": metrics or None}
     if "tickers" in param_names and not supplied["tickers"]:
         raise SystemExit(f"preset {preset!r} needs --tickers")

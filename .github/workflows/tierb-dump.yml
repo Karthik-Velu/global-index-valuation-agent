@@ -73,11 +73,16 @@ jobs:
             --metrics "${{ inputs.metrics }}" \
             --limit "${{ inputs.limit }}"
 
+      # Public artifact (public repo). Every preset reads EDGAR fundamental_metrics
+      # only; tierbdump refuses any preset touching the licensed prices view, and the
+      # path is pinned to this preset's own two files so nothing else rides along (P0.5a).
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tierb-dump-${{ inputs.preset }}
-          path: data/tierb_*.*
+          path: |
+            data/tierb_${{ inputs.preset }}.csv
+            data/tierb_${{ inputs.preset }}.json
           retention-days: 14
           if-no-files-found: error

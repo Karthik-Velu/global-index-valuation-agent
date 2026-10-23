@@ -11,7 +11,8 @@ name: Tier B re-truncate (repair the 2026-07-07 Postgres refill)
 #      in Tier B, bundles the store, then re-truncates fundamental_metrics
 #   3. publish the bundle as a GitHub RELEASE asset — a durable hydration
 #      source for `tierbsync pull` that survives cache eviction (the root
-#      cause), until the store moves to R2
+#      cause), until the store moves to R2 — removed 2026-10-23 (Phase 0
+#      P0.5a: public repo, licensed price data)
 # Code fixes shipping with this: edgar aborts loudly when the store is missing
 # and Postgres is empty (no more silent refill), and cutover's gate is now
 # superset (not equality) so partial-run leftovers can't block a repair.
@@ -67,19 +68,8 @@ jobs:
         run: python -m engine.tierbsync export --incremental
       - name: Re-truncate (superset-gated cutover — refuses if any Postgres row is missing from Tier B)
         run: python -m engine.tierbsync cutover
-      - name: Publish bundle as release asset (durable post-cutover hydration)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view tierb-store >/dev/null 2>&1 || \
-            gh release create tierb-store --latest --title "Tier B store bundle" \
-              --notes "Rolling Parquet bundle of the Tier B metric store, refreshed by CI (monthly full sweep). Used by \`engine.tierbsync pull\` to hydrate fresh environments post-cutover."
-          gh release upload tierb-store data/tierb-store.tar.gz --clobber
-      - name: Upload bundle artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tierb-store-retruncate
-          path: data/tierb-store.tar.gz
-          if-no-files-found: ignore
-          retention-days: 90
+      # Step 3's release publish and the bundle artifact are gone (Phase 0
+      # P0.5a): this repo is public and the store now holds Massive bars
+      # licensed for personal use only. Do NOT re-run this destructive job
+      # until a private backup target exists (P0.2): nothing off-runner keeps
+      # a rollback copy any more.

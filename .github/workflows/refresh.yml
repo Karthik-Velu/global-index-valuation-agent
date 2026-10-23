@@ -50,10 +50,12 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      # Weekly Tier B maintenance: hydrate (cache, else re-export from Postgres),
-      # fold the week's delta files into base, and keep a durable 90-day bundle as
-      # an artifact. Non-fatal until the store is initialized — the dashboard
-      # refresh below must never be blocked by Tier B housekeeping.
+      # Weekly Tier B maintenance: hydrate (cache, else re-export from Postgres)
+      # and fold the week's delta files into base. Non-fatal until the store is
+      # initialized — the dashboard refresh below must never be blocked by Tier B
+      # housekeeping. The bundle is no longer uploaded as an artifact (Phase 0
+      # P0.5a): this repo is public and Tier B holds Massive bars licensed for
+      # personal use only.
       - name: Restore Tier B store (Parquet)
         uses: actions/cache@v4
         with:
@@ -66,13 +68,6 @@ jobs:
           python -m engine.tierbsync pull || echo "Tier B not initialized yet — skipping"
           python -m engine.tierbsync compact || true
           python -m engine.tierbsync bundle || true
-      - name: Upload Tier B bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: tierb-store
-          path: data/tierb-store.tar.gz
-          if-no-files-found: ignore
-          retention-days: 90
 
       # LLM path is ON: cheap_tags/smart_brief narrative + the Analyst agent (--agent,
       # per-valuation-run cadence per docs/AGENTS.md) run every week; Model-Upgrade

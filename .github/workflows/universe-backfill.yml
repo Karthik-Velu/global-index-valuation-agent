@@ -58,13 +58,14 @@ jobs:
         run: |
           python -m engine.tierbsync compact
           python -m engine.tierbsync bundle
-      - name: Upload scaled store + reports
+      # Reports only — counts, EDGAR-derived issues and the committed universe
+      # seed. The store bundle is no longer uploaded (P0.5a, licensed prices).
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tierb-store-scaled
+          name: universe-backfill-reports
           path: |
-            data/tierb-store.tar.gz
             data/quality_report.json
             data/datapipeline_report.json
             engine/sources/universe_stocks.json

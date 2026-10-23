@@ -579,7 +579,8 @@ def _checks_green(sha: str) -> tuple[bool, str]:
     return True, f"{len(done)} check(s) green"
 
 
-def poll(merge_on_green: bool = True) -> dict:
+# Off by default (P0.11): no LLM-written auto-merge to the public site until change control is decided (D14a).
+def poll(merge_on_green: bool = False) -> dict:
     """Follow pushed PRs to their end state, merging the green ones.
 
     "once a Claude PR is green (tests + verify gates pass), merge it without

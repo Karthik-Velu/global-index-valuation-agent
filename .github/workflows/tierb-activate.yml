@@ -5,7 +5,7 @@ name: Tier B activate (Gate A)
 # no-look-ahead on a real restatement). The job FAILS if any gate fails —
 # nothing downstream trusts the store until this is green. On success the
 # store is saved to the actions cache (the daily pipeline restores it, which
-# begins the dual-write proving window) and uploaded as a durable artifact.
+# begins the dual-write proving window); only the verify report is uploaded.
 # Postgres is only ever READ by this job.
 
 # The manual UI/API dispatch needs actions:write; the cloud session's GitHub
@@ -47,13 +47,14 @@ jobs:
         run: |
           python -m engine.tierbsync compact
           python -m engine.tierbsync bundle
-      - name: Upload store bundle + verify report
+      # Verify report only (gate pass/fail + counts, EDGAR rows): the store bundle
+      # is no longer uploaded (Phase 0 P0.5a) — this repo is public and the cache
+      # it restores from now holds Massive bars licensed for personal use only.
+      - name: Upload verify report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tierb-store
-          path: |
-            data/tierb-store.tar.gz
-            data/tierb/verify_report.json
+          name: tierb-verify-report
+          path: data/tierb/verify_report.json
           if-no-files-found: ignore
           retention-days: 90

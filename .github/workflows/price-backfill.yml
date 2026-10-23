@@ -62,21 +62,6 @@ jobs:
         run: |
           python -m engine.tierbsync compact
           python -m engine.tierbsync bundle
-      - name: Publish bundle as release asset (durable hydration source)
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view tierb-store >/dev/null 2>&1 || \
-            gh release create tierb-store --latest --title "Tier B store bundle" \
-              --notes "Rolling Parquet bundle of the Tier B metric store, refreshed by CI. Used by \`engine.tierbsync pull\` to hydrate fresh environments post-cutover."
-          gh release upload tierb-store data/tierb-store.tar.gz --clobber
-      - name: Upload store + report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tierb-store-price-backfill
-          path: |
-            data/tierb-store.tar.gz
-          if-no-files-found: ignore
-          retention-days: 90
+      # No release asset or artifact upload (Phase 0 P0.5a): this repo is public
+      # and the store now holds Massive bars licensed for personal use only. The
+      # Actions cache carries the store forward (saved only if the job succeeds).

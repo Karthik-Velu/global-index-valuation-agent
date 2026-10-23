@@ -2,7 +2,8 @@ name: Tier B cutover + universe backfill (ADR-015)
 
 # THE one-shot switch, explicitly user-approved 2026-07-06 ("immediate cutover"):
 #   1. verify Tier B against Postgres one final time (job fails if any gate fails)
-#   2. bundle the verified store as the rollback archive (uploaded below)
+#   2. bundle the verified store as the rollback archive (runner-local since
+#      P0.5a — needs a private backup target, P0.2, before any re-run)
 #   3. TRUNCATE fundamental_metrics — ingestion self-detects the empty table and
 #      writes metrics to Tier B only; the ADR-014 expansion gate opens
 #   4. regenerate the universe: US top-2500 by public float + auto-discovery of
@@ -48,12 +49,8 @@ jobs:
         run: python -m engine.tierbsync pull
       - name: CUTOVER — verify, archive, truncate (destructive, user-approved)
         run: python -m engine.tierbsync cutover
-      - name: Upload rollback archive (pre-backfill store)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tierb-store-pre-cutover
-          path: data/tierb-store.tar.gz
-          retention-days: 90
+      # The rollback archive is no longer uploaded (Phase 0 P0.5a): this repo is
+      # public and the store now holds Massive bars licensed for personal use only.
       - name: Regenerate US universe (top-2500 by public float)
         run: python -m engine.universescan expand-us
       - name: Discover all foreign filers (20-F/40-F, assets-ranked)
@@ -75,13 +72,14 @@ jobs:
         run: |
           python -m engine.tierbsync compact
           python -m engine.tierbsync bundle
-      - name: Upload scaled store + reports
+      # Reports only — counts, EDGAR-derived issues and the committed universe
+      # seed. The store bundle is no longer uploaded (P0.5a, licensed prices).
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tierb-store-scaled
+          name: tierb-cutover-reports
           path: |
-            data/tierb-store.tar.gz
             data/quality_report.json
             data/datapipeline_report.json
             engine/sources/universe_stocks.json
