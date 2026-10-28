@@ -1,8 +1,18 @@
 """Stock tagging — bootstrap each security's sector/sub-sector from its SEC SIC code
 (free, in EDGAR submissions). LLM refinement of sub-sectors layers on later.
+
+Scope (D02, 2026-10-28): every security with no SIC tag yet, plus the ~1/30 of
+already-tagged securities refreshed least recently. Tagging the whole ~3,100-name
+universe every day cost 41-56 min of each run (one SEC call per security) and
+pushed the monthly full sweep to 308 of GitHub's hard 360-min job limit, while
+SIC codes almost never change. The rotation needs no cursor: a successful
+upsert stamps updated_ts, so a security that fails or isn't reached today stays
+at the head of tomorrow's queue.
 """
 from __future__ import annotations
 
+import math
+import os
 import time
 
 import requests
@@ -19,15 +29,54 @@ def _submission(cik: int) -> dict | None:
     return r.json() if r.status_code == 200 else None
 
 
+ROTATION_DAYS = 30
+
+
+def select_batch(untagged: list, tagged_oldest_first: list,
+                 rotation_days: int = ROTATION_DAYS) -> tuple[list, int]:
+    """Today's batch: all untagged securities, then the least recently refreshed
+    1/rotation_days of the tagged ones. Returns (batch, rotation slice size)."""
+    n_slice = math.ceil(len(tagged_oldest_first) / rotation_days) if rotation_days > 0 else 0
+    return list(untagged) + list(tagged_oldest_first[:n_slice]), n_slice
+
+
+def _budget_seconds() -> float | None:
+    """Wall-clock cap (env TAGGING_BUDGET_MIN, default 55; 0 = none). A safety net
+    for the monthly sweep: securities not reached keep their old stamp, so the
+    rotation resumes with them next run."""
+    try:
+        minutes = float(os.environ.get("TAGGING_BUDGET_MIN", "55"))
+    except ValueError:
+        minutes = 55.0
+    return minutes * 60 if minutes > 0 else None
+
+
 def tag_securities(limit: int | None = None, sleep: float = 0.15) -> dict:
     stats = {"tagged": 0, "changed": 0, "unknown": 0, "fetch_errors": 0}
+    if os.environ.get("GIVA_TAGGING", "").strip().lower() == "off":
+        stats["skipped"] = "GIVA_TAGGING=off"
+        return stats
     with db.connect() as conn, conn.cursor() as cur:
-        cur.execute("select id, ticker, cik from securities where cik is not null"
-                    + (f" limit {int(limit)}" if limit else ""))
-        rows = cur.fetchall()
+        cur.execute("""select s.id, s.ticker, s.cik, t.security_id is not null
+                       from securities s
+                       left join security_tags t on t.security_id = s.id and t.source = 'sic'
+                       where s.cik is not null
+                       order by coalesce(t.updated_ts, t.asof::timestamptz) nulls first, s.id""")
+        found = cur.fetchall()
+    untagged = [r[:3] for r in found if not r[3]]
+    tagged = [r[:3] for r in found if r[3]]
+    rows, n_slice = select_batch(untagged, tagged)
+    if limit:
+        rows = rows[:int(limit)]
+    stats["scope"] = {"new": len(untagged), "rotation": n_slice, "universe": len(found)}
 
+    budget, t0 = _budget_seconds(), time.monotonic()
     with db.connect() as conn:
-        for sec_id, ticker, cik in rows:
+        for i, (sec_id, ticker, cik) in enumerate(rows):
+            if budget is not None and time.monotonic() - t0 > budget:
+                stats["budget_stopped"] = True
+                stats["not_reached"] = len(rows) - i
+                break
             # One slow SEC response used to kill the whole pipeline run (2026-10-02:
             # a 20s read timeout on a single CIK). A tag that
             # can't be fetched today is simply refreshed tomorrow — the same thing

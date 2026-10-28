@@ -31,9 +31,21 @@ on:
 permissions:
   contents: write
 
+# One Tier B writer at a time per branch (data-pipeline, refresh, backtest share
+# this group). Overlapping runs restore the same cache and the later save wins,
+# silently dropping the other run's rows. Caches are branch-scoped, so the group
+# is too. Phase 0 P0.1a.
+concurrency:
+  group: tierb-writer-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   pipeline:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # GitHub kills a hosted job at 360 min and a killed job saves nothing. The
+    # pipeline step is capped at 320 so the save steps below always get to run
+    # (P0.1a — the full sweep reached 308 min on 2026-10-04).
+    timeout-minutes: 350
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
@@ -48,9 +60,12 @@ jobs:
       # Tier B (Parquet) store persists across daily runs via the cache; the unique
       # key + prefix restore-keys give a rolling latest-wins cache. Until the store
       # is initialized (engine.tierbsync export) this restores nothing and the
-      # pipeline's Tier B step is a no-op.
+      # pipeline's Tier B step is a no-op. Restore and save are separate steps so
+      # the save also runs when the pipeline fails or hits its time cap (the
+      # combined actions/cache only saved on success, so a killed sweep lost all
+      # of its work) — P0.1a.
       - name: Restore Tier B store (Parquet)
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data/tierb
           key: tierb-v1-${{ github.run_id }}
@@ -78,6 +93,9 @@ jobs:
             echo "incremental day — universe refresh skipped"
           fi
       - name: Run data pipeline (with agents; they no-op gracefully if no key)
+        id: pipeline
+        timeout-minutes: 320
+        continue-on-error: true
         run: |
           FULL=""
           if [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; then FULL="--full"; fi
@@ -88,7 +106,30 @@ jobs:
       # only. The 2026-10-04 asset stays frozen as the disaster-recovery copy that
       # `tierbsync pull` falls back to, until private encrypted backups exist
       # (P0.2) — then it is deleted.
+      # Delta files are written in place (not tmp+rename), so a run cut off
+      # mid-write can leave a truncated Parquet file. Save the store only if every
+      # file still reads and neither dataset is empty; otherwise keep the previous
+      # cache (the next run re-ingests the 7-day window).
+      - name: Check Tier B store is readable
+        id: tierb_check
+        if: always()
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from engine import tierb
+          s = tierb.stats()
+          assert s["fundamental_metrics"] > 0 and s["prices"] > 0, s
+          print(f"store ok: {s['fundamental_metrics']:,} metric rows, {s['prices']:,} price rows, "
+                f"{s['base_files']} base + {s['delta_files']} delta files")
+          PY
+      - name: Save Tier B store (Parquet)
+        if: always() && steps.tierb_check.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-${{ github.run_id }}
       - name: Commit catalog self-corrections if any
+        if: steps.pipeline.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -108,3 +149,10 @@ jobs:
             data/recalibration_report.json
             data/tierb/manifest.json
           retention-days: 30
+      # The pipeline step is continue-on-error (so the save above runs); fail the
+      # job here so a failed or timed-out run stays red.
+      - name: Fail the job if the pipeline or the store check failed
+        if: always() && (steps.pipeline.outcome != 'success' || steps.tierb_check.outcome != 'success')
+        run: |
+          echo "::error::pipeline=${{ steps.pipeline.outcome }} store_check=${{ steps.tierb_check.outcome }}"
+          exit 1
