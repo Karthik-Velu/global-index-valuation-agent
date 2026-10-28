@@ -31,13 +31,15 @@ on:
 permissions:
   contents: write
 
-# One Tier B writer at a time per branch (data-pipeline, refresh, backtest share
-# this group). Overlapping runs restore the same cache and the later save wins,
-# silently dropping the other run's rows. Caches are branch-scoped, so the group
-# is too. Phase 0 P0.1a.
+# One Tier B writer at a time per branch (shared with refresh.yml). Overlapping
+# runs restore the same cache and the later save wins, silently dropping the
+# other run's rows. Caches are branch-scoped, so the group is too. queue: max —
+# the default keeps only one pending run and cancels it when another queues.
+# Phase 0 P0.1a.
 concurrency:
   group: tierb-writer-${{ github.ref_name }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   pipeline:
@@ -68,7 +70,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: data/tierb
-          key: tierb-v1-${{ github.run_id }}
+          key: tierb-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             tierb-v1-
       # Actions caches are BRANCH-scoped: main can't see caches saved by
@@ -100,7 +102,13 @@ jobs:
           FULL=""
           if [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; then FULL="--full"; fi
           if [ "${{ inputs.full }}" = "true" ]; then FULL="--full"; fi
-          python -m engine.datapipeline --agents $FULL
+          # exec + timeout: on a step timeout/cancel the runner signals only this
+          # step's shell, which would leave python running (and writing Parquet)
+          # while the check/save steps below run. exec hands the signal to
+          # timeout, which forwards it; the 315m cap + kill-after ends python
+          # before the 320-min step cap. --foreground: signal only python, never
+          # timeout's process group.
+          exec timeout --foreground --signal=INT --kill-after=120 315m python -m engine.datapipeline --agents $FULL
       # No monthly tierb-store release refresh any more (Phase 0 P0.5a): this repo
       # is public and the bundle carries Massive bars licensed for personal use
       # only. The 2026-10-04 asset stays frozen as the disaster-recovery copy that
@@ -127,7 +135,9 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data/tierb
-          key: tierb-v1-${{ github.run_id }}
+          # run_attempt: a re-run keeps run_id, and the cache never overwrites a
+          # key, so without it a re-run's save is silently dropped.
+          key: tierb-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Commit catalog self-corrections if any
         if: steps.pipeline.outcome == 'success'
         run: |

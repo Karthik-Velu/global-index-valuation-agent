@@ -4,7 +4,9 @@ fetch — no network, no Postgres. Run: python tests/test_tagging.py
 """
 from __future__ import annotations
 
+import itertools
 import os
+import random
 import sys
 import types
 from pathlib import Path
@@ -34,13 +36,27 @@ class FakeCursor:
 
     def execute(self, sql, params=None):
         sql = " ".join(sql.split())
+        db = self.db
         if sql.startswith("select s.id, s.ticker, s.cik"):
-            self._result = list(self.db.securities)
+            # The real query has no ORDER BY: rows arrive in any order.
+            rows = [(i, t, c, i in db.tags, db.stamp.get(i)) for i, t, c in db.securities]
+            db.rng.shuffle(rows)
+            self._result = rows
+        elif sql.startswith("select t.security_id, s.ticker, t.sic_code"):
+            tick = {i: t for i, t, _ in db.securities}
+            self._result = [(i, tick[i], db.sic.get(i), "desc", sec, sub)
+                            for i, (sec, sub) in db.tags.items()]
         elif sql.startswith("select sector, sub_sector from security_tags"):
-            self._result = [self.db.tags[params[0]]] if params[0] in self.db.tags else []
+            self._result = [db.tags[params[0]]] if params[0] in db.tags else []
         elif sql.startswith("insert into security_tags"):
-            self.db.tags[params[0]] = (params[3], params[4])
-            self.db.upserts.append(params[0])
+            db.tags[params[0]] = (params[3], params[4])
+            db.sic[params[0]] = params[1]
+            if "updated_ts=now()" in sql.replace(" ", ""):   # rotation depends on it
+                db.stamp[params[0]] = next(db.clock)
+            db.upserts.append(params[0])
+        elif sql.startswith("update security_tags set sector"):
+            db.tags[params[3]] = (params[0], params[1])
+            db.reclassified.append(params[3])
         # update securities / insert taxonomy_changes: no state needed
 
     def fetchall(self):
@@ -68,13 +84,17 @@ class FakeConn:
 
 
 class FakeDB:
-    """securities rows arrive as the real query orders them: untagged first,
-    then tagged oldest-refreshed first."""
-    def __init__(self, n_untagged, n_tagged):
-        self.securities = ([(i, f"NEW{i}", 1000 + i, False) for i in range(n_untagged)]
-                           + [(100 + i, f"OLD{i}", 2000 + i, True) for i in range(n_tagged)])
-        self.tags = {100 + i: ("Technology", "Software") for i in range(n_tagged)}
-        self.upserts = []
+    """Untagged ids 0.., tagged ids 100.. whose stamps rise with the id, so the
+    least-recently-refreshed tagged security is id 100."""
+    def __init__(self, n_untagged, n_tagged, seed=7):
+        self.securities = ([(i, f"NEW{i}", 1000 + i) for i in range(n_untagged)]
+                           + [(100 + i, f"OLD{i}", 2000 + i) for i in range(n_tagged)])
+        self.tags = {100 + i: tagging.sic_map.classify("7372") for i in range(n_tagged)}
+        self.sic = {100 + i: "7372" for i in range(n_tagged)}
+        self.stamp = {100 + i: i for i in range(n_tagged)}
+        self.clock = itertools.count(10_000)
+        self.rng = random.Random(seed)
+        self.upserts, self.reclassified = [], []
 
 
 def run(db, **env):
@@ -101,13 +121,42 @@ def test_select_batch():
     assert tagging.select_batch([], ["a"])[1] == 1      # a lone tagged name still rotates
 
 
+def _sw(cik):
+    return {"sic": "7372", "sicDescription": "Prepackaged software"}
+
+
 def test_scope_new_plus_rotation():
-    tagging._submission = lambda cik: {"sic": "7372", "sicDescription": "Prepackaged software"}
+    tagging._submission = _sw
     db = FakeDB(n_untagged=3, n_tagged=90)
     st = run(db)
     assert st["scope"] == {"new": 3, "rotation": 3, "universe": 93}, st
     assert db.upserts == [0, 1, 2, 100, 101, 102], db.upserts   # new first, then oldest tagged
     assert st["tagged"] == 6 and st["changed"] == 3, st          # only the new ones are changes
+    assert st["reclassified"] == 0, st
+
+
+def test_full_rotation_in_30_runs():
+    tagging._submission = _sw
+    db = FakeDB(n_untagged=0, n_tagged=90)
+    for _ in range(30):
+        run(db)
+    assert sorted(db.upserts) == list(range(100, 190)), db.upserts   # each exactly once
+    first = db.upserts[:3]
+    db.upserts.clear()
+    run(db)
+    assert db.upserts == first, (db.upserts, first)                  # cycle restarts
+
+
+def test_sic_map_change_reaches_every_tag_without_sec_calls():
+    db = FakeDB(n_untagged=0, n_tagged=60)
+    db.tags[105] = ("Healthcare", "Medical Devices")                  # stale mapping
+    db.sic[105] = "3812"
+    calls = []
+    tagging._submission = lambda cik: calls.append(cik) or _sw(cik)
+    st = run(db)
+    assert st["reclassified"] == 1 and db.reclassified == [105], (st, db.reclassified)
+    assert db.tags[105][0] == tagging.sic_map.classify("3812")[0] != "Healthcare", db.tags[105]
+    assert 2005 not in calls, calls                                  # fixed without a fetch
 
 
 def test_fetch_failure_keeps_its_place():

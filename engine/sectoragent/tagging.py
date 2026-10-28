@@ -7,7 +7,9 @@ universe every day cost 41-56 min of each run (one SEC call per security) and
 pushed the monthly full sweep to 308 of GitHub's hard 360-min job limit, while
 SIC codes almost never change. The rotation needs no cursor: a successful
 upsert stamps updated_ts, so a security that fails or isn't reached today stays
-at the head of tomorrow's queue.
+at the head of tomorrow's queue. Because only a slice is re-fetched, every run
+first re-applies sic_map to the SIC codes already stored (no SEC calls), so a
+sic_map fix still reaches every security the next day, not over a month.
 """
 from __future__ import annotations
 
@@ -51,20 +53,51 @@ def _budget_seconds() -> float | None:
     return minutes * 60 if minutes > 0 else None
 
 
+def reclassify_stored() -> int:
+    """Re-apply sic_map to every stored SIC tag; write only the ones whose
+    sector/sub-sector changed. Leaves updated_ts alone (rotation order)."""
+    n = 0
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute("""select t.security_id, s.ticker, t.sic_code, t.sic_description,
+                              t.sector, t.sub_sector
+                       from security_tags t join securities s on s.id = t.security_id
+                       where t.source = 'sic'""")
+        for sec_id, ticker, sic, sicd, old_sector, old_sub in cur.fetchall():
+            sector, sub_sector = sic_map.classify(sic)
+            if (sector, sub_sector) == (old_sector, old_sub):
+                continue
+            industry = sicd or sub_sector
+            cur.execute("update security_tags set sector=%s, sub_sector=%s, industry=%s "
+                        "where security_id=%s and source='sic'",
+                        (sector, sub_sector, industry, sec_id))
+            cur.execute("update securities set sector=%s, industry=%s where id=%s",
+                        (sector, industry, sec_id))
+            cur.execute("insert into taxonomy_changes(kind,target,change,reason,auto) "
+                        "values('tag',%s,%s,'SIC map change',true)",
+                        (ticker, f"{sector} / {sub_sector} ({sicd})"))
+            n += 1
+        conn.commit()
+    return n
+
+
 def tag_securities(limit: int | None = None, sleep: float = 0.15) -> dict:
     stats = {"tagged": 0, "changed": 0, "unknown": 0, "fetch_errors": 0}
     if os.environ.get("GIVA_TAGGING", "").strip().lower() == "off":
         stats["skipped"] = "GIVA_TAGGING=off"
         return stats
+    stats["reclassified"] = reclassify_stored()
     with db.connect() as conn, conn.cursor() as cur:
-        cur.execute("""select s.id, s.ticker, s.cik, t.security_id is not null
+        cur.execute("""select s.id, s.ticker, s.cik, t.security_id is not null,
+                              coalesce(t.updated_ts, t.asof::timestamptz)
                        from securities s
                        left join security_tags t on t.security_id = s.id and t.source = 'sic'
-                       where s.cik is not null
-                       order by coalesce(t.updated_ts, t.asof::timestamptz) nulls first, s.id""")
+                       where s.cik is not null""")
         found = cur.fetchall()
-    untagged = [r[:3] for r in found if not r[3]]
-    tagged = [r[:3] for r in found if r[3]]
+    # Ordered here rather than in SQL so the rotation order is unit-tested:
+    # untagged by id, then tagged least-recently-refreshed first.
+    untagged = [r[:3] for r in sorted((r for r in found if not r[3]), key=lambda r: r[0])]
+    tagged = [r[:3] for r in sorted((r for r in found if r[3]),
+                                    key=lambda r: (r[4] is not None, r[4] or 0, r[0]))]
     rows, n_slice = select_batch(untagged, tagged)
     if limit:
         rows = rows[:int(limit)]
