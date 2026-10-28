@@ -50,12 +50,6 @@ on:
 permissions:
   contents: read
 
-# Shared with data-pipeline.yml and refresh.yml: the backtest saves a tierb-v1-*
-# cache too, so it queues behind any running Tier B writer (Phase 0 P0.1a).
-concurrency:
-  group: tierb-writer-${{ github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
   backtest:
     runs-on: ubuntu-latest
@@ -76,8 +70,11 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
+      # Restore only: the backtest reads Tier B and never writes it, so saving
+      # its copy back would only re-publish a stale store as the newest
+      # tierb-v1-* cache (Phase 0 P0.1a).
       - name: Restore Tier B store (Parquet)
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data/tierb
           key: tierb-v1-backtest-${{ github.run_id }}
