@@ -8,6 +8,25 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-28 — Rotating tagging (D02) + 1 Nov safety net (P0.1a)
+- **Built:** rotating SIC tagging (new securities + ~1/30 of tagged ones per day, with a
+  no-fetch re-classification pass, a time budget and a kill switch) and the `data-pipeline.yml`
+  safety net (save on failure behind a store-readability gate, `timeout --foreground` under the
+  step cap, per-attempt cache keys, one Tier B writer per branch). ADR-041. Tests:
+  `tests/test_tagging.py` (fake DB; includes a 30-run full-rotation check).
+- **Learned:**
+  - On a step timeout the runner signals only the step's shell; the python child keeps running
+    as an orphan. `exec timeout --foreground` makes python itself get SIGINT.
+  - Plain `timeout` (no `--foreground`) also signals its whole process group; in a shell that
+    owns the group it took down the caller in a local test.
+  - A re-run keeps `run_id`, and `actions/cache/save` never overwrites a key: without
+    `run_attempt` in the key, a re-run's save is silently dropped.
+  - Default concurrency keeps only one pending run and cancels it when another queues;
+    `queue: max` keeps up to 100.
+- **Open:** verify the first rotating daily on main (tagged ~100–200, tagging < 5 min, save step
+  green), then the Sun 1 Nov sweep (target < 300 min, cache saved). Node 24 action upgrades and
+  the watchdog (P0.0) are still to do.
+
 ## 2026-10-19 — Model v2: business drivers, risk/upside catalogue, fixed vs floating
 - **Built:**
   - The `capacity_v1` revenue model, events with `distribution()` (regimes), fixed/floating

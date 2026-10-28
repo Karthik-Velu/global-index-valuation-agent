@@ -9,6 +9,31 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-041 · Rotating SIC tagging (D02) and a pipeline safety net for the monthly sweep (P0.1a)
+- **Context:** the monthly full sweep took 283 → 290 → 308 min (Aug–Oct 2026) against GitHub's
+  hard 360-min kill for hosted jobs, and a killed job saved nothing (`actions/cache` saves only
+  on success). Tagging made one SEC call per security (~3,120) every day: 41–56 min of each daily
+  run and ~44 min of the sweep, for SIC codes that almost never change. Owner decision D02
+  (2026-10-19): "rotating slice", deployed before the 1 Nov sweep.
+- **Choice:**
+  - `tag_securities()` fetches every untagged security plus the least-recently-refreshed
+    ⌈n/30⌉ of tagged ones (~104/day); `security_tags.updated_ts` is the rotation cursor, so a
+    failed or unreached security stays first in line. Each run also re-applies `sic_map` to the
+    stored SIC codes (no SEC calls), so a map fix still reaches every security the next day.
+    `TAGGING_BUDGET_MIN` (default 55) caps wall-clock time; `GIVA_TAGGING=off` is a kill switch.
+  - `data-pipeline.yml`: separate cache restore/save (save on failure too, keyed per attempt);
+    the pipeline runs under `timeout --foreground 315m` inside a 320-min step cap and a 350-min
+    job cap; the save is gated on a full read of the store, because delta files are written in
+    place and a cut-off write could otherwise poison every later run; a final step keeps failed
+    runs red. One Tier B writer per branch (`concurrency: tierb-writer-<branch>`, `queue: max`,
+    shared with `refresh.yml`); the backtest only restores.
+- **Why:** removes ~40 min/day and ~44 min from the sweep without losing monthly tag freshness,
+  and turns a sweep kill from "lose everything" into "keep what was written".
+- **Rejected:** skipping tagging on sweep days only (daily runs stay slow; tags go stale);
+  saving the cache unconditionally on failure (a truncated Parquet file would break every later
+  run); a persisted cursor file (`updated_ts` already is one, in the source of truth).
+- **Date:** 2026-10-28.
+
 ### ADR-040 · Model v2: revenue from business drivers, a risk/upside catalogue, explicit fixed vs floating
 - **Context:** owner (2026-10-18): "how much of their interest is fixed rate and how much is
   floating?… stress testing should not have revenue as a stress test pointer… drivers of it that

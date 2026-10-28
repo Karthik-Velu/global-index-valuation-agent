@@ -28,6 +28,7 @@ on:
       - "engine/picks.py"
       - "engine/reports.py"
       - "engine/tierb.py"
+      - "engine/sectoragent/tagging.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -50,6 +51,7 @@ on:
       - "engine/picks.py"
       - "engine/reports.py"
       - "engine/tierb.py"
+      - "engine/sectoragent/tagging.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -88,3 +90,7 @@ jobs:
         run: |
           pip install --quiet "pandas>=2.2" "numpy>=1.26"
           python tests/test_screenjobs.py
+      - name: Tagging scope (D02 rotation, time budget, kill switch; fake DB, no network)
+        run: |
+          pip install --quiet requests
+          python tests/test_tagging.py
