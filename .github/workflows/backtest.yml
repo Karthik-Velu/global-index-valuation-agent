@@ -50,6 +50,12 @@ on:
 permissions:
   contents: read
 
+# Shared with data-pipeline.yml and refresh.yml: the backtest saves a tierb-v1-*
+# cache too, so it queues behind any running Tier B writer (Phase 0 P0.1a).
+concurrency:
+  group: tierb-writer-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   backtest:
     runs-on: ubuntu-latest
