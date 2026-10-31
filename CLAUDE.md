@@ -54,7 +54,10 @@ interactive dashboard on Vercel, not a report.
   decay/point-in-time) → curated `engine/context/*.md`. → `docs/MEMORY.md`
 - Jobs vs agents → `docs/AGENTS.md` · roadmap → `docs/ROADMAP.md` · target design → `docs/ARCHITECTURE.md`
 
-## Current state (2026-07-22)
+## Current state
+For today's state read the **Daily log** at the top of `docs/PLAN.md` (updated daily)
+and `docs/STATUS.md`. The snapshot below dates from 2026-07-22.
+
 Phase 1 **COMPLETE**: Tier B (Parquet/DuckDB) is the sole metric store (3.5M rows,
 21 MB), universe scaled to 2,983 companies / 29 markets, Postgres a thin 29 MB
 dashboard layer. Phase 2: prices (`engine/sources/prices.py`, Massive/Polygon.io,
@@ -68,6 +71,12 @@ Postgres `backtest_runs`). Details in `docs/STATUS.md`.
 This project's memory is deliberately durable, in layers. **Maintain them as you work:**
 - **`docs/PLAN.md`** — the done-vs-pending checklist. Check items off as they land; it's the
   source of truth for "where are we."
+- **Daily plan loop:** each day, read new replies in the pinned standup issue
+  ([#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58)) and the last 24 hours of signals (CI runs, the pipeline report,
+  `backtest_runs`, merged PRs, console proposals). Prepend a dated entry to the Daily log in
+  `docs/PLAN.md`, tick items only with evidence, then post the standup to #58 proposing one
+  meaty step (a whole feature or fix, never a small piece). Start it only after the owner
+  replies `go`.
 - **`docs/JOURNAL.md`** — at the end of a work session, prepend a dated entry (what you
   built, what you learned, what's still open).
 - **`docs/DECISIONS.md`** — when you make a non-trivial architectural choice, prepend an

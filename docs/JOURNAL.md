@@ -8,6 +8,24 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-31: Daily plan loop, and Phase 0 into PLAN.md
+- **Built:** a daily plan loop: a Daily log at the top of `docs/PLAN.md`, a pinned standup
+  issue (#58), and a CLAUDE.md convention (read replies and signals, log the day, propose
+  one meaty step, start it only on the owner's `go`). Phase 0 rebuilt in PLAN.md from git.
+- **Verified:** P0.1a's first rotating daily on main (30 Oct): 104 tagged, 105 s, 0 fetch
+  errors, save green.
+- **Learned:**
+  - Both local clones lag GitHub: `~/Documents/Agent` by 223 commits and
+    `~/global-index-valuation-agent` by 60 (with uncommitted experiments). The work happens
+    in cloud sessions, so GitHub `main` is the reference, not either folder.
+  - Data quality has been a steady 71 to 72 since September, not a new drop, and open
+    issues rise about 11 a week. One check, `shares_multiclass_unsummed`, is 73% of them;
+    fixing it alone is worth about 21 points (71 to about 92).
+  - The Phase 0 list was never committed: only P0.0, P0.1a, P0.2, P0.5a, P0.11, D02, D04
+    and D14a appear in the repo.
+- **Open:** the daily-loop engine (owner deciding); the Sun 1 Nov sweep; the full Phase 0
+  list; P0.2 before D04?; the 14 Oct owner actions.
+
 ## 2026-10-28 — Rotating tagging (D02) + 1 Nov safety net (P0.1a)
 - **Built:** rotating SIC tagging (new securities + ~1/30 of tagged ones per day, with a
   no-fetch re-classification pass, a time budget and a kill switch) and the `data-pipeline.yml`

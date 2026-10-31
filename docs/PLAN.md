@@ -10,6 +10,55 @@ Legend: ✅ done · 🔜 next · ⬜ pending · 🔁 ongoing
 
 ---
 
+## Daily log
+
+Newest first. The daily plan loop adds one entry a day: what changed, what the signals
+say, and the one step proposed. Discussion happens in the pinned standup, issue [#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58);
+replies there feed back into this file.
+
+### 2026-10-31 (Sat)
+- **Verified, P0.1a:** the first rotating daily on main (30 Oct, [run 41049989081](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41049989081))
+  tagged 104 securities in 105 s with 0 fetch errors, and the Tier B save was green
+  (targets: 100 to 200 tagged, under 5 min). Left for P0.1a: the Sun 1 Nov sweep.
+- **Signals:** daily pipeline green every day since 21 Oct. Data quality 71/100, flat at
+  71 to 72 since September, but open issues are rising (1,686 on 7 Sep, 1,771 on 30 Oct);
+  `shares_multiclass_unsummed` is 1,287 of them (73%). Recalibration: `forward_only`.
+- **Plan changes:** Phase 0 brought into this file (it was tracked only in commit messages
+  and the journal). Daily loop and standup started.
+- **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (decision-free).
+  Alternative: multi-class share counts, which needs a method call (B1 to B3 in #58).
+- **Waiting on owner:** the daily-loop engine; the 14 Oct owner actions (a) to (g) in
+  STATUS.md; the full Phase 0 list; whether P0.2 should land before D04.
+
+## Phase 0: launch plan (production readiness)  🔁 IN PROGRESS
+
+Rebuilt on 2026-10-31 from commit messages, ADR-041 and the journal. Only the codes below
+appear in the repo, though the numbering (up to P0.11 and D14a) implies more; the full list
+is with the owner. `Dnn` items are owner decisions.
+
+- 🔜 **P0.0 watchdog:** alert when any scheduled workflow misses its window or fails.
+  Supersedes the narrow daily health check (Housekeeping).
+- ✅ **P0.1a pipeline safety net for the monthly sweep** (PR #57, ADR-041, 28 Oct): save on
+  failure behind a store-readability gate, `timeout --foreground`, per-attempt cache keys,
+  one Tier B writer per branch.
+  - ✅ First rotating daily on main verified 30 Oct (104 tagged, 105 s, save green).
+  - 🔜 Sun 1 Nov sweep: under 300 min, cache saved, store readable.
+- ⬜ **P0.2 private encrypted backups:** replace the frozen public `tierb-store` release asset
+  (2026-10-04) as the disaster-recovery copy.
+- ✅ **P0.5a stop new publication of licensed Tier B data** (PR #56, 23 Oct).
+- ✅ **P0.11 Builder dispatch-only, no auto-merge** (PR #56, 23 Oct).
+- ✅ **D02 rotating SIC tagging:** decided 19 Oct, built 28 Oct (ADR-041).
+- ⬜ **D04 delete the existing public copies** (unexpired `tierb-store` artifacts and the
+  frozen release asset): approved, due after the 1 Nov sweep and a restore drill. Open
+  question: land P0.2 first, since D04 removes every public copy and `tierbsync pull()`
+  falls back to that asset when the cache misses.
+- ⬜ **D14a change control for LLM-written code:** owner decision. Until then Builder PRs
+  never auto-merge.
+- ⬜ **Node 24 action upgrades.**
+- ⬜ **Owner:** add the full Phase 0 list here so the daily loop can track every item.
+
+---
+
 ## Phase 1 — Data foundation & platform  ✅ COMPLETE
 - ✅ Index-level product live (Vercel), ~90 indices ranked by value + fundamental growth + GARP
 - ✅ Cloud **Postgres** (Supabase) as single source of truth; migrations `0001..0008`
@@ -385,7 +434,8 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
     none are present, and gate value_band, GARP and value_trap on a real score.
   - ⬜ **Multi-class share counts:** CRWV has A/B/C classes, and companyfacts drops per-class
     facts. As a result there is no market cap or multiples for 219 securities. Add a
-    `missing_market_cap` quality check.
+    `missing_market_cap` quality check. Latest (30 Oct): 1,287 of 1,771 open quality
+    issues are `shares_multiclass_unsummed`; method options are in standup #58.
   - ⬜ **A lens for recent IPOs and loss-makers:** EV/Sales on TTM, scored on growth plus cash
     runway. Relax `growthhistory._QUARTER_IN_ANNUAL` for confirmed hyper-growth.
   - ⬜ **Balance-sheet / credit-risk score:** debt/equity, net debt/OCF, capex/OCF, interest
@@ -448,6 +498,6 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
   and `jsonb` rejected the bare `NaN`. Non-finite values are now kept out, ungradeable
   cohorts store `NULL` instead of a fabricated `0.0` `hit_rate`, and the grading step is
   best-effort so it can never take down the publish.
-- ⬜ **Widen the daily health check to all scheduled workflows** — it watched only
+- ⬜ **Widen the daily health check to all scheduled workflows** (now P0.0, Phase 0) — it watched only
   `data-pipeline.yml`, so three weeks of dashboard staleness were reported as "healthy".
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session
