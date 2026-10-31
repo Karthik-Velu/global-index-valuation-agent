@@ -39,11 +39,20 @@ replies there feed back into this file.
   ([run 41192589177](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41192589177))
   was still in progress when the signals were gathered. The two "Daily plan go" runs were
   skipped (no `go` reply yet), as intended.
+- **Update (10:36 UTC):** the fix branch landed as [PR #61](https://github.com/Karthik-Velu/global-index-valuation-agent/pull/61)
+  (merged 10:29). The dispatch that followed
+  ([run 41192589177](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41192589177))
+  succeeded and produced the first plan PR, [#63](https://github.com/Karthik-Velu/global-index-valuation-agent/pull/63)
+  (merged 10:25). One more dispatch, from branch `ops/agent-env-scrub`
+  ([run 41193266902](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41193266902)),
+  failed; that branch scrubs secrets from the agents' shell commands and installs
+  bubblewrap for it (not yet merged). Another is in progress
+  ([run 41193436321](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41193436321)).
 - **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (decision-free).
   Alternative: multi-class share counts, which needs a method call (B1 to B3 in #58).
   The watchdog would have caught this morning's failures. It touches `.github/workflows/`,
   so a session has to land that part.
-- **Waiting on owner:** merging the daily-plan fix branch; the `CLAUDE_CODE_OAUTH_TOKEN` secret (only if the agent step still fails); the 14 Oct owner actions (a) to (g) in
+- **Waiting on owner:** merging the `ops/agent-env-scrub` branch once its run is green (the earlier fix branch is merged); the 14 Oct owner actions (a) to (g) in
   STATUS.md; the full Phase 0 list; whether P0.2 should land before D04.
 
 ## Phase 0: launch plan (production readiness)  🔁 IN PROGRESS
