@@ -14,9 +14,10 @@ learned, what's still open. Keep it to what a future session would want to know.
   `engine/dailyplan.py`; the agents' instructions in `.github/daily-plan/`; and
   `tests/test_dailyplan.py` (fake GitHub API). ADR-042.
 - **Verified:** the collector ran read-only against the live GitHub API and Postgres and
-  rendered the right numbers (run 41049989081: 33 min, 104 tagged, quality 71/100). The
-  workflows can only run once merged, since `workflow_dispatch` and `workflow_run` need
-  the default branch.
+  rendered the right numbers (run 41049989081: 33 min, 104 tagged, quality 71/100). A
+  temporary push trigger then test-fired the signals job on the branch (run 41190386064):
+  it updated today's #58 comment in place, uploaded the artifact, reached Postgres and
+  skipped the agent jobs with no token. The agent and `go` paths first run after merge.
 - **Learned:**
   - `claude-code-action` refuses a non-human trigger in agent mode unless the bot is in
     `allowed_bots`, and it checks the actor's write access, including on `workflow_run`.
