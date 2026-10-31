@@ -100,7 +100,9 @@ cheap `coder` chain (Qwen3-Coder first), never in the hot path. See `.github/wor
 - **Per-ingestion (hot path):** tag new stocks, validate new data — inside the data-pipeline job.
 - **Daily:** data pipeline (ingest new filings + validate).
 - **Weekly:** valuation/scoring + recalibration check + strategist brief.
-- **Monthly:** the LLM research/discovery agents (taxonomy, sources, KPIs) + model-upgrade.
+- **Weekly (Wednesday data-pipeline run):** the proposal agents (source discovery, sector KPIs,
+  quality triage). They ran on every pipeline run until 2026-10-31 and flooded the queue.
+- **Monthly:** taxonomy + model-upgrade.
 
 ## Setting up the LLM later (checklist)
 1. Configure a model — `ANTHROPIC_API_KEY` (frontier) and/or a self-hosted/owned model
