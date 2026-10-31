@@ -28,10 +28,6 @@ on:
   schedule:
     - cron: "17 20 * * *"   # fallback: the day's update even if the pipeline didn't run
   workflow_dispatch: {}
-  # TEMPORARY test-fire of the signals job on this branch; removed before merge.
-  push:
-    branches: ["ops/daily-plan-loop"]
-    paths: [".github/workflows/daily-plan.yml"]
 
 permissions:
   contents: read
