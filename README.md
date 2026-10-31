@@ -9,7 +9,8 @@ from whether its past calls actually played out — so you spend a minute, not a
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](requirements.txt)
 &nbsp;·&nbsp; **[▶ Live demo](https://global-index-valuation-agent.vercel.app)** ·
-**[Architecture](docs/ARCHITECTURE.md)** · **[Data-ingestion agent](docs/DATA_INGESTION.md)**
+**[Architecture](docs/ARCHITECTURE.md)** · **[Data-ingestion agent](docs/DATA_INGESTION.md)** ·
+**[Write-up: the decisions and what broke](https://karthikvelu.pages.dev/projects/global-index-valuation-agent/)**
 
 > [!WARNING]
 > **For research/education only — not investment advice.** The rankings are
