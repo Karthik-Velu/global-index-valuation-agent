@@ -33,7 +33,14 @@ secrets — a dev cloud session needs its own copy):
 ✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
 pasted into chat during setup).
 
-## Latest (2026-10-19): Model v2 — business drivers, risks/upsides, fixed vs floating (ADR-040)
+## Latest (2026-10-31): daily plan loop, Phase 0 now in PLAN.md
+- A daily plan loop starts today: a dated Daily log at the top of `docs/PLAN.md`, and a
+  pinned standup issue ([#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58)) where the owner replies `go` to start the proposed
+  step. The engine that runs it each day is still the owner's call.
+- The Phase 0 launch plan is now listed in PLAN.md. Next check: the Sun 1 Nov monthly
+  sweep, the first under the P0.1a safety net (under 300 min, cache saved).
+
+## Previous (2026-10-19): Model v2 — business drivers, risks/upsides, fixed vs floating (ADR-040)
 - The CoreWeave model now builds revenue from MW, price per MW, utilisation, backlog and
   customers. It has a risk/upside catalogue with probabilities and a distribution, explicit
   fixed vs floating debt and interest with swaps, and a quarterly watch list.
