@@ -17,6 +17,8 @@ say, and the one step proposed. Discussion happens in the pinned standup, issue 
 replies there feed back into this file.
 
 ### 2026-10-31 (Sat)
+- **Owner decision (in a session, not #58):** D04 is split (option A). The weekly artifacts go
+  after the 1 Nov sweep and a restore drill; the frozen release asset stays until P0.2. See Phase 0.
 - **Verified, P0.1a:** the first rotating daily on main (30 Oct, [run 41049989081](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41049989081))
   tagged 104 securities in 105 s with 0 fetch errors, and the Tier B save was green
   (targets: 100 to 200 tagged, under 5 min). Left for P0.1a: the Sun 1 Nov sweep.
@@ -69,14 +71,18 @@ is with the owner. `Dnn` items are owner decisions.
   - ✅ First rotating daily on main verified 30 Oct (104 tagged, 105 s, save green).
   - 🔜 Sun 1 Nov sweep: under 300 min, cache saved, store readable.
 - ⬜ **P0.2 private encrypted backups:** replace the frozen public `tierb-store` release asset
-  (2026-10-04) as the disaster-recovery copy.
+  (2026-10-04) as the disaster-recovery copy. Now gates the second half of D04 (owner, 31 Oct).
 - ✅ **P0.5a stop new publication of licensed Tier B data** (PR #56, 23 Oct).
 - ✅ **P0.11 Builder dispatch-only, no auto-merge** (PR #56, 23 Oct).
 - ✅ **D02 rotating SIC tagging:** decided 19 Oct, built 28 Oct (ADR-041).
 - ⬜ **D04 delete the existing public copies** (unexpired `tierb-store` artifacts and the
-  frozen release asset): approved, due after the 1 Nov sweep and a restore drill. Open
-  question: land P0.2 first, since D04 removes every public copy and `tierbsync pull()`
-  falls back to that asset when the cache misses.
+  frozen release asset). **Owner decision 31 Oct: split it (option A).**
+  - ⬜ After the Sun 1 Nov sweep and a restore drill: delete the unexpired weekly
+    `tierb-store` Actions artifacts. They are spare copies, so recovery is unaffected.
+  - ⬜ After P0.2 exists: delete the frozen 2026-10-04 release asset. Until then it stays,
+    because `tierbsync pull()` falls back to it when the cache misses, and losing the store
+    without it would lose price history older than Massive's ~2-year free window.
+  - Each deletion gets a final confirmation from the owner before it runs.
 - ⬜ **D14a change control for LLM-written code:** owner decision. Until then Builder PRs
   never auto-merge.
 - ⬜ **Node 24 action upgrades.**
