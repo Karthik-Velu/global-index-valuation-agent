@@ -1,0 +1,180 @@
+name: Daily plan
+
+# The daily plan loop (ADR-042). After each data pipeline run on main (and at an
+# evening fallback, because GitHub drops scheduled runs), keep one comment per day in
+# the pinned standup issue (#58) current, and have the planning agent update
+# docs/PLAN.md and write the day's standup.
+#
+# Three jobs, so the LLM never holds a write token or a secret:
+#   signals  deterministic (engine/dailyplan.py). Reads CI runs, the pipeline report,
+#            the latest backtest and proposal counts (read-only SQL), merged PRs and
+#            the owner's replies in #58, then posts the day's comment. Runs even when
+#            the agent is off, so there is an update every day.
+#   plan     claude-code-action on the owner's Claude subscription
+#            (CLAUDE_CODE_OAUTH_TOKEN; never set an API key here, that bills the API).
+#            contents: read only. Edits docs/PLAN.md and docs/STATUS.md and writes the
+#            standup; the diff is handed on as a patch.
+#   publish  deterministic. Refuses any change outside those two files, puts the
+#            standup into the day's comment, opens a PR, waits for its checks and
+#            merges it (plan docs only; code from a `go` never merges itself).
+#
+# At most one automatic agent run a day, since it spends the owner's allowance; a
+# manual dispatch always runs it. The `go` path is daily-plan-go.yml.
+on:
+  workflow_run:
+    workflows: ["Data pipeline (job)"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 20 * * *"   # fallback: the day's update even if the pipeline didn't run
+  workflow_dispatch: {}
+  # TEMPORARY test-fire of the signals job on this branch; removed before merge.
+  push:
+    branches: ["ops/daily-plan-loop"]
+    paths: [".github/workflows/daily-plan.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-plan
+  cancel-in-progress: false
+
+jobs:
+  signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read        # list runs, read the pipeline report artifact
+      issues: write        # the day's comment in #58
+      pull-requests: read  # merged PRs
+    outputs:
+      date: ${{ steps.sig.outputs.date }}
+      run_agent: ${{ steps.sig.outputs.run_agent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --quiet "requests>=2.31" "psycopg[binary]>=3.1"
+      - name: Collect the day's signals and post them to #58
+        id: sig
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DAILY_PLAN_OWNER: ${{ github.repository_owner }}
+          HAS_AGENT_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: python -m engine.dailyplan signals --out .daily-plan/signals.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daily-plan-signals
+          path: .daily-plan/signals.json
+          include-hidden-files: true
+          retention-days: 3
+
+  plan:
+    needs: signals
+    if: needs.signals.outputs.run_agent == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 60 }   # recent history, as evidence for ticks
+      - uses: actions/download-artifact@v4
+        with: { name: daily-plan-signals, path: .daily-plan }
+      - name: Planning agent (owner's subscription; read-only, no secrets)
+        uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          allowed_bots: "github-actions"
+          prompt: |
+            You are the planning agent for this repository's daily plan loop.
+            Today is ${{ needs.signals.outputs.date }} (UTC). Read and follow
+            .github/daily-plan/plan-prompt.md exactly. Your inputs are in
+            .daily-plan/signals.json.
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git log:*),Bash(git show:*),Bash(git diff:*)"
+      - name: Hand the result on as a patch (only PLAN.md and STATUS.md may change)
+        run: |
+          set -euo pipefail
+          { git diff --name-only; git ls-files --others --exclude-standard; } | sort -u > .daily-plan/changed.txt
+          cat .daily-plan/changed.txt
+          python3 -m engine.dailyplan check-paths .daily-plan/changed.txt --allow docs/PLAN.md docs/STATUS.md
+          git diff > .daily-plan/plan.patch
+          test -s .daily-plan/standup.md || { echo "the agent wrote no standup"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daily-plan-result
+          path: |
+            .daily-plan/plan.patch
+            .daily-plan/standup.md
+          include-hidden-files: true
+          retention-days: 3
+
+  publish:
+    needs: [signals, plan]
+    if: always() && needs.signals.result == 'success' && needs.signals.outputs.run_agent == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+      DAY: ${{ needs.signals.outputs.date }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --quiet "requests>=2.31"
+      - uses: actions/download-artifact@v4
+        with: { name: daily-plan-signals, path: .daily-plan }
+      - name: Note that the agent didn't finish
+        if: needs.plan.result != 'success'
+        run: python -m engine.dailyplan agent-missing .daily-plan/signals.json --run-url "$RUN_URL"
+      - uses: actions/download-artifact@v4
+        if: needs.plan.result == 'success'
+        with: { name: daily-plan-result, path: .daily-plan }
+      - name: Put the standup into the day's comment
+        if: needs.plan.result == 'success'
+        run: python -m engine.dailyplan standup .daily-plan/signals.json .daily-plan/standup.md
+      - name: Open the plan PR, wait for its checks, merge
+        if: needs.plan.result == 'success'
+        run: |
+          set -euo pipefail
+          if [ ! -s .daily-plan/plan.patch ]; then echo "no plan changes today"; exit 0; fi
+          git apply --numstat .daily-plan/plan.patch | cut -f3 > .daily-plan/patch-paths.txt
+          python -m engine.dailyplan check-paths .daily-plan/patch-paths.txt --allow docs/PLAN.md docs/STATUS.md
+          BRANCH="plan/daily-${DAY}-r${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git apply --index .daily-plan/plan.patch
+          printf '%s\n' \
+            "docs(plan): daily update ${DAY}" "" \
+            "Written by the planning agent (claude-code-action, daily-plan.yml, ADR-042)" \
+            "from the day's signals and the owner's replies in #58. The workflow checked" \
+            "that only docs/PLAN.md and docs/STATUS.md changed." "" \
+            "Co-Authored-By: Claude <noreply@anthropic.com>" > .daily-plan/commit.txt
+          git commit -q -F .daily-plan/commit.txt
+          git push -q origin "$BRANCH"
+          printf '%s\n' \
+            "Today's Daily log and plan edits, written by the planning agent (\`daily-plan.yml\`, ADR-042) from the day's signals and the owner's replies in #58." "" \
+            "Only \`docs/PLAN.md\` and \`docs/STATUS.md\` can change in this PR; the workflow refuses anything else. It merges itself once its checks pass." "" \
+            "Run: ${RUN_URL}" "" \
+            "Live app: https://global-index-valuation-agent.vercel.app" "" \
+            "🤖 Generated with [Claude Code](https://claude.com/claude-code)" > .daily-plan/pr.md
+          URL=$(gh pr create --base main --head "$BRANCH" --title "docs(plan): daily update ${DAY}" --body-file .daily-plan/pr.md)
+          echo "opened $URL"
+          if python -m engine.dailyplan wait-checks "$(git rev-parse HEAD)" --timeout 900; then
+            gh pr merge "$URL" --merge --delete-branch
+          else
+            echo "::warning::checks not green; leaving $URL open for the owner"
+          fi

@@ -29,6 +29,7 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/sectoragent/tagging.py"
+      - "engine/dailyplan.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -52,6 +53,7 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/sectoragent/tagging.py"
+      - "engine/dailyplan.py"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -94,3 +96,5 @@ jobs:
         run: |
           pip install --quiet requests
           python tests/test_tagging.py
+      - name: Daily plan loop (day comment, owner-only replies, publish guards; fake GitHub API)
+        run: python tests/test_dailyplan.py

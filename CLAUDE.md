@@ -76,7 +76,11 @@ This project's memory is deliberately durable, in layers. **Maintain them as you
   `backtest_runs`, merged PRs, console proposals). Prepend a dated entry to the Daily log in
   `docs/PLAN.md`, tick items only with evidence, then post the standup to #58 proposing one
   meaty step (a whole feature or fix, never a small piece). Start it only after the owner
-  replies `go`.
+  replies `go`. This runs itself in `.github/workflows/daily-plan.yml` (ADR-042): a job
+  gathers and posts the signals, and the planning agent (on the owner's subscription via
+  `CLAUDE_CODE_OAUTH_TOKEN`, never an API key) writes the entry and the standup. A `go` reply
+  triggers `daily-plan-go.yml`, whose PR never merges itself (D14a). A session that does the
+  day's update by hand follows the same steps.
 - **`docs/JOURNAL.md`** — at the end of a work session, prepend a dated entry (what you
   built, what you learned, what's still open).
 - **`docs/DECISIONS.md`** — when you make a non-trivial architectural choice, prepend an

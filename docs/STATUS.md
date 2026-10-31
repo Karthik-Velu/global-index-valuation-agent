@@ -36,7 +36,8 @@ pasted into chat during setup).
 ## Latest (2026-10-31): daily plan loop, Phase 0 now in PLAN.md
 - A daily plan loop starts today: a dated Daily log at the top of `docs/PLAN.md`, and a
   pinned standup issue ([#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58)) where the owner replies `go` to start the proposed
-  step. The engine that runs it each day is still the owner's call.
+  step. It runs in GitHub Actions (`daily-plan.yml`, `daily-plan-go.yml`, ADR-042); the
+  agent half starts once the owner adds the `CLAUDE_CODE_OAUTH_TOKEN` repo secret.
 - The Phase 0 launch plan is now listed in PLAN.md. Next check: the Sun 1 Nov monthly
   sweep, the first under the P0.1a safety net (under 300 min, cache saved).
 

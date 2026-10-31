@@ -8,6 +8,27 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-10-31 (later): the daily plan loop engine
+- **Built:** `daily-plan.yml` (signals job, planning agent, publish job) and
+  `daily-plan-go.yml` (the owner's `go`, a build agent, a PR that never merges itself);
+  `engine/dailyplan.py`; the agents' instructions in `.github/daily-plan/`; and
+  `tests/test_dailyplan.py` (fake GitHub API). ADR-042.
+- **Verified:** the collector ran read-only against the live GitHub API and Postgres and
+  rendered the right numbers (run 41049989081: 33 min, 104 tagged, quality 71/100). The
+  workflows can only run once merged, since `workflow_dispatch` and `workflow_run` need
+  the default branch.
+- **Learned:**
+  - `claude-code-action` refuses a non-human trigger in agent mode unless the bot is in
+    `allowed_bots`, and it checks the actor's write access, including on `workflow_run`.
+  - GitHub won't accept workflow-file changes pushed with the Actions token, so a `go` step
+    that touches `.github/workflows/` needs a session to land it.
+  - `upload-artifact@v4` skips hidden paths unless `include-hidden-files: true`.
+  - The first standup, written by hand from the owner's account without the day marker,
+    would have been read as an owner reply; it now carries the marker.
+  - 161 console proposals are pending, and the latest backtest is id 4, from 25 Jul.
+- **Open:** the owner adds `CLAUDE_CODE_OAUTH_TOKEN`; the first automatic run after the
+  Sun 1 Nov sweep; check that the plan PR merges itself once green.
+
 ## 2026-10-31: Daily plan loop, and Phase 0 into PLAN.md
 - **Built:** a daily plan loop: a Daily log at the top of `docs/PLAN.md`, a pinned standup
   issue (#58), and a CLAUDE.md convention (read replies and signals, log the day, propose

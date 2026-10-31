@@ -1,0 +1,178 @@
+name: Daily plan go
+
+# When the owner replies `go` (or `go <option>`) in the pinned standup issue (#58),
+# build the proposed step and open a PR (ADR-042). It never merges: code waits for the
+# owner's review until change control is decided (D14a).
+#
+# Only the repository owner's own comments on #58 can trigger a build. The issue is
+# public, so anyone else's comment is ignored here and never reaches the agent.
+# Same split as daily-plan.yml: the build agent works read-only, with no secrets but
+# its own sign-in (no database, no API keys), and a deterministic job does every
+# write. GitHub refuses workflow-file changes pushed with the Actions token, so a step
+# that edits .github/workflows/ gets its patch attached to the run for a session to land.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-plan-go
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.event.issue.number == 58 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      startsWith(github.event.comment.body, 'go')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write   # acknowledge the go, or say why it can't start
+    outputs:
+      ok: ${{ steps.ctx.outputs.ok }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --quiet "requests>=2.31"
+      - name: Read the approval and the standup it answers
+        id: ctx
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          DAILY_PLAN_OWNER: ${{ github.repository_owner }}
+          HAS_AGENT_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+          # The authoritative check: a whole word "go", from the owner (not "good", "going").
+          if ! python -m engine.dailyplan go-context "$COMMENT_ID"; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          gh api -X POST "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes > /dev/null
+          if [ "$HAS_AGENT_TOKEN" != "true" ]; then
+            gh issue comment 58 --body "Can't start this one yet: the \`CLAUDE_CODE_OAUTH_TOKEN\` repo secret isn't set (ADR-042)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.ctx.outputs.ok == 'true'
+        with:
+          name: go-context
+          path: .daily-plan/go_context.json
+          include-hidden-files: true
+          retention-days: 7
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 100 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: pip install --quiet -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with: { name: go-context, path: .daily-plan }
+      - name: Build agent (owner's subscription; read-only, no secrets)
+        uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            You are the build agent for this repository's daily plan loop. The owner
+            approved a step in the pinned standup issue. Read and follow
+            .github/daily-plan/go-prompt.md exactly. Your inputs are in
+            .daily-plan/go_context.json.
+          claude_args: >-
+            --max-turns 250
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(node:*),Bash(pip install:*),Bash(ls:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+      - name: Hand the result on as a patch
+        run: |
+          set -euo pipefail
+          git add -A
+          git diff --cached --name-only > .daily-plan/changed.txt
+          git diff --cached --binary > .daily-plan/go.patch
+          cat .daily-plan/changed.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: go-result
+          path: |
+            .daily-plan/go.patch
+            .daily-plan/changed.txt
+            .daily-plan/pr_title.txt
+            .daily-plan/pr_body.md
+            .daily-plan/blocked.md
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish:
+    needs: [prepare, build]
+    if: always() && needs.prepare.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GO_URL: ${{ github.event.comment.html_url }}
+      COMMENT_ID: ${{ github.event.comment.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The build didn't finish
+        if: needs.build.result != 'success'
+        run: gh issue comment 58 --body "The build for [your go](${GO_URL}) didn't finish ([run](${RUN_URL})). Nothing was pushed."
+      - uses: actions/download-artifact@v4
+        if: needs.build.result == 'success'
+        with: { name: go-result, path: .daily-plan }
+      - name: Open the PR (never merged here, D14a)
+        if: needs.build.result == 'success'
+        run: |
+          set -euo pipefail
+          if [ -s .daily-plan/blocked.md ]; then
+            { echo "Didn't start [your go](${GO_URL}): it needs a decision first."; echo; cat .daily-plan/blocked.md; } > .daily-plan/c.md
+            gh issue comment 58 --body-file .daily-plan/c.md; exit 0
+          fi
+          if [ ! -s .daily-plan/go.patch ]; then
+            gh issue comment 58 --body "The build for [your go](${GO_URL}) made no changes ([run](${RUN_URL}))."; exit 0
+          fi
+          if python3 -m engine.dailyplan touches .daily-plan/changed.txt .github/workflows/ > /dev/null; then
+            gh issue comment 58 --body "The build for [your go](${GO_URL}) changes workflow files, and GitHub won't let an Actions token push those. The whole patch is attached to [this run](${RUN_URL}) (artifact \`go-result\`); a session can land it as a PR in a few minutes."
+            exit 0
+          fi
+          BRANCH="go/$(date -u +%F)-c${COMMENT_ID}"
+          TITLE=$(head -n1 .daily-plan/pr_title.txt 2>/dev/null || true)
+          TITLE=${TITLE:-"feat: approved step from #58"}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git apply --index .daily-plan/go.patch
+          printf '%s\n' "$TITLE" "" \
+            "Approved by the owner in #58 (${GO_URL}). Built by the go agent" \
+            "(claude-code-action, daily-plan-go.yml, ADR-042). Not merged automatically (D14a)." "" \
+            "Co-Authored-By: Claude <noreply@anthropic.com>" > .daily-plan/commit.txt
+          git commit -q -F .daily-plan/commit.txt
+          git push -q origin "$BRANCH"
+          { cat .daily-plan/pr_body.md 2>/dev/null || echo "Approved step from #58."; echo; echo "---"
+            echo "Approved by the owner in [#58](${GO_URL}). Built by the go agent (\`daily-plan-go.yml\`, ADR-042) from the run ${RUN_URL}."
+            echo "**Not merged automatically:** code waits for the owner's review until change control (D14a) is decided."
+            echo; echo "Live app: https://global-index-valuation-agent.vercel.app"
+            echo; echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"; } > .daily-plan/pr.md
+          URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file .daily-plan/pr.md)
+          gh issue comment 58 --body "Built [your go](${GO_URL}): ${URL}. It waits for your merge (D14a)."
