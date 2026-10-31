@@ -28,6 +28,7 @@ on:
       - "engine/picks.py"
       - "engine/reports.py"
       - "engine/tierb.py"
+      - "engine/tierbdump.py"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -52,6 +53,7 @@ on:
       - "engine/picks.py"
       - "engine/reports.py"
       - "engine/tierb.py"
+      - "engine/tierbdump.py"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -98,3 +100,7 @@ jobs:
           python tests/test_tagging.py
       - name: Daily plan loop (day comment, owner-only replies, publish guards; fake GitHub API)
         run: python tests/test_dailyplan.py
+      - name: Tier B dump presets (parameters bound, no prices view; in-memory DuckDB)
+        run: |
+          pip install --quiet "duckdb>=1.0,<2"
+          python tests/test_tierbdump.py

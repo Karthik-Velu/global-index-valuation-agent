@@ -112,7 +112,7 @@ def dump(preset: str, tickers: list[str] | None = None,
     params = [supplied[n] for n in param_names]
 
     con = _connect()
-    rows = con.execute(f"select * from ({sql}) t limit {int(limit)}").fetchall()
+    rows = con.execute(f"select * from ({sql}) t limit {int(limit)}", params).fetchall()
     cols = [d[0] for d in con.description]
     print(f"   {preset}: {len(rows):,} rows"
           + (f" (LIMIT {limit} reached — narrow the filters)" if len(rows) >= limit else ""))
