@@ -29,9 +29,21 @@ replies there feed back into this file.
   `CLAUDE_CODE_OAUTH_TOKEN` secret.
 - **Also found** (dry run of the signals job): 161 console proposals pending, none decided in
   30 h; the latest backtest is id 4, from 25 Jul.
+- **Daily plan loop, first live runs:** four "Daily plan" runs failed this morning
+  ([main dispatch](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41190928370),
+  [push](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41191256990),
+  [dispatch](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41191372142),
+  [dispatch](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41191982609)).
+  Fixes are on branch `fix/daily-plan-agent-error` (report why the agent failed; stop firing
+  on push; branch plan and go PRs from main). The latest dispatch
+  ([run 41192589177](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41192589177))
+  was still in progress when the signals were gathered. The two "Daily plan go" runs were
+  skipped (no `go` reply yet), as intended.
 - **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (decision-free).
   Alternative: multi-class share counts, which needs a method call (B1 to B3 in #58).
-- **Waiting on owner:** the `CLAUDE_CODE_OAUTH_TOKEN` secret; the 14 Oct owner actions (a) to (g) in
+  The watchdog would have caught this morning's failures. It touches `.github/workflows/`,
+  so a session has to land that part.
+- **Waiting on owner:** merging the daily-plan fix branch; the `CLAUDE_CODE_OAUTH_TOKEN` secret (only if the agent step still fails); the 14 Oct owner actions (a) to (g) in
   STATUS.md; the full Phase 0 list; whether P0.2 should land before D04.
 
 ## Phase 0: launch plan (production readiness)  🔁 IN PROGRESS
