@@ -39,3 +39,6 @@ dashboard/.env.local
 # OS
 .DS_Store
 .vercel
+
+# Daily plan loop scratch: signals, standup, patches (ADR-042)
+.daily-plan/

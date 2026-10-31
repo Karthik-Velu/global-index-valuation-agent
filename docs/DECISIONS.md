@@ -9,6 +9,36 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-042 · The daily plan loop: a job, an agent and a `go` path, in GitHub Actions
+- **Context:** the owner asked for an update to the plan every day, with feedback (his and
+  the system's) flowing back into it and steps proposed for his OK. Until now the plan moved
+  only when a session ran. He ruled out anything that bills his API quota (2026-10-31).
+- **Choice:**
+  - `daily-plan.yml`, after each data pipeline run on main plus a 20:17 UTC fallback.
+    `signals` (a job, `engine/dailyplan.py`) gathers CI runs, the pipeline report, the latest
+    backtest and proposal counts, merged PRs and the owner's replies in the pinned standup
+    issue (#58), and keeps one comment per day there. `plan` (an agent: `claude-code-action`
+    on the owner's Claude subscription via `CLAUDE_CODE_OAUTH_TOKEN`) edits `docs/PLAN.md` and
+    `docs/STATUS.md` and writes the standup. `publish` (a job) refuses a change to any other
+    file, posts the standup, opens a PR, waits for its checks and merges it.
+  - `daily-plan-go.yml`: the owner's `go` comment on #58 starts a build of the proposed step,
+    with the same split. Its PR never merges itself (D14a). A step that changes
+    `.github/workflows/` gets its patch attached to the run, because the Actions token can't
+    push workflow files.
+  - The LLM never holds a write token or a secret beyond its own sign-in: every GitHub write is
+    deterministic code. Only the owner's comments reach the agents, because the issue is
+    public. At most one automatic planning run a day; a manual dispatch always runs it.
+- **Why:** a subscription token bills the owner's plan, not the API (claude-code-action docs).
+  Actions reaches Postgres with the existing `DATABASE_URL` secret and runs `gh` fully, and a
+  `workflow_run` trigger follows the pipeline instead of adding another drifting cron. The
+  job half guarantees a daily update even when the agent's allowance runs out.
+- **Rejected:** a Claude Code cloud routine (it probably can't reach Postgres, `gh pr` and
+  `gh issue` are blocked inside a run, and it is a research preview); a desktop scheduled task
+  (needs the Mac awake); the free model waterfall for the agent (weaker at careful edits to a
+  450-line plan); holding each day's plan PR for the owner's merge (the plan would lag his
+  review).
+- **Date:** 2026-10-31.
+
 ### ADR-041 · Rotating SIC tagging (D02) and a pipeline safety net for the monthly sweep (P0.1a)
 - **Context:** the monthly full sweep took 283 → 290 → 308 min (Aug–Oct 2026) against GitHub's
   hard 360-min kill for hosted jobs, and a killed job saved nothing (`actions/cache` saves only

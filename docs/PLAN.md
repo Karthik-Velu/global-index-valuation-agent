@@ -24,10 +24,14 @@ replies there feed back into this file.
   71 to 72 since September, but open issues are rising (1,686 on 7 Sep, 1,771 on 30 Oct);
   `shares_multiclass_unsummed` is 1,287 of them (73%). Recalibration: `forward_only`.
 - **Plan changes:** Phase 0 brought into this file (it was tracked only in commit messages
-  and the journal). Daily loop and standup started.
+  and the journal). Daily loop and standup started. Engine decided: a GitHub Action,
+  `daily-plan.yml` plus `daily-plan-go.yml` (ADR-042); its agent half waits for the
+  `CLAUDE_CODE_OAUTH_TOKEN` secret.
+- **Also found** (dry run of the signals job): 161 console proposals pending, none decided in
+  30 h; the latest backtest is id 4, from 25 Jul.
 - **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (decision-free).
   Alternative: multi-class share counts, which needs a method call (B1 to B3 in #58).
-- **Waiting on owner:** the daily-loop engine; the 14 Oct owner actions (a) to (g) in
+- **Waiting on owner:** the `CLAUDE_CODE_OAUTH_TOKEN` secret; the 14 Oct owner actions (a) to (g) in
   STATUS.md; the full Phase 0 list; whether P0.2 should land before D04.
 
 ## Phase 0: launch plan (production readiness)  🔁 IN PROGRESS
@@ -500,4 +504,7 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
   best-effort so it can never take down the publish.
 - ⬜ **Widen the daily health check to all scheduled workflows** (now P0.0, Phase 0) — it watched only
   `data-pipeline.yml`, so three weeks of dashboard staleness were reported as "healthy".
+- 🔜 **Daily plan loop (ADR-042):** built (`daily-plan.yml`, `daily-plan-go.yml`,
+  `engine/dailyplan.py`). Owner adds the `CLAUDE_CODE_OAUTH_TOKEN` secret; first automatic
+  run after the Sun 1 Nov sweep; then verify the plan PR merges itself on green.
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session
