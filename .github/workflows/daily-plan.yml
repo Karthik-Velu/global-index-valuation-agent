@@ -81,6 +81,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: daily-plan-signals, path: .daily-plan }
       - name: Planning agent (owner's subscription; read-only, no secrets)
+        id: agent
         uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -110,6 +111,19 @@ jobs:
             .daily-plan/standup.md
           include-hidden-files: true
           retention-days: 3
+      - name: Record why the agent failed (the reason only, redacted; never the conversation)
+        if: failure()
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file || format('{0}/claude-execution-output.json', runner.temp) }}
+        run: python3 -m engine.dailyplan agent-error "$EXEC_FILE" --out .daily-plan/agent_error.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: daily-plan-agent-error
+          path: .daily-plan/agent_error.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 3
 
   publish:
     needs: [signals, plan]
@@ -132,9 +146,15 @@ jobs:
       - run: pip install --quiet "requests>=2.31"
       - uses: actions/download-artifact@v4
         with: { name: daily-plan-signals, path: .daily-plan }
-      - name: Note that the agent didn't finish
+      - uses: actions/download-artifact@v4
         if: needs.plan.result != 'success'
-        run: python -m engine.dailyplan agent-missing .daily-plan/signals.json --run-url "$RUN_URL"
+        continue-on-error: true   # absent when the agent never started
+        with: { name: daily-plan-agent-error, path: .daily-plan }
+      - name: Note that the agent didn't finish, and why
+        if: needs.plan.result != 'success'
+        run: >-
+          python -m engine.dailyplan agent-missing .daily-plan/signals.json
+          --run-url "$RUN_URL" --reason-file .daily-plan/agent_error.txt
       - uses: actions/download-artifact@v4
         if: needs.plan.result == 'success'
         with: { name: daily-plan-result, path: .daily-plan }
@@ -151,7 +171,10 @@ jobs:
           BRANCH="plan/daily-${DAY}-r${{ github.run_id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$BRANCH"
+          # Always branch from main, never from the ref this run started on: a test dispatch
+          # from a feature branch would otherwise carry that branch's code into the PR.
+          git fetch -q --depth=1 origin main:refs/remotes/origin/main
+          git switch -c "$BRANCH" origin/main
           git apply --index .daily-plan/plan.patch
           printf '%s\n' \
             "docs(plan): daily update ${DAY}" "" \
@@ -160,6 +183,9 @@ jobs:
             "that only docs/PLAN.md and docs/STATUS.md changed." "" \
             "Co-Authored-By: Claude <noreply@anthropic.com>" > .daily-plan/commit.txt
           git commit -q -F .daily-plan/commit.txt
+          # Second guard: the PR's whole diff against main, not just the patch.
+          git diff --name-only origin/main HEAD > .daily-plan/pr-paths.txt
+          python -m engine.dailyplan check-paths .daily-plan/pr-paths.txt --allow docs/PLAN.md docs/STATUS.md
           git push -q origin "$BRANCH"
           printf '%s\n' \
             "Today's Daily log and plan edits, written by the planning agent (\`daily-plan.yml\`, ADR-042) from the day's signals and the owner's replies in #58." "" \

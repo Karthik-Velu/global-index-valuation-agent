@@ -57,7 +57,9 @@ def test_compose_and_extract_roundtrip():
     assert body.startswith(dp.marker("2026-11-01")) and dp.LIVE_APP in body
     for placeholder in dp.PLACEHOLDERS.values():
         assert dp.extract_standup(dp.compose("2026-11-01", placeholder, "s")) == ""
-    assert dp.extract_standup(dp.compose("2026-11-01", dp.MISSING.format(url="u"), "s")) == ""
+    for reason in ("", ": usage limit reached"):
+        missing = dp.MISSING.format(url="u", reason=reason)
+        assert dp.extract_standup(dp.compose("2026-11-01", missing, "s")) == "", missing
     assert dp.extract_standup("a plain comment") == ""
 
 
@@ -226,6 +228,29 @@ def test_wait_checks():
     t["now"] = 0.0
     ok, why = dp.wait_checks(_waiter([(pending, [])]), "abc", timeout=100, sleep=sleep, clock=clock)
     assert not ok and "timed out" in why
+
+
+def test_agent_error_reads_the_final_result_and_redacts(tmp=Path(__file__).resolve().parent):
+    import tempfile
+    d = Path(tempfile.mkdtemp())
+    f = d / "exec.json"
+    f.write_text(json.dumps([{"type": "system", "subtype": "init"},
+                             {"type": "result", "subtype": "success", "is_error": True,
+                              "result": "Invalid bearer token sk-ant-oat01-ABCDEFGH1234 · run /login"}]))
+    why = dp.agent_error(f)
+    assert "Invalid bearer token" in why and "sk-ant" not in why and "[redacted]" in why, why
+    f.write_text(json.dumps({"type": "result", "is_error": False, "result": "done"}))
+    assert "refused" in dp.agent_error(f)
+    f.write_text(json.dumps([{"type": "result", "is_error": True, "errors": ["rate_limit"]}]))
+    assert dp.agent_error(f) == "rate_limit"
+    assert "no execution log" in dp.agent_error(d / "missing.json")
+    f.write_text("not json")
+    assert "no execution log" in dp.agent_error(f)
+    f.write_text(json.dumps([{"type": "system"}]))
+    assert "no result" in dp.agent_error(f)
+    long = {"type": "result", "is_error": True, "result": "x" * 1000}
+    f.write_text(json.dumps([long]))
+    assert len(dp.agent_error(f)) == 300
 
 
 if __name__ == "__main__":
