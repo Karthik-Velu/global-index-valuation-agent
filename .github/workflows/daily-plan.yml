@@ -171,7 +171,10 @@ jobs:
           BRANCH="plan/daily-${DAY}-r${{ github.run_id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$BRANCH"
+          # Always branch from main, never from the ref this run started on: a test dispatch
+          # from a feature branch would otherwise carry that branch's code into the PR.
+          git fetch -q --depth=1 origin main:refs/remotes/origin/main
+          git switch -c "$BRANCH" origin/main
           git apply --index .daily-plan/plan.patch
           printf '%s\n' \
             "docs(plan): daily update ${DAY}" "" \
@@ -180,6 +183,9 @@ jobs:
             "that only docs/PLAN.md and docs/STATUS.md changed." "" \
             "Co-Authored-By: Claude <noreply@anthropic.com>" > .daily-plan/commit.txt
           git commit -q -F .daily-plan/commit.txt
+          # Second guard: the PR's whole diff against main, not just the patch.
+          git diff --name-only origin/main HEAD > .daily-plan/pr-paths.txt
+          python -m engine.dailyplan check-paths .daily-plan/pr-paths.txt --allow docs/PLAN.md docs/STATUS.md
           git push -q origin "$BRANCH"
           printf '%s\n' \
             "Today's Daily log and plan edits, written by the planning agent (\`daily-plan.yml\`, ADR-042) from the day's signals and the owner's replies in #58." "" \

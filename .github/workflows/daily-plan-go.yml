@@ -181,7 +181,10 @@ jobs:
           TITLE=${TITLE:-"feat: approved step from #58"}
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$BRANCH"
+          # Always branch from main, never from the ref this run started on: a test dispatch
+          # from a feature branch would otherwise carry that branch's code into the PR.
+          git fetch -q --depth=1 origin main:refs/remotes/origin/main
+          git switch -c "$BRANCH" origin/main
           git apply --index .daily-plan/go.patch
           printf '%s\n' "$TITLE" "" \
             "Approved by the owner in #58 (${GO_URL}). Built by the go agent" \
