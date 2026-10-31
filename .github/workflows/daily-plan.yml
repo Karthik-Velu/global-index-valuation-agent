@@ -28,6 +28,10 @@ on:
   schedule:
     - cron: "17 20 * * *"   # fallback: the day's update even if the pipeline didn't run
   workflow_dispatch: {}
+  # TEMPORARY test-fire on this branch; removed before merge.
+  push:
+    branches: ["fix/daily-plan-agent-error"]
+    paths: [".github/workflows/daily-plan.yml"]
 
 permissions:
   contents: read
@@ -81,6 +85,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: daily-plan-signals, path: .daily-plan }
       - name: Planning agent (owner's subscription; read-only, no secrets)
+        id: agent
         uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -110,6 +115,19 @@ jobs:
             .daily-plan/standup.md
           include-hidden-files: true
           retention-days: 3
+      - name: Record why the agent failed (the reason only, redacted; never the conversation)
+        if: failure()
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file || format('{0}/claude-execution-output.json', runner.temp) }}
+        run: python3 -m engine.dailyplan agent-error "$EXEC_FILE" --out .daily-plan/agent_error.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: daily-plan-agent-error
+          path: .daily-plan/agent_error.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 3
 
   publish:
     needs: [signals, plan]
@@ -132,9 +150,15 @@ jobs:
       - run: pip install --quiet "requests>=2.31"
       - uses: actions/download-artifact@v4
         with: { name: daily-plan-signals, path: .daily-plan }
-      - name: Note that the agent didn't finish
+      - uses: actions/download-artifact@v4
         if: needs.plan.result != 'success'
-        run: python -m engine.dailyplan agent-missing .daily-plan/signals.json --run-url "$RUN_URL"
+        continue-on-error: true   # absent when the agent never started
+        with: { name: daily-plan-agent-error, path: .daily-plan }
+      - name: Note that the agent didn't finish, and why
+        if: needs.plan.result != 'success'
+        run: >-
+          python -m engine.dailyplan agent-missing .daily-plan/signals.json
+          --run-url "$RUN_URL" --reason-file .daily-plan/agent_error.txt
       - uses: actions/download-artifact@v4
         if: needs.plan.result == 'success'
         with: { name: daily-plan-result, path: .daily-plan }

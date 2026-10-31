@@ -18,7 +18,8 @@ payloads), and no prices.
 
     python -m engine.dailyplan signals [--out .daily-plan/signals.json]
     python -m engine.dailyplan standup .daily-plan/signals.json .daily-plan/standup.md
-    python -m engine.dailyplan agent-missing .daily-plan/signals.json --run-url URL
+    python -m engine.dailyplan agent-missing .daily-plan/signals.json --run-url URL [--reason-file F]
+    python -m engine.dailyplan agent-error EXECUTION_FILE [--out .daily-plan/agent_error.txt]
     python -m engine.dailyplan go-context COMMENT_ID [--out .daily-plan/go_context.json]
     python -m engine.dailyplan check-paths CHANGED_LIST --allow docs/PLAN.md ...
     python -m engine.dailyplan touches CHANGED_LIST .github/workflows/
@@ -54,7 +55,10 @@ PLACEHOLDERS = {
     "off": "_The planning agent is off. Add the `CLAUDE_CODE_OAUTH_TOKEN` repo secret to "
            "turn it on (ADR-042). The signals below are automatic._",
 }
-MISSING = "_The planning agent didn't finish today ([run]({url})). The signals below are current._"
+MISSING = ("_The planning agent didn't finish today ([run]({url})){reason}. "
+           "The signals below are current._")
+# Anything shaped like a credential is redacted before an error reaches a public log.
+TOKEN_RE = re.compile(r"(sk-ant-[A-Za-z0-9_-]{6,}|gh[opsu]_[A-Za-z0-9]{12,}|Bearer\s+\S+)")
 BAD_CONCLUSIONS = {"failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale"}
 
 
@@ -448,6 +452,28 @@ def disallowed(paths: list[str], allow: list[str]) -> list[str]:
     return [p for p in paths if p not in set(allow)]
 
 
+def agent_error(exec_file: str | Path) -> str:
+    """Why the agent failed, from claude-code-action's execution file (redacted, short).
+
+    The action keeps Claude's output out of the log unless show_full_output is on, which
+    would publish the whole conversation in a public repo; this pulls out only the final
+    result's error text, so a failure says why (auth, usage limit, refused output).
+    """
+    try:
+        data = json.loads(Path(exec_file).read_text())
+    except (OSError, ValueError):
+        return "no execution log was written (the agent may not have started)"
+    msgs = data if isinstance(data, list) else data.get("messages", [data])
+    res = next((m for m in reversed(msgs) if isinstance(m, dict) and m.get("type") == "result"), None)
+    if res is None:
+        return "the execution log has no result"
+    if not res.get("is_error"):
+        return "the agent finished, but its output was refused (see the run log)"
+    text = res.get("result") or res.get("error") or ", ".join(map(str, res.get("errors") or [])) \
+        or res.get("subtype") or "unknown error"
+    return TOKEN_RE.sub("[redacted]", " ".join(str(text).split()))[:300]
+
+
 def wait_checks(gh, sha: str, timeout: float = 900, settle: float = 180, interval: float = 20,
                 sleep=time.sleep, clock=time.monotonic) -> tuple[bool, str]:
     """Wait for the commit's checks. Pass when every check has finished green; fail on
@@ -527,9 +553,20 @@ def _cmd_agent_missing(a) -> None:
     if existing and extract_standup(existing.get("body")):
         print("a standup is already in place; leaving it")
         return
-    upsert_day_comment(gh, sig["date"], MISSING.format(url=a.run_url), render_signals(sig),
-                       comments=comments)
-    print("noted that the planning agent didn't finish")
+    reason = ""
+    if a.reason_file and Path(a.reason_file).exists():
+        reason = Path(a.reason_file).read_text().strip()
+    upsert_day_comment(gh, sig["date"],
+                       MISSING.format(url=a.run_url, reason=f": {reason}" if reason else ""),
+                       render_signals(sig), comments=comments)
+    print("noted that the planning agent didn't finish" + (f" ({reason})" if reason else ""))
+
+
+def _cmd_agent_error(a) -> None:
+    why = agent_error(a.execution_file)
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(why + "\n")
+    print(f"::error title=Planning agent::{why}")
 
 
 def _cmd_go_context(a) -> None:
@@ -575,7 +612,12 @@ def main(argv: list[str] | None = None) -> None:
     s = sub.add_parser("agent-missing")
     s.add_argument("signals")
     s.add_argument("--run-url", required=True)
+    s.add_argument("--reason-file")
     s.set_defaults(fn=_cmd_agent_missing)
+    s = sub.add_parser("agent-error")
+    s.add_argument("execution_file")
+    s.add_argument("--out", default=".daily-plan/agent_error.txt")
+    s.set_defaults(fn=_cmd_agent_error)
     s = sub.add_parser("go-context")
     s.add_argument("comment_id")
     s.add_argument("--out", default=".daily-plan/go_context.json")

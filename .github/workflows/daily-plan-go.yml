@@ -87,6 +87,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: go-context, path: .daily-plan }
       - name: Build agent (owner's subscription; read-only, no secrets)
+        id: agent
         uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -118,6 +119,19 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
+      - name: Record why the agent failed (the reason only, redacted; never the conversation)
+        if: failure()
+        env:
+          EXEC_FILE: ${{ steps.agent.outputs.execution_file || format('{0}/claude-execution-output.json', runner.temp) }}
+        run: python3 -m engine.dailyplan agent-error "$EXEC_FILE" --out .daily-plan/agent_error.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: go-agent-error
+          path: .daily-plan/agent_error.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 3
 
   publish:
     needs: [prepare, build]
@@ -135,9 +149,15 @@ jobs:
       COMMENT_ID: ${{ github.event.comment.id }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: needs.build.result != 'success'
+        continue-on-error: true   # absent when the agent never started
+        with: { name: go-agent-error, path: .daily-plan }
       - name: The build didn't finish
         if: needs.build.result != 'success'
-        run: gh issue comment 58 --body "The build for [your go](${GO_URL}) didn't finish ([run](${RUN_URL})). Nothing was pushed."
+        run: |
+          REASON=$(head -c 300 .daily-plan/agent_error.txt 2>/dev/null || true)
+          gh issue comment 58 --body "The build for [your go](${GO_URL}) didn't finish ([run](${RUN_URL}))${REASON:+: ${REASON}}. Nothing was pushed."
       - uses: actions/download-artifact@v4
         if: needs.build.result == 'success'
         with: { name: go-result, path: .daily-plan }
