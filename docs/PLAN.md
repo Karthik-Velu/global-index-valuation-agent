@@ -29,6 +29,15 @@ replies there feed back into this file.
   `CLAUDE_CODE_OAUTH_TOKEN` secret.
 - **Also found** (dry run of the signals job): 161 console proposals pending, none decided in
   30 h; the latest backtest is id 4, from 25 Jul.
+- **Update (agent run, 10:15 UTC):** PRs [#59](https://github.com/Karthik-Velu/global-index-valuation-agent/pull/59)
+  and [#60](https://github.com/Karthik-Velu/global-index-valuation-agent/pull/60) merged
+  this morning. Three Daily plan runs failed after that, one on main
+  ([run 41190928370](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41190928370))
+  and two on `fix/daily-plan-agent-error`
+  ([push](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41191256990),
+  [dispatch](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41191372142)).
+  The fix is in flight on that branch; a later dispatch is running as this entry is written,
+  so the loop is not yet proven end to end. No owner replies yet.
 - **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (decision-free).
   Alternative: multi-class share counts, which needs a method call (B1 to B3 in #58).
 - **Waiting on owner:** the `CLAUDE_CODE_OAUTH_TOKEN` secret; the 14 Oct owner actions (a) to (g) in
