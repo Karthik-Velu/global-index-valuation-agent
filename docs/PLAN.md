@@ -16,6 +16,37 @@ Newest first. The daily plan loop adds one entry a day: what changed, what the s
 say, and the one step proposed. Discussion happens in the pinned standup, issue [#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58);
 replies there feed back into this file.
 
+### 2026-11-01 (Sun)
+- **Verified, P0.1a:** the Sun 1 Nov sweep ([run 41299480397](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41299480397),
+  mode `full`, 3,070 securities) finished green in 263 min (pipeline step 258 min), under the
+  300 min target. The Tier B save and the store-readability gate both succeeded. This closes
+  the last open P0.1a item. Not yet done: the restore drill that D04 (first half) waits on.
+- **Owner reply folded in:** `go B1` ([comment](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58#issuecomment-6542616700), 31 Oct):
+  sum share classes at economic equivalence using each class's conversion ratio, check
+  per-class coverage on a sample first, and stop if the data is not there. The go workflow
+  ran with a success conclusion at 11:10 UTC on 31 Oct. No B1 change has merged into main
+  (D14a: such PRs never merge themselves), and the signals do not show whether a PR is open
+  or whether the sample check stopped the build.
+- **Signals:** data quality 71/100, 1,787 open issues (1,771 on 30 Oct), of which
+  `shares_multiclass_unsummed` is 1,293. Recalibration: `forward_only`. Tagging: 121
+  securities, 0 fetch errors. Latest backtest is still id 4 (25 Jul).
+- **CI:** two "Tier B dump" runs on main failed on 31 Oct
+  ([41209874777](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41209874777),
+  [41209883667](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41209883667));
+  PR #68 fixed the parameter binding and the reruns from that branch were green. The earlier
+  "Daily plan" failures of 31 Oct were fixed by PRs #61 and #64, and the 31 Oct 23:26
+  scheduled run succeeded.
+- **Merged since the last entry:** #66 (D04 decision), #67 (model_scorecard and
+  rls_auto_enable off the public API), #68 (tierbdump parameters), #69 (README link).
+- **Console proposals:** 152 declined, 7 parked, 3 actioned, 2 queued for build. About 20 were
+  decided on 31 Oct (`fred_macro` parked, the rest declined).
+- **Plan changes:** P0.1a Sun 1 Nov sweep ticked. Monthly universe refresh landed on main
+  (commit 6014c5d).
+- **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades (see the standup).
+- **Waiting on owner:** the outcome or review of the B1 build; the restore drill and the
+  final confirmation before the first half of D04 runs; the 14 Oct owner actions (a) to (g)
+  in STATUS.md; the full Phase 0 list; D14a.
+
 ### 2026-10-31 (Sat)
 - **Owner decision (in a session, not #58):** D04 is split (option A). The weekly artifacts go
   after the 1 Nov sweep and a restore drill; the frozen release asset stays until P0.2. See Phase 0.
@@ -69,7 +100,7 @@ is with the owner. `Dnn` items are owner decisions.
   failure behind a store-readability gate, `timeout --foreground`, per-attempt cache keys,
   one Tier B writer per branch.
   - ✅ First rotating daily on main verified 30 Oct (104 tagged, 105 s, save green).
-  - 🔜 Sun 1 Nov sweep: under 300 min, cache saved, store readable.
+  - ✅ Sun 1 Nov sweep: 263 min, Tier B save and readability gate green ([run 41299480397](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41299480397)).
 - ⬜ **P0.2 private encrypted backups:** replace the frozen public `tierb-store` release asset
   (2026-10-04) as the disaster-recovery copy. Now gates the second half of D04 (owner, 31 Oct).
 - ✅ **P0.5a stop new publication of licensed Tier B data** (PR #56, 23 Oct).
@@ -467,6 +498,8 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
     facts. As a result there is no market cap or multiples for 219 securities. Add a
     `missing_market_cap` quality check. Latest (30 Oct): 1,287 of 1,771 open quality
     issues are `shares_multiclass_unsummed`; method options are in standup #58.
+    Owner chose B1 on 31 Oct ([comment](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58#issuecomment-6542616700)):
+    sum classes by conversion ratio, sample per-class coverage first, stop if data is missing.
   - ⬜ **A lens for recent IPOs and loss-makers:** EV/Sales on TTM, scored on growth plus cash
     runway. Relax `growthhistory._QUARTER_IN_ANNUAL` for confirmed hyper-growth.
   - ⬜ **Balance-sheet / credit-risk score:** debt/equity, net debt/OCF, capex/OCF, interest
