@@ -215,15 +215,15 @@
       "country": "United States"
     },
     {
+      "ticker": "MU",
+      "country": "United States"
+    },
+    {
       "ticker": "AXP",
       "country": "United States"
     },
     {
       "ticker": "LIN",
-      "country": "United States"
-    },
-    {
-      "ticker": "ACN",
       "country": "United States"
     },
     {
@@ -284,6 +284,10 @@
     },
     {
       "ticker": "NOW",
+      "country": "United States"
+    },
+    {
+      "ticker": "ACN",
       "country": "United States"
     },
     {
@@ -567,10 +571,6 @@
       "country": "United States"
     },
     {
-      "ticker": "MU",
-      "country": "United States"
-    },
-    {
       "ticker": "SHW",
       "country": "United States"
     },
@@ -775,6 +775,10 @@
       "country": "United States"
     },
     {
+      "ticker": "AZO",
+      "country": "United States"
+    },
+    {
       "ticker": "SNPS",
       "country": "United States"
     },
@@ -788,10 +792,6 @@
     },
     {
       "ticker": "APO",
-      "country": "United States"
-    },
-    {
-      "ticker": "AZO",
       "country": "United States"
     },
     {
@@ -1311,10 +1311,6 @@
       "country": "United States"
     },
     {
-      "ticker": "WBD",
-      "country": "United States"
-    },
-    {
       "ticker": "AMRZ",
       "country": "United States"
     },
@@ -1675,6 +1671,10 @@
       "country": "United States"
     },
     {
+      "ticker": "JBL",
+      "country": "United States"
+    },
+    {
       "ticker": "MDB",
       "country": "United States"
     },
@@ -1768,10 +1768,6 @@
     },
     {
       "ticker": "LULU",
-      "country": "United States"
-    },
-    {
-      "ticker": "FDS",
       "country": "United States"
     },
     {
@@ -2003,10 +1999,6 @@
       "country": "United States"
     },
     {
-      "ticker": "JBL",
-      "country": "United States"
-    },
-    {
       "ticker": "NTNX",
       "country": "United States"
     },
@@ -2132,6 +2124,10 @@
     },
     {
       "ticker": "REG",
+      "country": "United States"
+    },
+    {
+      "ticker": "FDS",
       "country": "United States"
     },
     {
@@ -2659,11 +2655,11 @@
       "country": "United States"
     },
     {
-      "ticker": "WCC",
+      "ticker": "AYI",
       "country": "United States"
     },
     {
-      "ticker": "AYI",
+      "ticker": "WCC",
       "country": "United States"
     },
     {
@@ -2680,10 +2676,6 @@
     },
     {
       "ticker": "ORI",
-      "country": "United States"
-    },
-    {
-      "ticker": "QRVO",
       "country": "United States"
     },
     {
@@ -3072,6 +3064,10 @@
     },
     {
       "ticker": "STRL",
+      "country": "United States"
+    },
+    {
+      "ticker": "CMC",
       "country": "United States"
     },
     {
@@ -3479,10 +3475,6 @@
       "country": "United States"
     },
     {
-      "ticker": "CMC",
-      "country": "United States"
-    },
-    {
       "ticker": "RLI",
       "country": "United States"
     },
@@ -3819,7 +3811,7 @@
       "country": "United States"
     },
     {
-      "ticker": "MSGS",
+      "ticker": "MSGK",
       "country": "United States"
     },
     {
@@ -4123,6 +4115,10 @@
       "country": "United States"
     },
     {
+      "ticker": "MSM",
+      "country": "United States"
+    },
+    {
       "ticker": "MWA",
       "country": "United States"
     },
@@ -4232,10 +4228,6 @@
     },
     {
       "ticker": "CLF",
-      "country": "United States"
-    },
-    {
-      "ticker": "MSM",
       "country": "United States"
     },
     {
@@ -4443,6 +4435,10 @@
       "country": "United States"
     },
     {
+      "ticker": "UNF",
+      "country": "United States"
+    },
+    {
       "ticker": "HTGC",
       "country": "United States"
     },
@@ -4476,6 +4472,10 @@
     },
     {
       "ticker": "MGEE",
+      "country": "United States"
+    },
+    {
+      "ticker": "PSMT",
       "country": "United States"
     },
     {
@@ -4520,10 +4520,6 @@
     },
     {
       "ticker": "WDFC",
-      "country": "United States"
-    },
-    {
-      "ticker": "UNF",
       "country": "United States"
     },
     {
@@ -4867,10 +4863,6 @@
       "country": "United States"
     },
     {
-      "ticker": "ACVA",
-      "country": "United States"
-    },
-    {
       "ticker": "BRZE",
       "country": "United States"
     },
@@ -5071,10 +5063,6 @@
       "country": "United States"
     },
     {
-      "ticker": "EPAC",
-      "country": "United States"
-    },
-    {
       "ticker": "SMMT",
       "country": "United States"
     },
@@ -5155,10 +5143,6 @@
       "country": "United States"
     },
     {
-      "ticker": "PSMT",
-      "country": "United States"
-    },
-    {
       "ticker": "DORM",
       "country": "United States"
     },
@@ -5224,6 +5208,10 @@
     },
     {
       "ticker": "PII",
+      "country": "United States"
+    },
+    {
+      "ticker": "EPAC",
       "country": "United States"
     },
     {
@@ -5579,7 +5567,7 @@
       "country": "United States"
     },
     {
-      "ticker": "DBRG",
+      "ticker": "DBRHP",
       "country": "United States"
     },
     {
@@ -5592,10 +5580,6 @@
     },
     {
       "ticker": "PCT",
-      "country": "United States"
-    },
-    {
-      "ticker": "ATKR",
       "country": "United States"
     },
     {
@@ -5747,10 +5731,6 @@
       "country": "United States"
     },
     {
-      "ticker": "GBX",
-      "country": "United States"
-    },
-    {
       "ticker": "AMSC",
       "country": "United States"
     },
@@ -5760,6 +5740,10 @@
     },
     {
       "ticker": "RUM",
+      "country": "United States"
+    },
+    {
+      "ticker": "GBX",
       "country": "United States"
     },
     {
@@ -6159,10 +6143,6 @@
       "country": "United States"
     },
     {
-      "ticker": "LNN",
-      "country": "United States"
-    },
-    {
       "ticker": "STBA",
       "country": "United States"
     },
@@ -6172,6 +6152,10 @@
     },
     {
       "ticker": "YELP",
+      "country": "United States"
+    },
+    {
+      "ticker": "LNN",
       "country": "United States"
     },
     {
@@ -6867,15 +6851,15 @@
       "country": "United States"
     },
     {
+      "ticker": "PENG",
+      "country": "United States"
+    },
+    {
       "ticker": "LOB",
       "country": "United States"
     },
     {
       "ticker": "OMDA",
-      "country": "United States"
-    },
-    {
-      "ticker": "PENG",
       "country": "United States"
     },
     {
@@ -6968,10 +6952,6 @@
     },
     {
       "ticker": "PLAY",
-      "country": "United States"
-    },
-    {
-      "ticker": "JSM",
       "country": "United States"
     },
     {
@@ -7292,10 +7272,6 @@
     },
     {
       "ticker": "LQDA",
-      "country": "United States"
-    },
-    {
-      "ticker": "BLFS",
       "country": "United States"
     },
     {
@@ -7759,10 +7735,6 @@
       "country": "United States"
     },
     {
-      "ticker": "GBTG",
-      "country": "United States"
-    },
-    {
       "ticker": "NEO",
       "country": "United States"
     },
@@ -8095,6 +8067,10 @@
       "country": "United States"
     },
     {
+      "ticker": "ODC",
+      "country": "United States"
+    },
+    {
       "ticker": "GDOT",
       "country": "United States"
     },
@@ -8180,10 +8156,6 @@
     },
     {
       "ticker": "LYTS",
-      "country": "United States"
-    },
-    {
-      "ticker": "BZH",
       "country": "United States"
     },
     {
@@ -8587,10 +8559,6 @@
       "country": "United States"
     },
     {
-      "ticker": "SLP",
-      "country": "United States"
-    },
-    {
       "ticker": "KREF",
       "country": "United States"
     },
@@ -8727,6 +8695,10 @@
       "country": "United States"
     },
     {
+      "ticker": "IIIN",
+      "country": "United States"
+    },
+    {
       "ticker": "BFS",
       "country": "United States"
     },
@@ -8736,10 +8708,6 @@
     },
     {
       "ticker": "CHCT",
-      "country": "United States"
-    },
-    {
-      "ticker": "TBPH",
       "country": "United States"
     },
     {
@@ -8919,10 +8887,6 @@
       "country": "United States"
     },
     {
-      "ticker": "CCO",
-      "country": "United States"
-    },
-    {
       "ticker": "LXU",
       "country": "United States"
     },
@@ -8932,10 +8896,6 @@
     },
     {
       "ticker": "DC",
-      "country": "United States"
-    },
-    {
-      "ticker": "ODC",
       "country": "United States"
     },
     {
@@ -9016,10 +8976,6 @@
     },
     {
       "ticker": "CAPR",
-      "country": "United States"
-    },
-    {
-      "ticker": "IIIN",
       "country": "United States"
     },
     {
@@ -9279,6 +9235,10 @@
       "country": "United States"
     },
     {
+      "ticker": "NNDM",
+      "country": "United States"
+    },
+    {
       "ticker": "EVEX",
       "country": "United States"
     },
@@ -9295,7 +9255,7 @@
       "country": "United States"
     },
     {
-      "ticker": "NONE.",
+      "ticker": "EBRCZ",
       "country": "United States"
     },
     {
@@ -9743,10 +9703,6 @@
       "country": "United States"
     },
     {
-      "ticker": "TGL",
-      "country": "United States"
-    },
-    {
       "ticker": "TYRA",
       "country": "United States"
     },
@@ -9780,6 +9736,10 @@
     },
     {
       "ticker": "ATLC",
+      "country": "United States"
+    },
+    {
+      "ticker": "EVOH",
       "country": "United States"
     },
     {
@@ -9919,6 +9879,10 @@
       "country": "United States"
     },
     {
+      "ticker": "CYDY",
+      "country": "United States"
+    },
+    {
       "ticker": "RAPP",
       "country": "United States"
     },
@@ -10051,10 +10015,6 @@
       "country": "United States"
     },
     {
-      "ticker": "EVOH",
-      "country": "United States"
-    },
-    {
       "ticker": "DSGR",
       "country": "United States"
     },
@@ -10080,6 +10040,46 @@
     },
     {
       "ticker": "OOMA",
+      "country": "United States"
+    },
+    {
+      "ticker": "GCO",
+      "country": "United States"
+    },
+    {
+      "ticker": "REFI",
+      "country": "United States"
+    },
+    {
+      "ticker": "VSTM",
+      "country": "United States"
+    },
+    {
+      "ticker": "OBA",
+      "country": "United States"
+    },
+    {
+      "ticker": "BLUW",
+      "country": "United States"
+    },
+    {
+      "ticker": "CRVS",
+      "country": "United States"
+    },
+    {
+      "ticker": "DBVT",
+      "country": "United States"
+    },
+    {
+      "ticker": "UAMY",
+      "country": "United States"
+    },
+    {
+      "ticker": "ASUR",
+      "country": "United States"
+    },
+    {
+      "ticker": "EAF",
       "country": "United States"
     }
   ],
@@ -10885,10 +10885,6 @@
       "country": "China"
     },
     {
-      "ticker": "JKS",
-      "country": "China"
-    },
-    {
       "ticker": "VNET",
       "country": "China"
     },
@@ -10898,10 +10894,6 @@
     },
     {
       "ticker": "XYF",
-      "country": "China"
-    },
-    {
-      "ticker": "PONY",
       "country": "China"
     },
     {
@@ -11021,19 +11013,7 @@
       "country": "China"
     },
     {
-      "ticker": "DSY",
-      "country": "China"
-    },
-    {
-      "ticker": "STAK",
-      "country": "China"
-    },
-    {
       "ticker": "EZGO",
-      "country": "China"
-    },
-    {
-      "ticker": "RTCJF",
       "country": "China"
     },
     {
@@ -11117,7 +11097,7 @@
       "country": "United Kingdom"
     },
     {
-      "ticker": "WALD",
+      "ticker": "MLKWF",
       "country": "United Kingdom"
     },
     {
@@ -11253,6 +11233,10 @@
       "country": "Hong Kong"
     },
     {
+      "ticker": "CLPS",
+      "country": "Hong Kong"
+    },
+    {
       "ticker": "MI",
       "country": "Hong Kong"
     },
@@ -11273,39 +11257,11 @@
       "country": "Hong Kong"
     },
     {
-      "ticker": "MGIH",
-      "country": "Hong Kong"
-    },
-    {
       "ticker": "MB",
       "country": "Hong Kong"
     },
     {
-      "ticker": "CLPS",
-      "country": "Hong Kong"
-    },
-    {
-      "ticker": "CLIK",
-      "country": "Hong Kong"
-    },
-    {
       "ticker": "PMAX",
-      "country": "Hong Kong"
-    },
-    {
-      "ticker": "ACCL",
-      "country": "Hong Kong"
-    },
-    {
-      "ticker": "HAMVF",
-      "country": "Hong Kong"
-    },
-    {
-      "ticker": "BUUU",
-      "country": "Hong Kong"
-    },
-    {
-      "ticker": "GLE",
       "country": "Hong Kong"
     },
     {
@@ -11338,6 +11294,10 @@
     },
     {
       "ticker": "CIGL",
+      "country": "Singapore"
+    },
+    {
+      "ticker": "ANL",
       "country": "Singapore"
     },
     {
@@ -11601,10 +11561,6 @@
       "country": "France"
     },
     {
-      "ticker": "WKEY",
-      "country": "Switzerland"
-    },
-    {
       "ticker": "LAES",
       "country": "Switzerland"
     },
@@ -11693,48 +11649,12 @@
       "country": "Japan"
     },
     {
-      "ticker": "CTW",
-      "country": "Japan"
+      "ticker": "CUVL",
+      "country": "Australia"
     },
     {
-      "ticker": "SUZ",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "LND",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "SID",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "BRBI",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "EMBJ",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "INTR",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "CSANY",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "SGML",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "AXICY",
-      "country": "Brazil"
-    },
-    {
-      "ticker": "AZUL",
-      "country": "Brazil"
+      "ticker": "CHWM",
+      "country": "Australia"
     },
     {
       "ticker": "TLX",
@@ -11793,6 +11713,10 @@
       "country": "Australia"
     },
     {
+      "ticker": "RML",
+      "country": "Australia"
+    },
+    {
       "ticker": "IPX",
       "country": "Australia"
     },
@@ -11819,6 +11743,46 @@
     {
       "ticker": "LCFY",
       "country": "Australia"
+    },
+    {
+      "ticker": "SUZ",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "LND",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "SID",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "BRBI",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "EMBJ",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "INTR",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "CSANY",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "SGML",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "AXICY",
+      "country": "Brazil"
+    },
+    {
+      "ticker": "AZUL",
+      "country": "Brazil"
     },
     {
       "ticker": "NIPG",
