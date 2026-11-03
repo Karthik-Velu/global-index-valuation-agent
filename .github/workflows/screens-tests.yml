@@ -29,6 +29,8 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/shares.py"
+      - "engine/sharescensus.py"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -54,6 +56,8 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/shares.py"
+      - "engine/sharescensus.py"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -104,3 +108,7 @@ jobs:
         run: |
           pip install --quiet "duckdb>=1.0,<2"
           python tests/test_tierbdump.py
+      - name: Share census (S0 goldens, store vs simulation, licence guard; in-memory DuckDB)
+        run: |
+          pip install --quiet "duckdb>=1.0,<2" "pandas>=2.2" "numpy>=1.26" requests
+          python tests/test_shares_census.py

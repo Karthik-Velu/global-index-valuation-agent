@@ -10,6 +10,7 @@ __pycache__/
 data/*.db
 data/*.json
 data/*.log
+data/shares_census.csv
 data/cache/
 data/snapshots/
 # Tier B — bulk time-series Parquet store (rebuilt via `python -m engine.tierbsync pull`)

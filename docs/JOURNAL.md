@@ -8,6 +8,49 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-11-03: share census S0 (ADR-043)
+- **Built:** `engine/sharescensus.py` (modes `--cache`, `--store`, `--companyfacts`),
+  `engine/shares.py` (pure `fact_rows`, `classify_accessions`, `select`; not imported by the
+  pipeline), `.github/workflows/shares-census.yml` (dispatch only, restore-only Tier B, no
+  `tierb-writer` group), 12 trimmed companyfacts fixtures and a trimmed store dump under
+  `tests/fixtures/shares/`, and `tests/test_shares_census.py`. ADR-043 and
+  `docs/SHARES_PLAN.md` land with it.
+- **Today's row is reproduced with the live code,** not a copy: `edgar._iter_facts` with the
+  tag map and the ingest key, `tierb.metrics_asof`, `_resolve_shares_concept`, the
+  `_nth_per_security` ordering and `growthhistory.annual_series`.
+- **Cache run** (688 cached CIKs as 696 securities, asof 2026-10-31, 46 seconds; biased
+  towards the flagged set, so advisory only):
+  - the old check reproduces exactly: 691 issuers, 1,287 rows;
+  - store vs simulation: the dumped Tier B rows for the 20 golden tickers with share rows
+    match the simulation row for row (1,965 share rows, 2,747 numerator rows for the 11
+    tickers the truncated metrics dump holds in full, today's row for all 20), so T11 is 0;
+  - C: 26 securities move more than 5% under accession-first selection. Ten are the
+    collision set the plan predicts (EMN 1.960, RDWR, INMD, AGNT, PSFE, FMC 1.196, EDU,
+    TEVA, DNA, SF). Thirteen step back to an older accession because S5's
+    count-against-count votes quarantine the newest count: post-period issuance (CLBK, QXO,
+    EDIT, LAES), MBLY's partial class, reverse splits and small caps that S6's band rules
+    are meant to settle. DSY, REPX and GOAI are the rest;
+  - F: p90 of |log(C/W)| 6.3% (T4 over 5%); accepted C/W p1 0.82, p99 1.22; 8 weighted
+    averages rejected as mis-scaled (MCD's in millions among them);
+  - E: 83 out-of-band cases, 10 unexplained (12%, T5 over 10%);
+  - G: 13 counts past the ceiling (SJ, WMG, SOUN, VICR, AOS, GTN, REGN, LEVI, BRK-B and
+    others); 19 of 31 missing, stale or class-incomplete have a valid weighted average;
+  - M: 1,597 fact rows per issuer, about 4.95M projected (T12 under 8M);
+  - D (no splits in cache mode): rule (b) flags 31 live counts. Many are clean counts of
+    treasury-heavy issuers (KR, MPC, VRSN) whose 400-day neighbourhood holds quarter-end
+    issued rows; others follow splits their own EDGAR tags confirm (KLAC, NOW, PIPR, DD),
+    which a `splits` row explains in the store modes.
+- **Learned:**
+  - `_resolve_shares_concept` cannot run on a single issued-only security (pandas will not
+    map through an empty datetime table); the census adds a sentinel security, and the
+    universe-wide call in `score_frame` never hits it.
+  - 20-F covers are dated at year-end and often filed more than 120 days later (Magic
+    Software, 135), so `shares.py` allows 200 days for 20-F and 40-F covers.
+  - CIK 876779 (Magic Software) is RMTHF in the store; the dump's MGIC finds nothing.
+- **Open:** dispatch `shares-census.yml` in `store` then `companyfacts` mode and record every
+  threshold here and in PLAN; decide whether S5's votes should keep post-period issuance
+  covers before S5 ships alone; rule (b) of the S3 guard should compare like concepts.
+
 ## 2026-10-31 (later): the daily plan loop engine
 - **Built:** `daily-plan.yml` (signals job, planning agent, publish job) and
   `daily-plan-go.yml` (the owner's `go`, a build agent, a PR that never merges itself);

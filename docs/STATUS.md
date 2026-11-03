@@ -10,7 +10,7 @@ Key reports <https://global-index-valuation-agent.vercel.app/#/reports>
 > [ROADMAP.md](ROADMAP.md), [ARCHITECTURE.md](ARCHITECTURE.md), [AGENTS.md](AGENTS.md),
 > [MODEL_ROUTING.md](MODEL_ROUTING.md), [MEMORY.md](MEMORY.md), [DATA_INGESTION.md](DATA_INGESTION.md).
 >
-> Last updated: 2026-10-19.
+> Last updated: 2026-11-03.
 
 ## Working from a cloud session (mobile) — read this first
 
@@ -32,6 +32,13 @@ secrets — a dev cloud session needs its own copy):
 
 ✅ `OLLAMA_API_KEY` and `GROQ_API_KEY` were rotated in week 5 of July (they had been
 pasted into chat during setup).
+
+## Latest (2026-11-03): share census S0 landed (ADR-043)
+- The share-count fix is planned in `docs/SHARES_PLAN.md` (eighteen stages, ADR-043). S0,
+  the read-only census, has landed: `engine/sharescensus.py`, `engine/shares.py` (not wired
+  into the pipeline) and `shares-census.yml`.
+- **Next:** dispatch `shares-census.yml` with `mode: store`, then `mode: companyfacts`, and
+  record T1 to T16 in JOURNAL and PLAN; they set the order of S1 onwards.
 
 ## Latest (2026-10-31): daily plan loop, Phase 0 now in PLAN.md
 - A daily plan loop starts today: a dated Daily log at the top of `docs/PLAN.md`, and a
