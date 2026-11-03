@@ -3,7 +3,8 @@ name: Data pipeline (job)
 # One deterministic job: probe sources -> ingest (EDGAR) -> tag -> validate catalog
 # -> data-quality -> recalibration check, in sequence. Validation runs right after
 # ingestion (not as separate crons). Needs repo secret DATABASE_URL; SEC_USER_AGENT
-# recommended. LLM "agents" are separate and infrequent (see docs/AGENTS.md).
+# recommended. LLM "agents" are separate and infrequent (see docs/AGENTS.md): they
+# run on the Wednesday incremental run only, or when dispatched with agents=true.
 
 # Ingestion is INCREMENTAL daily (only companies that filed in the last few
 # days, via EDGAR's daily index — keeps runtime flat as the universe grows)
@@ -19,6 +20,10 @@ on:
     inputs:
       full:
         description: "full re-feed of the whole universe"
+        type: boolean
+        default: false
+      agents:
+        description: "also run the LLM proposal agents (normally Wednesdays only)"
         type: boolean
         default: false
   # Editing this file on the dev branch fires one verification run there —
@@ -94,7 +99,7 @@ jobs:
           else
             echo "incremental day — universe refresh skipped"
           fi
-      - name: Run data pipeline (with agents; they no-op gracefully if no key)
+      - name: Run data pipeline (agents on Wednesdays; they no-op gracefully if no key)
         id: pipeline
         timeout-minutes: 320
         continue-on-error: true
@@ -102,13 +107,21 @@ jobs:
           FULL=""
           if [ "${{ github.event.schedule }}" = "0 4 * * 0" ] && [ "$(date -u +%-d)" -le 7 ]; then FULL="--full"; fi
           if [ "${{ inputs.full }}" = "true" ]; then FULL="--full"; fi
+          # The proposal agents (source discovery, sector KPIs, quality triage) ran
+          # on every scheduled run and re-filed the same ideas under new names each
+          # night: 161 open proposals, about half duplicates (2026-10-31 review).
+          # Weekly is enough for ideas that change this slowly. Wednesday keeps them
+          # off the first-Sunday full sweep, which already runs close to its cap.
+          AGENTS=""
+          if [ "${{ github.event.schedule }}" = "0 6 * * 1-6" ] && [ "$(date -u +%u)" = "3" ]; then AGENTS="--agents"; fi
+          if [ "${{ inputs.agents }}" = "true" ]; then AGENTS="--agents"; fi
           # exec + timeout: on a step timeout/cancel the runner signals only this
           # step's shell, which would leave python running (and writing Parquet)
           # while the check/save steps below run. exec hands the signal to
           # timeout, which forwards it; the 315m cap + kill-after ends python
           # before the 320-min step cap. --foreground: signal only python, never
           # timeout's process group.
-          exec timeout --foreground --signal=INT --kill-after=120 315m python -m engine.datapipeline --agents $FULL
+          exec timeout --foreground --signal=INT --kill-after=120 315m python -m engine.datapipeline $AGENTS $FULL
       # No monthly tierb-store release refresh any more (Phase 0 P0.5a): this repo
       # is public and the bundle carries Massive bars licensed for personal use
       # only. The 2026-10-04 asset stays frozen as the disaster-recovery copy that
