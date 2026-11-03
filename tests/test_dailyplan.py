@@ -172,6 +172,49 @@ def test_collect_keeps_going_when_a_source_fails():
     assert sig["db"]["available"] is False and sig["owner_replies"]["items"] == []
 
 
+def test_fallback_day_maps_a_late_run_to_its_scheduled_day():
+    utc = timezone.utc
+    assert dp.fallback_day(datetime(2026, 11, 2, 20, 17, tzinfo=utc)) == "2026-11-02"  # on time
+    assert dp.fallback_day(datetime(2026, 11, 1, 23, 39, tzinfo=utc)) == "2026-11-01"  # late, same day
+    assert dp.fallback_day(datetime(2026, 11, 3, 2, 24, tzinfo=utc)) == "2026-11-02"   # past midnight
+    assert dp.fallback_day(datetime(2026, 11, 3, 20, 16, tzinfo=utc)) == "2026-11-02"  # 23h59m late
+
+
+def test_late_fallback_run_leaves_the_next_days_slot_alone():
+    """The 3 Nov case: the 2 Nov fallback started at 02:24 on 3 Nov. It must update 2 Nov
+    (which already has a standup) and not run the agent, so 3 Nov's post-pipeline run plans."""
+    class LateClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 3, 2, 24, tzinfo=timezone.utc)
+
+    nov2 = comment(7, "github-actions[bot]", "2026-11-02T14:25:00Z",
+                   dp.compose("2026-11-02", "Agent standup for 2 Nov.", "### Signals (automatic)\n- x"))
+    gh = FakeGH({("GET", f"/issues/{dp.STANDUP_ISSUE}/comments"): [nov2],
+                 ("GET", "/actions/runs"): {"workflow_runs": []},
+                 ("GET", "/actions/workflows/data-pipeline.yml/runs"): {"workflow_runs": []},
+                 ("GET", "/pulls"): [],
+                 ("PATCH", "/issues/comments/7"): {}})
+    real_gh, real_dt = dp.GitHub, dp.datetime
+    env = {k: os.environ.get(k) for k in ("GITHUB_EVENT_NAME", "HAS_AGENT_TOKEN", "GITHUB_OUTPUT")}
+    out = Path(__file__).resolve().parent / ".tmp_signals.json"
+    try:
+        dp.GitHub, dp.datetime = (lambda: gh), LateClock
+        os.environ.update(GITHUB_EVENT_NAME="schedule", HAS_AGENT_TOKEN="true")
+        os.environ.pop("GITHUB_OUTPUT", None)
+        dp._cmd_signals(type("A", (), {"out": str(out)})())
+        sig = json.loads(out.read_text())
+    finally:
+        dp.GitHub, dp.datetime = real_gh, real_dt
+        for k, v in env.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+        out.unlink(missing_ok=True)
+    assert sig["date"] == "2026-11-02" and sig["run_agent"] is False, sig
+    assert not any(m == "POST" for m, _, _ in gh.calls), "must not open a 3 Nov comment"
+    patched = next(d for m, p, d in gh.calls if m == "PATCH")
+    assert "Agent standup for 2 Nov." in patched["body"]
+
+
 def test_go_context_owner_only_and_picks_the_standup_it_answers():
     cs = [comment(1, OWNER, "2026-10-31T10:00:00Z", dp.marker("2026-10-31") + "\nday one"),
           comment(2, "github-actions[bot]", "2026-11-01T09:00:00Z", dp.marker("2026-11-01") + "\nday two"),

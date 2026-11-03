@@ -44,6 +44,9 @@ LIVE_APP = "https://global-index-valuation-agent.vercel.app"
 PIPELINE_WORKFLOW = "data-pipeline.yml"
 PIPELINE_ARTIFACT = "data-pipeline-reports"
 LOOKBACK_HOURS = 30  # a little over a day, so a pipeline that ran late still counts
+# daily-plan.yml's fallback cron ("17 20 * * *", UTC). GitHub often starts it hours late,
+# sometimes after midnight; fallback_day() maps a run back to the day it was meant for.
+FALLBACK_CRON_UTC = timedelta(hours=20, minutes=17)
 
 MARKER_RE = re.compile(r"<!-- daily-plan:(\d{4}-\d{2}-\d{2}) -->")
 STANDUP_START, STANDUP_END = "<!-- standup:start -->", "<!-- standup:end -->"
@@ -123,6 +126,14 @@ def marker(day: str) -> str:
 def day_label(day: str) -> str:
     d = date.fromisoformat(day)
     return f"{d:%a} {d.day} {d:%b %Y}"
+
+
+def fallback_day(now: datetime) -> str:
+    """The day a scheduled fallback run belongs to: the date it was scheduled for, for any
+    start delay under 24 hours. Without this, a run delayed past midnight took the NEXT
+    day's planning slot before that day's pipeline had run, so the standup trailed the
+    data by a day and the post-pipeline run was skipped (2 to 3 Nov 2026)."""
+    return (now.astimezone(timezone.utc) - FALLBACK_CRON_UTC).date().isoformat()
 
 
 def first_sunday(d: date) -> bool:
@@ -315,10 +326,12 @@ def plan_meta(today: str, repo_root: str | Path = ".") -> dict:
 
 
 def collect(gh, now: datetime | None = None, owner: str | None = None,
-            repo_root: str | Path = ".", comments: list[dict] | None = None) -> dict:
-    """Every section is best-effort: one failing source must not cost the day's update."""
+            repo_root: str | Path = ".", comments: list[dict] | None = None,
+            day: str | None = None) -> dict:
+    """Every section is best-effort: one failing source must not cost the day's update.
+    `day` is the standup day the signals belong to; it defaults to now's UTC date."""
     now = now or datetime.now(timezone.utc)
-    today = now.date().isoformat()
+    today = day or now.date().isoformat()
     owner = owner or os.getenv("DAILY_PLAN_OWNER") or gh.repo.split("/")[0]
     sig: dict = {"generated_at": _iso(now), "date": today, "repo": gh.repo,
                  "standup_issue": STANDUP_ISSUE, "owner": owner}
@@ -515,10 +528,11 @@ def _output(**kv) -> None:
 def _cmd_signals(a) -> None:
     gh = GitHub()
     comments = _issue_comments(gh)
-    sig = collect(gh, comments=comments)
+    event = os.getenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+    sig = collect(gh, comments=comments,
+                  day=fallback_day(datetime.now(timezone.utc)) if event == "schedule" else None)
     day = sig["date"]
     has_token = os.getenv("HAS_AGENT_TOKEN", "").lower() == "true"
-    event = os.getenv("GITHUB_EVENT_NAME", "workflow_dispatch")
     existing = find_day_comment(comments, day)
     standup = extract_standup(existing.get("body") if existing else "")
     # At most one automatic agent run a day (it spends the owner's allowance); a manual
