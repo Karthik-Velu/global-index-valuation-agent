@@ -33,7 +33,8 @@ const GITHUB_REPO = Deno.env.get("GITHUB_REPOSITORY") ?? "Karthik-Velu/global-in
 // deliberately: getting this split wrong is the difference between "approved ->
 // done" and a silent lie about what happened.
 const DATA_KINDS = new Set(["catalog_kpi", "model_routing"]);
-const TERMINAL = new Set(["declined", "actioned"]);
+// "expired" (ADR-044): the trigger is gone; an agent raising it again revives it.
+const TERMINAL = new Set(["declined", "actioned", "expired"]);
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -144,12 +145,15 @@ async function applyCatalogKpi(
   target: string, payload: Record<string, unknown>, proposal = "",
   override: string | null = null, note = "",
 ) {
-  const tags = (payload.xbrl_tags as string[]) ?? [];
+  // Only tags a deterministic check verified count (payload.xbrl_verified, set by
+  // engine/sectoragent/research.py). A model's guess named concepts no issuer files.
+  const tags = payload.xbrl_verified === true ? ((payload.xbrl_tags as string[]) ?? []) : [];
   const inXbrl = tags.length > 0;
   const declared = (payload.applies_to as string) ?? (payload.sector as string) ??
                    (payload.proposed_for_sub_sector as string) ?? null;
   const chosen = (override ?? "").trim() || null;
-  const inferred = (chosen || declared) ? null : inferScope(proposal);
+  const inferred = (chosen || declared) ? null
+    : ((payload.inferred_scope as string) ?? inferScope(proposal));
   const scope = chosen ?? declared ?? inferred ?? "all";
   // Mirrors engine/proposals.py::_apply_catalog_kpi. `chosen` is the scope the
   // approver typed in the console and outranks everything — a guess read out of
@@ -162,38 +166,53 @@ async function applyCatalogKpi(
     // the note lived only in proposals.decision_note, where nothing looking at
     // the catalog would ever find it.
     (note.trim() ? ` · approver's note: "${note.trim().slice(0, 400)}"` : "");
-  // Read first: PostgREST upsert replaces the whole row, so a defaulted or
-  // inferred scope would silently rewrite an existing one. Only a scope the
-  // approver typed may narrow a row that is already there.
-  const { data: existing } = await admin.from("metric_catalog")
-    .select("applies_to, definition, notes").eq("metric_code", target).maybeSingle();
-  const liveScope = existing ? (chosen ?? existing.applies_to ?? scope) : scope;
-  // New KPIs land as `computed` unless the proposal names real XBRL tags. An
+  // NO CLOBBER (ADR-044). Approving #7 (capacity_utilization, already in the
+  // catalogue) on 31 Oct 2026 overwrote the curated label, applies_to, category,
+  // importance and source_if_not_xbrl through the upsert that used to be here. An
+  // existing code is never written now, not even with a scope the approver typed:
+  // only a note is appended.
+  const { data: existing, error: readError } = await admin.from("metric_catalog")
+    .select("notes").eq("metric_code", target).maybeSingle();
+  if (readError) throw new Error(`metric_catalog read failed: ${readError.message}`);
+  if (existing) {
+    const extra = "approved again via agent proposal: already in catalogue, no change" +
+      (chosen ? ` · approver's scope "${chosen}" recorded here, not applied` : "") +
+      (note.trim() ? ` · approver's note: "${note.trim().slice(0, 400)}"` : "");
+    const { error } = await admin.from("metric_catalog")
+      .update({ notes: existing.notes ? `${existing.notes} | ${extra}` : extra })
+      .eq("metric_code", target);
+    if (error) throw new Error(`metric_catalog note failed: ${error.message}`);
+    return `already in catalogue, no change: ${target} keeps its curated label, scope, ` +
+      "category, importance and source; a note was appended";
+  }
+  // New KPIs land as `computed` unless the proposal carries verified XBRL tags. An
   // unverified tag guess is how 7 catalog metrics got auto-demoted for returning
-  // the wrong concept; we don't repeat that on a model's say-so.
-  const { error } = await admin.from("metric_catalog").upsert({
+  // the wrong concept; we don't repeat that on a model's say-so. A plain insert, so
+  // a row created a moment ago by someone else fails loudly (and the daily retry
+  // then finds it existing) rather than being overwritten.
+  const { error } = await admin.from("metric_catalog").insert({
     metric_code: target,
     label: (payload.label as string) ?? target.replace(/_/g, " "),
-    definition: payload.definition ?? existing?.definition ?? null,
+    definition: payload.definition ?? null,
     unit: (payload.unit as string) ?? "ratio",
     category: (payload.category as string) ?? "sector_kpi",
-    applies_to: liveScope,
+    applies_to: scope,
     in_xbrl: inXbrl,
     xbrl_tags: tags,
     source_if_not_xbrl: inXbrl ? null : "computed",
     importance: (payload.importance as string) ?? "medium",
-    notes: existing?.notes ? `${existing.notes} | ${prov}` : prov,
-  }, { onConflict: "metric_code" });
-  if (error) throw new Error(`metric_catalog upsert failed: ${error.message}`);
+    notes: prov,
+  });
+  if (error) throw new Error(`metric_catalog insert failed: ${error.message}`);
   // Say which scope was written and where it came from — the admin approved a
   // sentence, so the confirmation has to name what the sentence turned into.
   const how = chosen ? "set by you at approval"
     : declared ? "declared" : inferred ? "inferred from the text" : "defaulted";
-  return `metric_catalog upserted: ${target} — applies_to="${liveScope}" (${how}), ` +
+  return `metric_catalog row added: ${target} — applies_to="${scope}" (${how}), ` +
     `in_xbrl=${inXbrl}` +
     // Saying "the next data run collects it" would be false: nothing fetches a
     // metric with no XBRL tags until someone writes the formula.
-    (inXbrl ? "" : " — no XBRL tags, so nothing collects it yet");
+    (inXbrl ? "" : " — no verified XBRL tags, so nothing collects it yet");
 }
 
 async function applyModelRouting(target: string, payload: Record<string, unknown>) {
@@ -350,10 +369,11 @@ const CHAT_SYSTEM =
 function willWrite(p: Record<string, unknown>) {
   const pay = (p.payload ?? {}) as Record<string, unknown>;
   if (p.kind === "catalog_kpi") {
-    const tags = (pay.xbrl_tags as string[]) ?? [];
+    const tags = pay.xbrl_verified === true ? ((pay.xbrl_tags as string[]) ?? []) : [];
     const declared = (pay.applies_to as string) ?? (pay.sector as string) ??
                      (pay.proposed_for_sub_sector as string) ?? null;
-    const inferred = declared ? null : inferScope(String(p.proposal ?? ""));
+    const inferred = declared ? null
+      : ((pay.inferred_scope as string) ?? inferScope(String(p.proposal ?? "")));
     return {
       table: "metric_catalog",
       metric_code: p.target,
@@ -362,8 +382,9 @@ function willWrite(p: Record<string, unknown>) {
         : inferred ? `inferred from the proposal text ("${inferred}")`
         : "NOT SPECIFIED — defaults to every sector",
       applies_to_is_editable_at_approval: true,
-      collected_via: tags.length ? `XBRL tags ${tags.join(", ")}`
-        : "computed — no XBRL tags given, so nothing is collected until a formula is written",
+      collected_via: tags.length ? `verified XBRL tags ${tags.join(", ")}`
+        : "computed — no verified XBRL tags, so nothing is collected until a formula is written",
+      if_code_exists: "nothing is overwritten: the curated row stays as it is and a note is appended",
       definition: pay.definition ?? null,
     };
   }

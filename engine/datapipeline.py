@@ -240,6 +240,14 @@ def run(ingest: bool = True, tickers: list[str] | None = None, with_agents: bool
         from .dataagent.discover import discover_for_needs
         from .sectoragent.research import research_thin_subsectors
         from .sources import registry
+        # The needs register decides what the agents may propose against (ADR-044).
+        # Seeded again here (insert-only, so a no-op after the first run) in case
+        # step 1 failed before its own seed: a quality need auto-created as open
+        # would otherwise pre-empt the register's answered status for that check.
+        try:
+            source_probe.seed_needs()
+        except Exception as e:  # noqa: BLE001 — the agents then see the register as it is
+            print(f"   agents: needs seed skipped ({str(e)[:100]})")
         disc = discover_for_needs(registry.list_needs())
         res = research_thin_subsectors()
         steps["agents"] = {"active": True, "model": config.MODEL_AGENT,

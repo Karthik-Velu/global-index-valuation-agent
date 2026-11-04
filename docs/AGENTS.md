@@ -79,10 +79,11 @@ The second half now exists:
 
 Two properties worth not regressing:
 
-1. **Dedup is on `(kind, target)`.** The decision "do we add capex_intensity?" is the same
-   question however the model words its pitch. Hashing the text — even normalised — gives
-   8 rows for the 8 wordings of `timeseries_jump` and rebuilds the flood. It's also what
-   makes `declined` stick: a rejected idea can't return through a synonym.
+1. **Dedup is on the decision, not the wording.** The decision "do we add capex_intensity?" is
+   the same question however the model words its pitch. Hashing the text, even normalised,
+   gives 8 rows for the 8 wordings of `timeseries_jump` and rebuilds the flood. The raw
+   `(kind, target)` key did not make `declined` stick against synonyms, though ('FRED', 'fred'
+   and 'fred_idx' were three keys); the canonical key below does (ADR-044).
 2. **Approving code does not mean code exists.** DATA kinds (`catalog_kpi`,
    `model_routing`) change the live system in-process. CODE kinds (`quality_check`,
    `source_adapter`) file a GitHub issue and hand off to the Builder, and only become
@@ -93,6 +94,39 @@ Two properties worth not regressing:
 and only then is code written — as atomic search/replace edits behind a compile+import
 gate, on a `builder/proposal-<id>` branch, merged when checks go green. It runs on the
 cheap `coder` chain (Qwen3-Coder first), never in the hot path. See `.github/workflows/builder.yml`.
+
+### Agents v2: needs, canonical keys, expiry (2026-11-05, ADR-044)
+
+On 31 Oct 2026 the owner declined 152 proposals and asked what happens to the genuine issues
+behind them. The answer is the **needs register**: declining a proposal rejects that
+*solution*, never the *need*.
+
+| Piece | What it does |
+|---|---|
+| `data_needs` (migration 0017) | Every need, with a status: `open`, `answered_by_roadmap` (and the reference), `parked` (and a date) or `met`. Source needs, sector-KPI needs and data-quality needs (`quality:<check>`). Seeded insert-only by `dataagent/agent.py::seed_needs`, so the owner's edits stick; a parked need reopens on its date. |
+| `engine/canonical.py` | The decision a target stands for: provider at need (`source_adapter:fred@macro_fred`), KPI concept at broad sector (`catalog_kpi:crop_yield@materials`), and the proposed check (`quality_check:alt_revenue_tag`). |
+| `proposals.capture()` | Refuses a need that is not open, a KPI already in the catalogue, and any synonym of a declined or parked decision. Evidence counts distinct signals (a sub-sector, a firing check, a need), not nights. |
+| `proposals.expire_stale()` | A pending proposal whose trigger is gone (a retired check, a catalogued code, an answered need, 42 days unraised) expires, with an audit event. Raised again, it revives. |
+| `proposals.CONSUMERS` | The fixed list of what the code actually reads. `how_used` is built from it, never from the model's words. |
+
+What each agent now does differently:
+- **Source-Discovery** asks only about open source needs, with the need's description and the
+  providers already known, verified and declined in the prompt. Its licence gate reads the
+  registry (`registry.verified_license`), never the model's claim, and it writes proposals,
+  never registry rows. The registry lets only an adapter or the researched seed catalogue
+  change a verified licence, and 0017 marked the invented leads `invented`.
+- **Sector-KPI Research** takes the thinnest catalogue coverage first, rotated weekly, and lists
+  the catalogue's codes in its prompt. A tag counts as XBRL only if the SEC frames API confirms
+  someone files it (`XBRL_VERIFY=1`); otherwise the KPI goes to the non-XBRL need, which is
+  parked until there is a way to read MD&A text. With verification off and that need parked,
+  the model is not called at all.
+- **Quality-Triage** triages only open `quality:<check>` needs, with the need's constraints and
+  the fixes already declined in its prompt, and keys the proposal on the check it proposes.
+
+Approving a KPI whose code is already in the catalogue never rewrites the curated row: it
+appends a note and says "already in catalogue, no change" (Python and the Edge Function).
+Note the gap `how_used` now states plainly: ingestion reads `engine/sources/metric_catalog.json`,
+not the `metric_catalog` table an approval writes.
 
 ---
 

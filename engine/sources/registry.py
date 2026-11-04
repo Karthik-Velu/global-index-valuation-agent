@@ -8,7 +8,7 @@ from pathlib import Path
 
 from psycopg.rows import dict_row
 
-from .. import db
+from .. import canonical, db
 
 SEED_CATALOG = Path(__file__).parent / "seed_catalog.json"
 
@@ -29,11 +29,34 @@ def seed_from_catalog() -> int:
         s = dict(s)
         s.setdefault("status", "lead")
         s.setdefault("has_adapter", False)
-        upsert_source(s)
+        upsert_source(s, authoritative=True)   # researched by hand: the catalogue IS the record
     return len(data.get("sources", []))
 
 
-def upsert_source(s: dict) -> None:
+# On conflict, an authoritative write (an adapter declared in code, or the researched
+# seed catalogue) replaces the row. Anything else may only fill blanks, and never
+# touches the verified fields: licence, notes, verified_live, has_adapter, status,
+# confidence. Proposal 146 ('finnhub') showed why: an invented lead colliding with the
+# verified personal_only row rewrote its licence to the model's redistribution_ok.
+_ON_CONFLICT = {
+    True: """on conflict (id) do update set
+                 name=excluded.name, provider=excluded.provider, kinds=excluded.kinds,
+                 coverage=excluded.coverage, access_method=excluded.access_method,
+                 endpoint=excluded.endpoint, auth=excluded.auth, free_tier=excluded.free_tier,
+                 license=excluded.license, update_freq=excluded.update_freq, notes=excluded.notes,
+                 sample_hint=excluded.sample_hint, verified_live=excluded.verified_live,
+                 has_adapter=excluded.has_adapter, status=excluded.status,
+                 confidence=excluded.confidence, updated_ts=now()""",
+    False: """on conflict (id) do update set
+                 coverage=coalesce(nullif(data_sources.coverage,''), excluded.coverage),
+                 access_method=coalesce(nullif(data_sources.access_method,''), excluded.access_method),
+                 endpoint=coalesce(nullif(data_sources.endpoint,''), excluded.endpoint),
+                 sample_hint=coalesce(nullif(data_sources.sample_hint,''), excluded.sample_hint),
+                 updated_ts=now()""",
+}
+
+
+def upsert_source(s: dict, authoritative: bool = False) -> None:
     kinds = ",".join(s.get("kinds", [])) if isinstance(s.get("kinds"), list) else (s.get("kinds") or "")
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute(
@@ -44,14 +67,7 @@ def upsert_source(s: dict) -> None:
                values (%(id)s,%(name)s,%(provider)s,%(kinds)s,%(coverage)s,%(access_method)s,
                 %(endpoint)s,%(auth)s,%(free_tier)s,%(license)s,%(update_freq)s,%(notes)s,
                 %(sample_hint)s,%(verified_live)s,%(has_adapter)s,%(status)s,%(confidence)s,now(),now())
-               on conflict (id) do update set
-                 name=excluded.name, provider=excluded.provider, kinds=excluded.kinds,
-                 coverage=excluded.coverage, access_method=excluded.access_method,
-                 endpoint=excluded.endpoint, auth=excluded.auth, free_tier=excluded.free_tier,
-                 license=excluded.license, update_freq=excluded.update_freq, notes=excluded.notes,
-                 sample_hint=excluded.sample_hint, verified_live=excluded.verified_live,
-                 has_adapter=excluded.has_adapter, status=excluded.status,
-                 confidence=excluded.confidence, updated_ts=now()""",
+               """ + _ON_CONFLICT[bool(authoritative)],
             {"id": s["id"], "name": s.get("name", s["id"]), "provider": s.get("provider", ""),
              "kinds": kinds, "coverage": s.get("coverage", ""),
              "access_method": s.get("access_method", ""), "endpoint": s.get("endpoint", ""),
@@ -64,9 +80,35 @@ def upsert_source(s: dict) -> None:
 
 
 def list_sources(status: str | None = None) -> list[dict]:
+    """Registry rows. Leads marked 'invented' by migration 0017 (model-made ids with no
+    adapter and no research behind them) are not sources and are never returned."""
     if status:
-        return _rows("select * from data_sources where status=%s", (status,))
-    return _rows("select * from data_sources")
+        return _rows("select * from data_sources where status=%s and status <> 'invented'",
+                     (status,))
+    return _rows("select * from data_sources where coalesce(status,'') <> 'invented'")
+
+
+# Most restrictive first: a provider with one personal-use row is personal-use.
+_LICENSE_ORDER = ["prohibited", "personal_only", "unknown", "redistribution_ok", "public_domain"]
+
+
+def verified_license(provider: str, kind: str | None = None,
+                     sources: list[dict] | None = None) -> str | None:
+    """The licence the registry holds for a provider, or None if it knows none.
+
+    The licence gate in discovery uses this, never the model's claim: every new
+    spelling of a provider used to claim redistribution_ok and pass. Rows serving
+    `kind` decide when there are any; otherwise all the provider's rows do. Several
+    rows -> the most restrictive wins, because licensing is the one place where a
+    wrong yes costs more than a wrong no.
+    """
+    want = canonical.provider(provider)
+    mine = [r for r in (list_sources() if sources is None else sources)
+            if want in {canonical.provider(r.get("provider") or ""), canonical.provider(r["id"])}]
+    if kind:
+        mine = [r for r in mine if kind in str(r.get("kinds") or "").split(",")] or mine
+    lic = [r.get("license") or "unknown" for r in mine]
+    return min(lic, key=lambda x: _LICENSE_ORDER.index(x) if x in _LICENSE_ORDER else 2) if lic else None
 
 
 # --- evaluations -----------------------------------------------------------
@@ -95,20 +137,41 @@ def latest_evals(kind: str | None = None) -> list[dict]:
 
 # --- needs + decisions -----------------------------------------------------
 
+def _need_params(n: dict) -> dict:
+    return {"id": n["id"], "kind": n["kind"], "market_scope": n.get("market_scope", ""),
+            "description": n.get("description", ""), "active_source_id": n.get("active_source_id"),
+            "target_freq": n.get("target_freq", ""), "public_only": bool(n.get("public_only", True)),
+            "status": n.get("status", "open"), "roadmap_ref": n.get("roadmap_ref"),
+            "park_until": n.get("park_until"), "status_note": n.get("status_note")}
+
+
+_NEED_INSERT = """insert into data_needs(id,kind,market_scope,description,active_source_id,
+                 target_freq,public_only,status,roadmap_ref,park_until,status_note,updated_ts)
+               values (%(id)s,%(kind)s,%(market_scope)s,%(description)s,%(active_source_id)s,
+                 %(target_freq)s,%(public_only)s,%(status)s,%(roadmap_ref)s,%(park_until)s,
+                 %(status_note)s,now())"""
+
+
 def upsert_need(n: dict) -> None:
+    """Insert, or refresh the description of, a need. The status fields are written
+    on insert only: whether a need is open is the owner's call once it exists."""
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute(
-            """insert into data_needs(id,kind,market_scope,description,active_source_id,
-                 target_freq,public_only,updated_ts)
-               values (%(id)s,%(kind)s,%(market_scope)s,%(description)s,%(active_source_id)s,
-                 %(target_freq)s,%(public_only)s,now())
+            _NEED_INSERT + """
                on conflict (id) do update set kind=excluded.kind, market_scope=excluded.market_scope,
                  description=excluded.description, target_freq=excluded.target_freq,
                  public_only=excluded.public_only, updated_ts=now()""",
-            {"id": n["id"], "kind": n["kind"], "market_scope": n.get("market_scope", ""),
-             "description": n.get("description", ""), "active_source_id": n.get("active_source_id"),
-             "target_freq": n.get("target_freq", ""), "public_only": bool(n.get("public_only", True))})
+            _need_params(n))
         conn.commit()
+
+
+def add_need(n: dict) -> bool:
+    """Insert a need if it is not there yet; never touch an existing one. True if added."""
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(_NEED_INSERT + " on conflict (id) do nothing returning id", _need_params(n))
+        added = cur.fetchone() is not None
+        conn.commit()
+    return added
 
 
 def list_needs() -> list[dict]:

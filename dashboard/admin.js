@@ -36,7 +36,9 @@ const App = (() => {
     { key: 'pending', label: 'To review', statuses: ['pending'] },
     { key: 'building', label: 'Building', statuses: ['queued_build', 'approved', 'failed'] },
     { key: 'parked', label: 'Parked', statuses: ['parked'] },
-    { key: 'decided', label: 'Decided', statuses: ['actioned', 'declined'] },
+    // 'expired' (ADR-044): the trigger went away, so nobody decided it. It sits with
+    // the closed ones rather than vanishing from every tab.
+    { key: 'decided', label: 'Decided', statuses: ['actioned', 'declined', 'expired'] },
   ];
 
   const KIND_LABEL = {
@@ -51,7 +53,7 @@ const App = (() => {
     pending: 'bg-slate-500/15 text-slate-300', approved: 'bg-accent/15 text-accent',
     actioned: 'bg-cheap/15 text-cheap', queued_build: 'bg-warn/15 text-warn',
     declined: 'bg-rich/15 text-rich', parked: 'bg-slate-500/15 text-slate-400',
-    failed: 'bg-rich/20 text-rich',
+    failed: 'bg-rich/20 text-rich', expired: 'bg-slate-500/15 text-slate-500',
   };
 
   // ------------------------------------------------------------------ auth

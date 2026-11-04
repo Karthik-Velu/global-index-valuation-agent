@@ -9,6 +9,61 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-044 · Agents v2: a needs register, canonical dedup keys, and no catalogue clobber
+- **Context:** on 31 Oct 2026 the owner cleared the proposal queue (161 open: 152 declined,
+  7 parked, 0 approved), nearly all of it noise from the three proposal agents, and asked:
+  "I am OK to decline all, but the issues might still be real. What is the future plan for
+  genuine issues?" The review found 13 root causes. Dedup was on the raw target string (83
+  source rows were 28 provider-by-need ideas, 73 KPI rows were 41 concepts), so ADR-028's
+  claim that a rejected idea cannot return through a synonym did not hold. Discovery invented
+  an id every run, upserted it as a source (214 of 216 `data_sources` rows had no adapter) and
+  overwrote a verified licence (proposal 146, `finnhub`), behind a licence gate that trusted
+  the model. Guessed XBRL tags set `in_xbrl`; evidence counted nights; scope was lost before
+  approval; `how_used` named consumers that do not exist; nothing expired. And approving #7
+  (`capacity_utilization`, already catalogued) overwrote its curated row.
+- **Choice:**
+  - A needs register: `data_needs` (migration 0017) also holds sector-KPI and data-quality
+    needs, each `open`, `answered_by_roadmap` (with a reference), `parked` (with a date) or
+    `met`. A proposal links to its need. Declining a proposal rejects that solution and leaves
+    the need as it was. Agents propose against open needs only, and `capture()` refuses the
+    rest. The genuine needs from the review are seeded insert-only
+    (`engine/dataagent/agent.py::DEFAULT_NEEDS`), and a parked need reopens on its date.
+  - Canonical keys (`engine/canonical.py`, `proposals.canonical_key`): a source is its
+    normalised provider at its need, a KPI its concept (a catalogue code or an alias) at its
+    broad sector, a quality check the proposed check, never the firing one. The declined and
+    parked blocks match it, so synonyms stay blocked, and an unscoped legacy decision covers
+    every sector. Legacy rows are re-keyed in Python before the first capture. A KPI already in
+    the catalogue is never raised.
+  - Evidence is the number of distinct supporting signals (a sub-sector, a firing check, a
+    need); a re-proposal merges the payload's scopes.
+  - Discovery gets the need's description and the known, verified and declined providers; its
+    licence gate uses the registry's licence, never the model's claim; a suggestion becomes a
+    proposal, never a registry row. Only an authoritative writer (an adapter in code, the
+    researched seed catalogue) may change the registry's verified fields, and 0017 marks the
+    existing invented leads `invented` without deleting them.
+  - Sector research takes the thinnest catalogue coverage first, rotated weekly, with the
+    catalogue's codes in the prompt. Tags are normalised to `ns:Concept` and verified only by
+    the SEC frames API behind `XBRL_VERIFY=1`; unverified, a KPI goes to the non-XBRL need.
+  - `enrich()` saves an inferred scope before rewriting the prose, and `how_used` is built from
+    a fixed list of real consumers taken from the code (`proposals.CONSUMERS`).
+  - A pending proposal whose trigger is gone (a retired check, a catalogued code, an answered
+    need, or 42 days with no agent raising it) expires with an audit event; raised again, it
+    revives.
+  - No clobber: approving a `catalog_kpi` whose code exists only appends a note and reports
+    "already in catalogue, no change", in `_apply_catalog_kpi` and in the Edge Function's
+    `applyCatalogKpi`, which the owner deploys.
+- **Why:** the owner's question has a structural answer only if the need outlives the
+  solution. A canonical key is what makes "declined" hold. Wherever a fact can be checked (the
+  catalogue, the registry's licence, whether anyone files a tag), a deterministic check now
+  replaces trust in the model, which keeps the queue small and the agents cheap.
+- **Rejected:** fuzzy text similarity for dedup (not deterministic, and ADR-028 showed the
+  wordings vary without limit); deleting the invented leads (they are the record of what the
+  model said); letting an approver's typed scope narrow an existing catalogue row (a curated
+  row is edited by hand or in `metric_catalog.json`); trusting any tag with a plausible prefix
+  (5 of 7 named concepts that no cached issuer files); a new needs table (`data_needs` already
+  held the source needs and their seed).
+- **Date:** 2026-11-05.
+
 ### ADR-042 · The daily plan loop: a job, an agent and a `go` path, in GitHub Actions
 - **Context:** the owner asked for an update to the plan every day, with feedback (his and
   the system's) flowing back into it and steps proposed for his OK. Until now the plan moved

@@ -446,6 +446,15 @@ sector-research lessons decayed unused). See ADR-028.
   08-02; the nightly `enrich()` (limit 20) did 6 / 17 / 15 / 17 / 4 on successive runs, and
   the falling tail is the queue emptying, not the job stalling. Deciding them is the part
   that stays open — approving an un-written-up proposal warns first.
+- ✅ **Agents v2: needs register, canonical keys, expiry, no catalogue clobber** (ADR-044,
+  migration 0017, 2026-11-05). Declining a proposal rejects the solution, not the need; agents
+  propose against open needs only; synonyms of a declined idea stay blocked; approving a code
+  already in the catalogue never rewrites it. Tests: `tests/test_proposals.py`,
+  `tests/test_agents.py`.
+  - ⬜ Owner: deploy the Edge Function (`supabase functions deploy admin`) so the console's
+    approve path gets the no-clobber fix too.
+  - ⬜ Owner: decide whether to set `XBRL_VERIFY=1` for the Wednesday run; until then Sector-KPI
+    Research is skipped, because nothing it finds could be filed.
 
 - ✅ **"Quality on sale" screens + Top picks (ADR-034, 2026-10-06)** — strong-fundamentals
   names ≥10%/20% below their 52-week average (markets + stocks), a rule-based Top picks
