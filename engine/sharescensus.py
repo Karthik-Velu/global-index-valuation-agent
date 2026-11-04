@@ -23,9 +23,13 @@ Writes data/shares_census.json (sections A to M, thresholds T1 to T16) and
 data/shares_census.csv (one row per security).
 
 Licensing (plan rule 6): both files carry EDGAR data and aggregate counts only. Prices
-are counted, never read as values; Massive splits are used in memory and reported as
-counts; anything per ticker that a split could have changed is computed without
-them. `licence_check` refuses to write a file whose keys match the rule-6 pattern.
+are counted, never read as values (the picks liquidity gate reads the snapshot's market
+cap in memory and only a count leaves). Massive splits are used in memory and reported
+as counts: the per-ticker guard reasons are computed without them, and in the store
+modes they steer `classify_accessions` exactly as S5 will, so a per-ticker count is
+still an EDGAR value (as filed, or fixed by a power of 1,000) and no split ratio, date
+or factor is written. `licence_check` refuses to write a file whose keys match the
+rule-6 pattern.
 """
 from __future__ import annotations
 
@@ -99,8 +103,6 @@ def _d(s) -> date:
 def _iso(v):
     if v is None:
         return None
-    if isinstance(v, (date, datetime)):
-        return v.isoformat()[:10]
     if hasattr(v, "isoformat"):
         return v.isoformat()[:10]
     return str(v)[:10]
@@ -255,13 +257,15 @@ def today_rows(con, asof, security_ids=None) -> dict[int, dict]:
     if not annual.empty:
         recent = annual.sort_values("period_end").groupby("security_id").tail(2)
         for sid, g in recent.groupby("security_id"):
+            # score_frame overwrites net_income for every security the clean series
+            # holds, with NaN when neither recent year has one; the old pick never wins.
+            placed.add(int(sid))
             g = g[g["net_income"].notna()]
             if g.empty:
                 continue
             r = ni_last.get((int(sid), g["period_end"].iloc[-1]))
             if r is not None:
                 out[int(sid)]["net_income"] = _row(r)
-            placed.add(int(sid))
     if not ni.empty:
         fallback = ni.sort_values(["security_id", "metric_code", "period_end"]) \
                      .groupby(["security_id", "metric_code"], sort=False).tail(1)
@@ -311,8 +315,10 @@ def guard(live: dict, vintages: list[tuple], asof, splits=None, resolved=None) -
     if neigh:
         m = statistics.median(neigh)
         r = v / m
+        # a future-dated cover (AAL) must not reach splits executed after asof
+        hi = min(_d(pe), asof)
         if (r > GUARD_OUTLIER or r < 1 / GUARD_OUTLIER) and not _split_explains(
-                r, splits, date.fromordinal(_d(pe).toordinal() - GUARD_WINDOW_DAYS), pe):
+                r, splits, date.fromordinal(_d(pe).toordinal() - GUARD_WINDOW_DAYS), hi):
             reasons.append("outlier")
     if splits:
         basis = pe if tag == shares.COVER else filed
@@ -322,16 +328,9 @@ def guard(live: dict, vintages: list[tuple], asof, splits=None, resolved=None) -
 
 
 def _split_explains(ratio, splits, lo, hi) -> bool:
-    if not splits:
-        return False
-    k = 1.0
-    for ex, f in sorted((_d(e), f) for e, f in splits if f and f > 0):
-        if _d(lo) < ex <= _d(hi):
-            k *= f
-            for t in (k, 1 / k):
-                if abs(ratio / t - 1) <= GUARD_SPLIT_TOL:
-                    return True
-    return False
+    """A cumulative factor of the splits executed in (lo, hi] explains the ratio."""
+    return any(abs(ratio / t - 1) <= GUARD_SPLIT_TOL
+               for k in shares._split_factors(splits, lo, hi) for t in (k, 1 / k))
 
 
 def _newest_periodic(verdicts):
@@ -570,6 +569,10 @@ def census_facts(sec: dict, facts_list: list[dict], asof, tagmap, con, splits=No
     rows = []
     for facts in facts_list:
         rows.extend(shares.fact_rows(int(sec["cik"]), facts))
+    # Point in time: every measure below sees only facts filed on or before asof (the
+    # band, scale, drift, NCI and diluted measures would otherwise read later filings).
+    # classify_accessions is truncation-invariant, so `select` is unchanged by the cut.
+    rows = [r for r in rows if _d(r["filed_date"]) <= _d(asof)]
     sim = simulate_ingest(facts_list, sid, tagmap)
     share_rows = [x for x in sim if x[3] == "shares_outstanding" and _d(x[8]) <= _d(asof)]
     live_sim, sim_cut = {}, None
@@ -1023,7 +1026,7 @@ def thresholds(S: dict, ctx: dict) -> dict:
         T["T9"] = _t(None, None, None, "split transients", False, "needs the store modes")
         T["T10"] = _t(None, None, None, "mixed-basis pairs", False, "needs the store modes")
     B = S["B"]
-    if B.get("available", True) and "today_mismatch_rate" in B:
+    if B.get("available", True) and B.get("today_mismatch_rate") is not None:
         r11 = B["today_mismatch_rate"]
         T["T11"] = _t(r11, r11 > 0.02, "investigate the ingest and dedupe path before S5; "
                       "goldens are re-derived from the store", "store vs simulation mismatch rate")
@@ -1183,20 +1186,9 @@ def _dump_reconcile(paths, sims: dict, tagmap) -> dict:
         st = rows_by_tk.get(tk, [])
         st_rows = [(r["period_end"], r["fiscal_period"] or "", r["raw_tag"], r["value"], r["filed_date"])
                    for r in st]
-        sim_rows = [x for x in cf["sim_vintages"]]
+        sim_rows = cf["sim_vintages"]
         # today at the cut-off, both sides through the same functions
-        st_df = fm_frame([(1, r[0], r[1], "shares_outstanding", r[3], "shares", "", False, r[4], r[2],
-                           "xbrl") for r in st_rows]) if st_rows else None
-        st_today = None
-        if st_df is not None:
-            _register(con, st_df)
-            st_today = today_rows(con, cutoff, [1]).get(1, {}).get("shares")
-        sim_df = fm_frame([(1, x[0], x[1], "shares_outstanding", x[3], "shares", "", False, x[4], x[2],
-                            "xbrl") for x in sim_rows]) if sim_rows else None
-        sim_today = None
-        if sim_df is not None:
-            _register(con, sim_df)
-            sim_today = today_rows(con, cutoff, [1]).get(1, {}).get("shares")
+        st_today, sim_today = (_today_at(con, rs, cutoff) for rs in (st_rows, sim_rows))
         if st_rows or sim_rows:
             pairs.append((rec, st_rows, sim_rows, st_today, sim_today))
         if tk in complete_num:
@@ -1217,6 +1209,11 @@ def _dump_reconcile(paths, sims: dict, tagmap) -> dict:
                     numer["value_differs"] += 1
                 else:
                     numer["equal"] += 1
+    if not pairs:
+        # cache securities carry tickers only with --securities
+        return {"available": False, "note": "no dump ticker matched a cached security "
+                                            "(pass --securities with tickers)",
+                "tickers_without_companyfacts": absent}
     out = store_vs_sim(pairs, cutoff)
     out.update(source="tierb-dump artifacts", tickers_without_companyfacts=absent,
                numerators_compared=sorted(complete_num & set(sims)),
@@ -1224,9 +1221,27 @@ def _dump_reconcile(paths, sims: dict, tagmap) -> dict:
     return out
 
 
-def _store_context(asof) -> dict:
-    """Open the store and Postgres, then read everything the store modes need."""
-    from . import db, tierb
+def _today_at(con, share_rows, cutoff):
+    """Today's resolved share row at `cutoff` from (period_end, fp, raw_tag, value,
+    filed) rows alone, through today_rows."""
+    if not share_rows:
+        return None
+    _register(con, fm_frame([(1, pe, fp, "shares_outstanding", v, "shares", "", False, filed, tag,
+                              "xbrl") for pe, fp, tag, v, filed in share_rows]))
+    return today_rows(con, cutoff, [1]).get(1, {}).get("shares")
+
+
+def _store_context(asof, companyfacts=False) -> dict:
+    """Open the store and Postgres, then read everything the store modes need.
+    Every credential is checked before any read: without SEC_USER_AGENT each
+    companyfacts fetch would fail, be counted as missing, and leave a census with
+    no companyfacts sections after ten minutes of rate-limited waiting."""
+    from . import config, db, tierb
+    if companyfacts:
+        try:
+            config.sec_user_agent()
+        except RuntimeError as e:
+            raise SystemExit(f"--companyfacts: {e}")
     if not tierb.enabled():
         raise SystemExit("Tier B store not present: restore it (CI) or "
                          "`python -m engine.tierbsync pull` first.")
@@ -1319,7 +1334,7 @@ def _splits_counts(ctx, recs, asof) -> dict:
     by_year = Counter()
     for sid, lst in splits.items():
         for ex, _ in lst:
-            if _iso(ex) >= SPLITS_SINCE:
+            if SPLITS_SINCE <= _iso(ex) <= _iso(asof):
                 by_year[_iso(ex)[:4]] += 1
     transients = sum(1 for r in recs if "after_split" in r["_guard_full"])
     out = {"available": True, "rows_by_year": dict(sorted(by_year.items())),
@@ -1374,11 +1389,11 @@ def run_store(asof, companyfacts=False, limit=None, ctx=None) -> tuple[list, dic
     """--store and --companyfacts. `ctx` (from read_store) lets a test supply a store."""
     import duckdb
     from .sources import catalog
-    ctx = ctx or _store_context(asof)
+    ctx = ctx or _store_context(asof, companyfacts)
     if companyfacts:
         # B compares both sides on what the store knew: its own newest filing date.
         ctx["today_at_cutoff"] = today_rows(ctx["duck"], ctx["store_cutoff"])
-    secs = [s for s in ctx["securities"]]
+    secs = list(ctx["securities"])
     if limit:
         secs = secs[:limit]
     recs = []
@@ -1481,8 +1496,16 @@ def _cik_history(secs) -> dict:
 
 # --- output ------------------------------------------------------------------------
 
-def headline(S, T) -> list[str]:
+def headline(S, T, coverage=None) -> list[str]:
     out = []
+    cov = coverage or {}
+    if "with_companyfacts" in cov:
+        # acceptance: companyfacts for at least 98% of securities with a CIK; a fetch
+        # that fails mid-run is counted as missing, so this line is where it shows
+        base = cov.get("with_cik", cov.get("securities")) or 0
+        got = cov["with_companyfacts"]
+        out.append(f"companyfacts for {got} of {base} securities with a CIK"
+                   + ("" if not base or got >= 0.98 * base else " (BELOW the 98% acceptance)"))
     A = S["A"]
     out.append(f"{A['securities']} securities, {A['with_share_row']} with a share row today; "
                f"old check reproduced as {A['old_check']['issuers']} issuers and "
@@ -1498,7 +1521,7 @@ def headline(S, T) -> list[str]:
                    f"resolver, {G['past_limit']} past the age limit, {G['past_ceiling']} past the ceiling; "
                    f"{G['pool_with_valid_wa']} of {G['pool']} recoverable by a valid weighted average")
     B = S["B"]
-    if B.get("available", True) and "today_mismatch_rate" in B:
+    if B.get("available", True) and B.get("today_mismatch_rate") is not None:
         out.append(f"store vs simulation: {B['today_mismatch']} of {B['securities']} today's rows "
                    f"differ (rate {B['today_mismatch_rate']})")
     fired = [k for k, t in T.items() if t["fires"]]
@@ -1511,7 +1534,7 @@ def write(recs, S, T, ctx, out_dir=OUT_DIR, runtime=None) -> tuple[Path, Path]:
     doc = {"census": "shares", "stage": "S0", "rules_version": shares.RULES_VERSION,
            "mode": ctx["mode"], "asof": ctx["asof"],
            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-           "coverage": ctx.get("coverage"), "headline": headline(S, T),
+           "coverage": ctx.get("coverage"), "headline": headline(S, T, ctx.get("coverage")),
            "thresholds": T, "sections": S}
     if ctx["mode"] == "cache":
         doc["sample_note"] = ("cache mode: the probe cache leans towards the flagged issuers; "
@@ -1554,7 +1577,7 @@ def main(argv=None) -> int:
         recs, ctx = run_store(asof, companyfacts=a.companyfacts, limit=a.limit)
     S, T = sections(recs, ctx)
     jp, cp = write(recs, S, T, ctx, a.out, time.monotonic() - t0)
-    for line in headline(S, T):
+    for line in headline(S, T, ctx.get("coverage")):
         print("   " + line)
     print(f"   wrote {jp} and {cp}")
     return 0

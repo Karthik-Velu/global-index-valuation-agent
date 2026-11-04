@@ -195,6 +195,89 @@ def test_truncation_and_order_invariance():
         assert shares.classify_accessions(shuffled) == full, tk
 
 
+def _cut(facts, asof):
+    out = json.loads(json.dumps(facts))
+    for cs in out["facts"].values():
+        for node in cs.values():
+            for u, arr in node["units"].items():
+                node["units"][u] = [f for f in arr if f["filed"] <= asof]
+    return out
+
+
+def test_census_record_is_point_in_time():
+    # Every per-security measure (band, scale, drift, NCI, diluted, the CSV row) is the
+    # same whether companyfacts holds later filings or not: no later filing leaks in.
+    from engine.sources import catalog
+    tagmap = catalog.xbrl_tag_map()
+    for asof in ("2025-03-31", "2026-06-30"):
+        for tk in ("EMN", "FMC", "BABA", "MBLY", "TSCO", "RMTHF", "CRWV"):
+            sec = {"sid": 1, "security_id": None, "ticker": tk, "cik": GOLDEN[tk], "name": None}
+            got = []
+            for facts in (_facts(GOLDEN[tk]), _cut(_facts(GOLDEN[tk]), asof)):
+                cf = sc.census_facts(sec, [facts], asof, tagmap, duckdb.connect())
+                rec = sc.record(sec, cf["live_sim"], cf, asof, cf["sim_vintages"], {})
+                got.append(({c: rec[c] for c in sc.CSV_COLUMNS},
+                            [cf[k] for k in ("drift", "nci_equity", "scale", "scale_flips")]))
+            assert got[0] == got[1], (tk, asof, {c: (got[0][0][c], got[1][0][c])
+                                                 for c in sc.CSV_COLUMNS
+                                                 if got[0][0][c] != got[1][0][c]})
+
+
+def test_net_income_placed_like_score_frame():
+    # A security the clean annual series holds, with no net income in its two recent
+    # years: score_frame leaves net_income NaN, so the census reports no live row.
+    from engine import stockvaluation as sv, tierb
+    rows = [(1, f"{y}-12-31", "FY", "total_revenue", 1e9 + y, "USD", "10-K", True,
+             f"{y + 1}-02-15", "us-gaap:Revenues", "xbrl") for y in (2021, 2022, 2023, 2024)]
+    rows.append((1, "2021-12-31", "FY", "net_income", 5e7, "USD", "10-K", True, "2022-02-15",
+                 "us-gaap:NetIncomeLoss", "xbrl"))
+    con = duckdb.connect()
+    sc._register(con, sc.fm_frame(rows))
+    saved = tierb.metrics_asof
+    tierb.metrics_asof = lambda asof, metric_codes=None, security_ids=None, source=None, con_=None: \
+        saved(asof, metric_codes, security_ids, source, con=con)
+    try:
+        ff = sv._fundamentals_frame(ASOF, [1])
+    finally:
+        tierb.metrics_asof = saved
+    assert ff["net_income"].isna().all(), ff
+    assert "net_income" not in sc.today_rows(con, ASOF, [1]).get(1, {})
+
+
+def test_dump_without_tickers_is_unavailable_not_a_crash():
+    # cache mode with a store dump but no --securities: no ticker to match, so B is
+    # reported unavailable and T11 unevaluable (it used to raise on a None rate)
+    recs, ctx = sc.run_cache([CF], ASOF, None, [str(FIX / "store_shares_by_ticker.json")], limit=2)
+    S, T = sc.sections(recs, ctx)
+    assert S["B"]["available"] is False and T["T11"]["evaluable"] is False, (S["B"], T["T11"])
+
+
+def test_ci_modes_fail_clearly_without_credentials():
+    import os
+    keys = ("DATABASE_URL", "SEC_USER_AGENT", "TIERB_ROOT")
+    saved = {k: os.environ.get(k) for k in keys}
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            for k in keys:
+                os.environ.pop(k, None)
+            os.environ["TIERB_ROOT"] = tmp          # an empty store
+            for argv, needle in ((["--companyfacts"], "SEC_USER_AGENT"),
+                                 (["--store"], "Tier B store not present")):
+                try:
+                    sc.main(argv + ["--out", tmp])
+                except SystemExit as e:
+                    assert needle in str(e.code), (argv, e.code)
+                else:
+                    raise AssertionError(f"{argv} ran without credentials")
+            assert not list(Path(tmp).iterdir()), "wrote output without credentials"
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
 # --- the CI modes, over a fake store ----------------------------------------------------
 
 class _Cur:

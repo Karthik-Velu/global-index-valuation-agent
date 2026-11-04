@@ -47,6 +47,14 @@ learned, what's still open. Keep it to what a future session would want to know.
   - 20-F covers are dated at year-end and often filed more than 120 days later (Magic
     Software, 135), so `shares.py` allows 200 days for 20-F and 40-F covers.
   - CIK 876779 (Magic Software) is RMTHF in the store; the dump's MGIC finds nothing.
+  - Review fixes (2026-11-05): the per-security measures (band, scale, drift, NCI, diluted
+    over basic) read companyfacts filed after asof, so `census_facts` now cuts its fact rows
+    at asof and a test checks every CSV column against fixtures cut at two dates;
+    `--companyfacts` checks `SEC_USER_AGENT` before reading anything, where it used to count
+    every fetch as missing and write an empty census; the live `net_income` row now follows
+    `score_frame` for a security whose two recent years have no net income; and
+    `--cache` with `--store-dump` but no `--securities` reports B as unavailable instead of
+    crashing on T11.
 - **Open:** dispatch `shares-census.yml` in `store` then `companyfacts` mode and record every
   threshold here and in PLAN; decide whether S5's votes should keep post-period issuance
   covers before S5 ships alone; rule (b) of the S3 guard should compare like concepts.
