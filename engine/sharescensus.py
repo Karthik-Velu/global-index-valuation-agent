@@ -72,7 +72,9 @@ _SENTINEL = -1                    # a security id no real row carries
 # was fetched. Neither selects a value column (a test runs both against a prices
 # table that has none).
 BAR_COUNT_SQL = "select security_id, count(*) from prices group by security_id"
-BAR_DATES_SQL = ("select security_id, date, ingested_at from prices "
+# ingested_at is cast to a date in SQL: only the day is used, and fetching a timestamptz
+# makes DuckDB import pytz, which pandas 3 no longer installs (the CI census would crash).
+BAR_DATES_SQL = ("select security_id, date, cast(ingested_at as date) as ingested_at from prices "
                  "where security_id in (select unnest(?::bigint[]))")
 
 LEGIT = {"in_band", "treasury_stock", "issuance", "up_c_nci", "split_after_period",
