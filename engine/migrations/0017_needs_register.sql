@@ -3,7 +3,7 @@
 --
 -- On 31 Oct 2026 the owner cleared the proposal queue: 161 open, 152 declined,
 -- 7 parked, 0 approved. Nearly all of it was noise from the three proposal agents,
--- and his question was the right one: "I am OK to decline all, but the issues might
+-- and the owner's question was the right one: "I am OK to decline all, but the issues might
 -- still be real. What is the future plan for genuine issues?" Declining a proposal
 -- rejects that SOLUTION, never the underlying NEED. So the need gets its own row and
 -- its own status, and a proposal links to it.
