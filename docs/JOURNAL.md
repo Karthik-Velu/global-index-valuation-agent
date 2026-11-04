@@ -27,6 +27,9 @@ learned, what's still open. Keep it to what a future session would want to know.
     well formed but never collected.
   - A tag such as 'us-gaap_X' gets into the tag map verbatim, but no filed fact is ever
     named that, so it can never match.
+  - A computed row can name another computed code (`net_debt_to_ebitda` from
+    `ebitda_margin`), which has no stored rows, so the audit counts it as its weakest
+    own input rather than as zero.
 - **Open:** dispatch `catalog-audit.yml` with `frames` after merge, then fix the dead,
   malformed and drifted rows by hand. Fold the frames fetch into a shared SEC helper once
   PR #78 (agents v2) lands.

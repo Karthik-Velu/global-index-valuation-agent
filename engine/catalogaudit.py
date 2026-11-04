@@ -60,9 +60,9 @@ _CONCEPT_RE = re.compile(r"\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+\b")
 
 
 def normalise_tag(raw) -> tuple[str, str | None]:
-    """(tag as "ns:Concept", problem or None). A problem means ingestion's
-    namespace-stripping tag map (catalog.xbrl_tag_map) would not match the tag as
-    written, or it names a namespace SEC does not publish."""
+    """(tag as "ns:Concept", problem or None). A problem means the tag is not written
+    as "ns:Concept" with a namespace SEC publishes; the underscore form never matches
+    a filed fact at all."""
     s = str(raw or "").strip()
     m = _TAG_RE.fullmatch(s)
     if not m:
@@ -117,8 +117,8 @@ def _db_catalog() -> tuple[list[dict] | None, str | None]:
                             "xbrl_tags, source_if_not_xbrl, notes from metric_catalog")
                 cols = [d[0] for d in cur.description]
                 return [dict(zip(cols, r)) for r in cur.fetchall()], None
-    except Exception as e:
-        return None, f"metric_catalog read failed: {str(e)[:160]}"
+    except Exception as e:  # the type only: the report is public, the message names the host
+        return None, f"metric_catalog read failed ({type(e).__name__})"
 
 
 def _store():
@@ -165,12 +165,17 @@ _MIN_INTERVAL = 0.2  # at most 5 requests a second (SEC's fair-use ceiling is 10
 _FRAME_UNITS = ("USD", "shares", "pure", "USD-per-shares")
 
 
+def _sec_unit(unit: str) -> str | None:
+    """The SEC frames unit a catalogue unit implies, or None (physical units, metadata)."""
+    u = (unit or "").lower()
+    return ("USD-per-shares" if "share" in u and "usd" in u else "shares" if "share" in u
+            else "pure" if ("percent" in u or "ratio" in u) else "USD" if "usd" in u else None)
+
+
 def _frame_units(unit: str) -> list[str]:
     """The SEC unit the catalogue unit implies first, then the rest: a guessed unit
     that 404s must not read as "nobody files this"."""
-    u = (unit or "").lower()
-    first = ("USD-per-shares" if "share" in u and "usd" in u else "shares" if "share" in u
-             else "pure" if ("percent" in u or "ratio" in u) else "USD")
+    first = _sec_unit(unit) or "USD"
     return [first] + [x for x in _FRAME_UNITS if x != first]
 
 
@@ -181,8 +186,8 @@ def frames_coverage(tag_units: dict[str, str], year: int, get=None,
     out = {"year": year, "error": None, "tags": {}}
     try:
         headers = {"User-Agent": sec_user_agent(), "Accept-Encoding": "gzip, deflate"}
-    except RuntimeError as e:
-        out["error"] = str(e)[:200]
+    except RuntimeError:
+        out["error"] = "SEC_USER_AGENT is not set, so no frames were fetched"
         return out
     if get is None:
         import requests
@@ -213,8 +218,11 @@ def frames_coverage(tag_units: dict[str, str], year: int, get=None,
                     res["error"] = f"{type(e).__name__}: {str(e)[:120]}"
             if res["period"]:
                 break
-        if res["error"] and not res["period"]:
-            res["filers"] = None  # unknown, not zero: a failed fetch is not evidence
+        if not res["period"] and (res["error"] or not _sec_unit(unit)):
+            # Unknown, not zero: a failed fetch, or a unit frames cannot be asked for
+            # (barrels, tonnes), is not evidence that nobody files the concept.
+            res["filers"] = None
+            res["error"] = res["error"] or f"no frame in {', '.join(_FRAME_UNITS)} (unit {unit!r})"
         out["tags"][tag] = res
     return out
 
@@ -299,8 +307,9 @@ def audit(json_rows: list[dict], db_rows: list[dict] | None = None, con=None,
                           | {i["input"] for r in rows for i in r.get("inputs", []) if not i["code"]})
         store = store_coverage(con, all_tags, sorted(codes))
 
+    by_code = {r["metric_code"]: r for r in rows}
     for r in rows:
-        _judge(r, store, frames, min_issuers)
+        _judge(r, store, frames, min_issuers, by_code)
 
     counts = {v: sum(r["verdict"] == v for r in rows) for v in VERDICTS}
     return {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -314,7 +323,7 @@ def audit(json_rows: list[dict], db_rows: list[dict] | None = None, con=None,
             "verdict_counts": counts, "rows": rows}
 
 
-def _judge(r: dict, store: dict | None, frames: dict | None, n: int) -> None:
+def _judge(r: dict, store: dict | None, frames: dict | None, n: int, by_code: dict) -> None:
     """Attach evidence, `flags` (every verdict that applies), `verdict` (the most
     urgent) and a suggested `action` (text only) to one audited row."""
     code, flags, actions = r["metric_code"], [], []
@@ -343,7 +352,7 @@ def _judge(r: dict, store: dict | None, frames: dict | None, n: int) -> None:
         flags.append("non_xbrl_by_design")
         actions.append(f"None: disclosed via {r['source_if_not_xbrl']}, nothing to collect.")
     elif r["kind"] == "computed":
-        _judge_computed(r, store, n, flags, actions)
+        _judge_computed(r, store, n, flags, actions, by_code)
     else:
         _judge_xbrl(r, store, frames, n, flags, actions)
 
@@ -377,7 +386,8 @@ def _judge_xbrl(r, store, frames, n, flags, actions) -> None:
             actions.append("No tag is in an ingested namespace (edgar reads "
                            f"{', '.join(_INGESTED_NS)}), so nothing collects it.")
         return
-    sec = [t.get("sec_filers") for t in tags if "sec_filers" in t]
+    # Only the tags that land as this code say anything about its coverage.
+    sec = [t.get("sec_filers") for t in tags if "sec_filers" in t and t["lands_as"] == code]
     sec_known = [x for x in sec if x is not None]
     if store is not None and r["store_issuers"] == 0:
         flags.append("dead")
@@ -401,7 +411,20 @@ def _judge_xbrl(r, store, frames, n, flags, actions) -> None:
                        "catalog-audit.yml (Tier B store, optionally frames).")
 
 
-def _judge_computed(r, store, n, flags, actions) -> None:
+def _input_issuers(i: dict, store: dict, by_code: dict, seen: frozenset = frozenset()) -> int:
+    """Issuers behind one input. A computed code has no rows of its own, so it counts
+    as its weakest catalogued input: at most that many issuers can compute it."""
+    code = i["code"]
+    if not code:
+        return store["by_tag"].get(i["input"], {}).get("issuers", 0)
+    row = by_code.get(code)
+    if row is None or row["kind"] != "computed" or code in seen:
+        return store["by_code"].get(code, {}).get("issuers", 0)
+    return min((_input_issuers(j, store, by_code, seen | {code})
+                for j in row["inputs"] if j["code"]), default=0)
+
+
+def _judge_computed(r, store, n, flags, actions, by_code) -> None:
     ins = r["inputs"]
     if not ins:
         flags.append("dead")
@@ -416,8 +439,8 @@ def _judge_computed(r, store, n, flags, actions) -> None:
                        + (f" Not catalogue codes: {', '.join(missing)}." if missing else ""))
         return
     for i in ins:
-        hit = store["by_code"].get(i["code"]) if i["code"] else store["by_tag"].get(i["input"])
-        i["store_issuers"] = (hit or {}).get("issuers", 0)
+        i["store_issuers"] = _input_issuers(i, store, by_code)
+    r["store_issuers"] = min((i["store_issuers"] for i in ins if i["code"]), default=0)
     weak = [i["input"] for i in ins if i["store_issuers"] < n]
     if all(i["store_issuers"] == 0 for i in ins):
         flags.append("dead")

@@ -38,6 +38,8 @@ CAT = [
     _row("nim", False, [], "mgmt_mdna", "percent"),
     _row("net_margin", False, [], "computed", "percent", "net_income / total_revenue"),
     _row("niche_margin", False, [], "computed", "percent", "niche_kpi over total_revenue"),
+    # computed from a computed code: covered as far as that code's own inputs are
+    _row("net_margin_change", False, [], "computed", "percent", "change in net_margin"),
     _row("orphan_ratio", False, [], "computed", "ratio", "analyst estimate, no filing input"),
 ]
 # Postgres holds the same rows plus one the JSON lacks (a guessed tag from a proposal).
@@ -101,7 +103,7 @@ def test_every_verdict_with_store_and_db():
     assert v == {"total_revenue": "ok", "net_income": "ok", "niche_kpi": "low_coverage",
                  "production_volume": "dead", "revenue_total": "dead",
                  "bad_tag": "malformed_tag", "nim": "non_xbrl_by_design",
-                 "net_margin": "ok", "niche_margin": "low_coverage",
+                 "net_margin": "ok", "niche_margin": "low_coverage", "net_margin_change": "ok",
                  "orphan_ratio": "dead", "guessed_kpi": "db_json_drift"}, v
     rows = _by_code(rep)
     assert "total_revenue" in rows["revenue_total"]["action"]  # names who claimed the tag
@@ -112,6 +114,9 @@ def test_every_verdict_with_store_and_db():
     assert (t["store_issuers"], t["store_last_filed"], t["stored_as"]) == \
         (3, "2026-04-01", ["total_revenue"]), t
     assert {i["code"] for i in rows["net_margin"]["inputs"]} == {"net_income", "total_revenue"}
+    assert rows["net_margin"]["store_issuers"] == 2  # its weakest input, not 0
+    assert rows["net_margin_change"]["inputs"] == [
+        {"input": "net_margin", "code": "net_margin", "store_issuers": 2}]
     assert rep["sources"]["store"]["issuers"] == 3
     assert sum(rep["verdict_counts"].values()) == len(rep["rows"])
 
@@ -146,7 +151,8 @@ def test_frames_counts_filers_and_records_failures():
         return R(404)
 
     tags = {"us-gaap:Revenues": "USD", "us-gaap:NicheThing": "USD",
-            "us-gaap:OilAndGasProductionForPeriodBarrelsOfOilEquivalent": "physical_units"}
+            "us-gaap:OilAndGasProductionForPeriodBarrelsOfOilEquivalent": "USD",
+            "srt:OilAndGasProductionVolumeMeasure": "physical_units"}
     with _patched(os, environ={**os.environ, "SEC_USER_AGENT": "catalogaudit-test test@example.com"}):
         fr = ca.frames_coverage(tags, 2025, get=get, sleep=sleeps.append)
     t = fr["tags"]
@@ -154,7 +160,10 @@ def test_frames_counts_filers_and_records_failures():
     assert t["us-gaap:NicheThing"]["filers"] is None and "ConnectionError" in t["us-gaap:NicheThing"]["error"]
     oil = t["us-gaap:OilAndGasProductionForPeriodBarrelsOfOilEquivalent"]
     assert oil["filers"] == 0 and oil["error"] is None
-    assert len(calls) == 1 + 8 + 8  # every unit and both period forms before "nobody files it"
+    # a unit frames cannot be asked for (barrels) is unknown, not zero
+    srt = t["srt:OilAndGasProductionVolumeMeasure"]
+    assert srt["filers"] is None and "physical_units" in srt["error"], srt
+    assert len(calls) == 1 + 8 + 8 + 8  # every unit and both period forms before "nobody files it"
     assert any("CY2025Q4I" in u for u in calls)
     # at most 5 a second: every request after the first waited out the gap
     assert len(sleeps) == len(calls) - 1 and min(sleeps) >= 0.19, sleeps
@@ -167,6 +176,7 @@ def test_frames_counts_filers_and_records_failures():
     with _patched(os, environ={k: x for k, x in os.environ.items() if k != "SEC_USER_AGENT"}):
         fr = ca.frames_coverage(tags, 2025, get=get, sleep=sleeps.append)
     assert "SEC_USER_AGENT" in fr["error"] and fr["tags"] == {}
+    assert "\u2014" not in fr["error"]  # it lands in the public report
 
 
 def test_prices_view_is_never_read():
@@ -236,7 +246,7 @@ def test_run_writes_only_the_two_reports():
         assert sorted(p.name for p in Path(d).iterdir()) == ["metric_catalog.json", "out"]
         body = json.loads((out / "catalog_audit.json").read_text())
         md = (out / "catalog_audit.md").read_text()
-    assert body["verdict_counts"] == rep["verdict_counts"] and body["sources"]["db_rows"] == 11
+    assert body["verdict_counts"] == rep["verdict_counts"] and body["sources"]["db_rows"] == 12
     assert conn.read_only and conn.log and all(s.lstrip().lower().startswith("select")
                                                for s in conn.log), conn.log
     assert store.execute("select count(*), sum(security_id) from fundamental_metrics").fetchone() == before
