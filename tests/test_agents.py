@@ -348,6 +348,14 @@ def test_triage_works_open_needs_only_and_keys_on_the_proposed_check():
     assert rows[0]["evidence_count"] == 1
 
 
+def test_triage_survives_a_reply_that_is_not_an_object():
+    fdb = _fakepg.install(llm_reply=lambda role, system, user: '["not", "an", "object"]')
+    agent.seed_needs()
+    out = qualitytriage.triage_issues({"by_check": {"stale_filings": 4}, "issues": []})
+    assert out["triaged"][0]["error"] == "model reply is not a JSON object", out
+    assert fdb.proposals == {}
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

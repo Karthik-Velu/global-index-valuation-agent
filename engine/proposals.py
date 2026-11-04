@@ -86,8 +86,9 @@ def dedup_key(kind: str, target: str, variant: str = "") -> str:
     return f"{kind}:{target}{tail}"
 
 
-# Which row wins when several share a canonical key (the legacy synonyms do).
-_PREFER = {"pending": 0, "parked": 1, "expired": 2, "queued_build": 3, "approved": 4,
+# Which row wins when several share a canonical key (the legacy synonyms do). A parked
+# decision outranks a pending synonym, or the synonym would bypass the parked block.
+_PREFER = {"parked": 0, "pending": 1, "expired": 2, "queued_build": 3, "approved": 4,
            "failed": 5, "actioned": 6}
 
 
@@ -346,7 +347,9 @@ CONSUMERS = {
         "quality_score": "the data-quality score and the data_quality_issues feed "
                          "(engine/quality.py), on every daily pipeline run",
         "picks": "Top picks and the stock screener, which leave out companies with an open "
-                 "issue (engine/picks.py via engine/pipeline.py, and engine/screenjobs.py)",
+                 "issue from a check in picks.EXCLUDE_CHECKS, so a new check counts only once "
+                 "it is added there (engine/picks.py via engine/pipeline.py, and "
+                 "engine/screenjobs.py)",
         "triage": "Quality-Triage (engine/qualitytriage.py), which reads the checks that fire most",
         "daily_plan": "the daily plan signals (engine/dailyplan.py), which report the quality score",
     },
@@ -452,6 +455,8 @@ def enrich(limit: int = 6, model_role: str = "cheap") -> dict:
             txt, model_id = llm.call_with_model(model_role, _ENRICH_SYSTEM, ctx,
                                                 max_tokens=1600, json_mode=True)
             obj = json.loads(txt)
+            if not isinstance(obj, dict):
+                raise ValueError("model reply is not a JSON object")
         except Exception as e:  # noqa: BLE001 — one bad row must not stop the batch
             failed.append({"id": pid, "error": str(e)[:160]})
             continue
@@ -848,6 +853,9 @@ def expire_stale(max_age_days: int | None = None) -> dict:
     if not db.have_db():
         return {"skipped": "no db"}
     from .quality import CHECKS
+    # This runs daily, the agents (whose capture() re-keys) only on Wednesdays, and a
+    # legacy row has no need_id until it is re-keyed.
+    backfill_canonical()
     days = max_age_days or EXPIRY_DAYS
     now = _dt.datetime.now(_dt.timezone.utc)
     expired = []

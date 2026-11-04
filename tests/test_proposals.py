@@ -226,6 +226,17 @@ def test_parked_blocks_synonyms_but_still_gathers_evidence():
                      canonical_key="catalog_kpi:livestock_count@all", dedup_key="lc")
     assert kpi(fdb, "livestock_counts", "Agriculture")["action"] == "blocked_parked"
     assert len(fdb.proposals) == 2
+    # A legacy pending synonym sharing the parked key does not let the idea through.
+    open_need(fdb, "index_price", kind="price")
+    tiingo = fdb.add_proposal(kind="source_adapter", target="Tiingo", status="parked",
+                              dedup_key="t1", payload={"source": {"provider": "Tiingo"},
+                                                       "need": {"id": "index_price"}})
+    fdb.add_proposal(kind="source_adapter", target="tiingo_eod", dedup_key="t2",
+                     payload={"source": {"provider": "Tiingo, Inc."},
+                              "need": {"id": "index_price"}})
+    proposals._BACKFILLED = False                         # as on the first run after deploy
+    assert source(fdb, "tiingo", "Tiingo") == {"action": "blocked_parked", "id": tiingo,
+                                               "evidence_count": 1}
 
 
 # --------------------------------------------------------------------------- #
@@ -276,6 +287,19 @@ def test_expiry_when_the_trigger_is_gone():
     assert proposals.expire_stale() == {"expired": []}
     # An expired decision cannot be re-decided...
     assert "cannot re-decide" in proposals.decide(stale, "approve", actor="owner")["error"]
+
+
+def test_daily_expiry_rekeys_legacy_rows_first():
+    """Expiry runs daily, the agents weekly: a legacy row's need is known only once it is
+    re-keyed, so the daily pass must not wait for Wednesday's capture()."""
+    fdb = _fakepg.install()
+    open_need(fdb, "index_valuation", kind="index_valuation", status="answered_by_roadmap")
+    pid = fdb.add_proposal(kind="source_adapter", target="fred_idx", dedup_key="legacy",
+                           payload={"source": {"provider": "FRED"},
+                                    "need": {"id": "index_valuation"}})
+    assert proposals.expire_stale() == {"expired": [pid]}
+    assert fdb.proposals[pid]["need_id"] == "index_valuation"
+    assert fdb.events_for(pid) == ["rekeyed", "expired"]
 
 
 def test_an_expired_proposal_raised_again_is_revived():
@@ -380,6 +404,14 @@ def test_enrich_keeps_the_scope_and_grounds_how_used():
     assert "INFERRED" in fdb.catalog["spectrum_holdings"]["notes"]
 
 
+def test_enrich_survives_a_reply_that_is_not_an_object():
+    fdb = _fakepg.install(llm_reply=lambda role, system, user: "[1, 2]")
+    pid = fdb.add_proposal(canonical_key="k")
+    out = proposals.enrich(limit=5)
+    assert out["enriched"] == [] and out["failed"][0]["id"] == pid, out
+    assert fdb.proposals[pid]["needs_enrichment"] is True
+
+
 def test_how_used_comes_only_from_the_consumer_list():
     menu = proposals.CONSUMERS["quality_check"]
     every = proposals.grounded_how_used("quality_check")
@@ -448,7 +480,9 @@ def test_migration_keeps_every_researched_lead():
     listed = set(re.findall(r"'([a-z0-9_]+)'", sql.split("array[", 1)[1].split("]", 1)[0]))
     seeds = {s["id"] for s in json.loads(
         (ROOT / "engine/sources/seed_catalog.json").read_text())["sources"]}
-    assert listed == seeds, listed ^ seeds
+    # All 40 seed rows of 2026-11-05. A row seeded later is inserted after 0017 has run,
+    # so it needs no entry here, and an applied migration is never edited.
+    assert listed <= seeds and len(listed) == 40, (len(listed), listed - seeds)
 
 
 def test_edge_function_mirrors_no_clobber_and_verified_tags():

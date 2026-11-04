@@ -12,13 +12,13 @@ learned, what's still open. Keep it to what a future session would want to know.
 - **Built:** the 13 root causes from the 31 Oct queue review, in one PR. A needs register in
   `data_needs` (migration 0017), seeded insert-only with the genuine needs the review found;
   canonical dedup keys (`engine/canonical.py`) with a Python backfill that re-keys the legacy
-  rows before the first capture; need gating, distinct-signal evidence and scope merge in
-  `capture()`; expiry with an audit event; discovery with a registry licence gate, a fuller
-  prompt and no registry writes; protected registry upserts and the invented leads marked;
-  sector research rotated by coverage, with catalogue codes in the prompt and an XBRL gate
-  behind `XBRL_VERIFY`; enrich keeping scope and grounding `how_used`; and the no-clobber
-  fix in both apply paths. ADR-044. Tests: `tests/test_proposals.py`, `tests/test_agents.py`
-  (a shared fake DB in `tests/_fakepg.py`).
+  rows before the first capture or expiry pass; need gating, distinct-signal evidence and
+  scope merge in `capture()`; expiry with an audit event; discovery with a registry licence
+  gate, a fuller prompt and no registry writes; protected registry upserts and the invented
+  leads marked; sector research rotated by coverage, with catalogue codes in the prompt and
+  an XBRL gate behind `XBRL_VERIFY`; enrich keeping scope and grounding `how_used`; and the
+  no-clobber fix in both apply paths. ADR-044. Tests: `tests/test_proposals.py`,
+  `tests/test_agents.py` (a shared fake DB in `tests/_fakepg.py`).
 - **Learned:**
   - Ingestion reads `engine/sources/metric_catalog.json`, not the `metric_catalog` table that
     an approval writes, so an approved KPI is collected by nothing until someone adds it to the

@@ -83,10 +83,12 @@ def triage_issues(report: dict, max_checks: int = 4) -> dict:
             txt, model_id = llm.call_with_model("quality_triage", system, user,
                                                 max_tokens=1600, json_mode=True)
             obj = json.loads(txt)
+            if not isinstance(obj, dict):
+                raise ValueError("model reply is not a JSON object")
         except Exception as e:
             triaged.append({"check_name": check_name, "error": str(e)[:160]})
             continue
-        nc = obj.get("new_check") or {}
+        nc = obj.get("new_check") if isinstance(obj.get("new_check"), dict) else {}
         # taxonomy_changes stays the append-only log of what the agent SAID...
         with db.connect() as c, c.cursor() as cur:
             cur.execute(

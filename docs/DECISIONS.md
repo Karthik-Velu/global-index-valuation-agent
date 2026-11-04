@@ -10,7 +10,7 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 ---
 
 ### ADR-044 · Agents v2: a needs register, canonical dedup keys, and no catalogue clobber
-- **Context:** on 31 Oct 2026 the owner cleared the proposal queue (161 open: 152 declined,
+- **Context:** on 31 Oct 2026 the owner cleared the proposal queue (161 open, 152 declined,
   7 parked, 0 approved), nearly all of it noise from the three proposal agents, and asked:
   "I am OK to decline all, but the issues might still be real. What is the future plan for
   genuine issues?" The review found 13 root causes. Dedup was on the raw target string (83
@@ -32,8 +32,8 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
     normalised provider at its need, a KPI its concept (a catalogue code or an alias) at its
     broad sector, a quality check the proposed check, never the firing one. The declined and
     parked blocks match it, so synonyms stay blocked, and an unscoped legacy decision covers
-    every sector. Legacy rows are re-keyed in Python before the first capture. A KPI already in
-    the catalogue is never raised.
+    every sector. Legacy rows are re-keyed in Python before the first capture or expiry
+    pass. A KPI already in the catalogue is never raised.
   - Evidence is the number of distinct supporting signals (a sub-sector, a firing check, a
     need); a re-proposal merges the payload's scopes.
   - Discovery gets the need's description and the known, verified and declined providers; its
