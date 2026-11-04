@@ -1,0 +1,72 @@
+name: Catalogue audit (report only)
+
+# Which metric_catalog rows actually collect anything?
+#
+# Why this exists: the 31 Oct proposal review found live catalogue rows that collect
+# nothing (production_volume's tags are filed by 0 of 688 issuers; some KPI rows carry
+# guessed or malformed tags such as 'us-gaap:Sales' or 'us-gaap_X'). A row like that
+# fails quietly, so this measures every row: tag syntax, coverage in the Tier B store,
+# Postgres vs JSON drift and, with `frames`, how many SEC filers use each tag.
+#
+# REPORT-ONLY: engine/catalogaudit.py never writes the catalogue, the store, Postgres or
+# the repo. It reads fundamental_metrics only, never the licensed prices view (P0.5a).
+# Dispatch it, then read catalog_audit.md in the artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      frames:
+        description: "Also count SEC filers per tag via XBRL frames (a few minutes at 5 req/s)"
+        type: boolean
+        default: false
+
+# Read-only job: no `contents: write`, so it cannot push even by accident.
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+
+      # Same restore/hydrate pair the daily pipeline uses. restore-keys gives the
+      # rolling latest-wins cache; the release asset is the durable fallback when
+      # the cache has evicted (~7 idle days) or is branch-scoped away from us.
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate Tier B if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+
+      - name: Audit
+        env:
+          FRAMES: ${{ inputs.frames }}
+        run: |
+          if [ "$FRAMES" = "true" ]; then python -m engine.catalogaudit --frames
+          else python -m engine.catalogaudit; fi
+
+      # Public artifact (public repo): tags, counts and filed dates from EDGAR only.
+      # No price is ever read, so none can ride along.
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-audit
+          path: |
+            data/catalog_audit.json
+            data/catalog_audit.md
+          retention-days: 14
+          if-no-files-found: error

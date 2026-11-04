@@ -29,6 +29,9 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/catalogaudit.py"
+      - "engine/sources/catalog.py"
+      - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -54,6 +57,9 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/catalogaudit.py"
+      - "engine/sources/catalog.py"
+      - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "tests/**"
@@ -104,3 +110,7 @@ jobs:
         run: |
           pip install --quiet "duckdb>=1.0,<2"
           python tests/test_tierbdump.py
+      - name: Catalogue audit (every verdict, no prices view, writes nothing; in-memory DuckDB)
+        run: |
+          pip install --quiet "duckdb>=1.0,<2"
+          python tests/test_catalogaudit.py

@@ -630,4 +630,9 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
 - 🔜 **Daily plan loop (ADR-042):** built (`daily-plan.yml`, `daily-plan-go.yml`,
   `engine/dailyplan.py`). Owner adds the `CLAUDE_CODE_OAUTH_TOKEN` secret; first automatic
   run after the Sun 1 Nov sweep; then verify the plan PR merges itself on green.
+- 🔜 **Catalogue audit, report only** (`engine/catalogaudit.py`, `catalog-audit.yml`, 5 Nov): a
+  verdict per `metric_catalog` row (ok, dead, malformed_tag, low_coverage, non_xbrl_by_design,
+  db_json_drift, unverified) from tag syntax, the tag map, Tier B coverage, Postgres drift and
+  optional SEC frames. JSON alone already finds 11 dead rows. Next: merge, dispatch it with
+  `frames`, and fix the dead and malformed rows by hand (the audit changes nothing itself).
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session
