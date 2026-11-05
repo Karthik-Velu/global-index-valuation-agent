@@ -16,6 +16,31 @@ Newest first. The daily plan loop adds one entry a day: what changed, what the s
 say, and the one step proposed. Discussion happens in the pinned standup, issue [#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58);
 replies there feed back into this file.
 
+### 2026-11-05 (Thu)
+- **Verified:** the Thu 5 Nov scheduled pipeline ([run 42036521875](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/42036521875),
+  incremental) finished green in 31 min (pipeline step 30 min). The Tier B save and the
+  readability gate both succeeded, no steps failed. Tagging: 105 securities, 2 unknown,
+  0 fetch errors, in 88 s.
+- **Owner replies:** none since the last standup (14:04 UTC on 4 Nov), so nothing to fold in.
+- **Signals:** data quality 71/100, 1,791 open issues (1,790 on 4 Nov), of which
+  `shares_multiclass_unsummed` is 1,294. Recalibration: `forward_only`. Latest backtest is
+  still id 4 (25 Jul). One failed CI run: "Screen DSL tests" on the `feat/shares-census-s0`
+  PR ([run 41897582348](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41897582348),
+  4 Nov); the re-run on the same branch two minutes later
+  ([run 41897956560](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41897956560))
+  succeeded. The "Daily plan go" runs of 4 Nov were skipped, as intended (no `go`).
+- **Merged since the last entry:** #75 (the 4 Nov plan update) only. PR test runs on
+  `feat/catalog-audit`, `feat/agents-v2`, `feat/shares-census-s0` and
+  `report/crwv-update-2026-11-05` passed, but none had merged by the time of the signals.
+- **Console proposals:** 152 declined, 7 parked, 3 actioned, 2 queued for build, 2 pending.
+  None decided in the last 30 hours.
+- **Plan changes:** none. No item ticked: nothing merged that proves one.
+- **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades, fifth day running
+  (see the standup).
+- **Waiting on owner:** same as 4 Nov: the outcome or review of the B1 build; the restore
+  drill and final confirmation before the first half of D04 runs; the 14 Oct owner actions
+  (a) to (g) in STATUS.md; the full Phase 0 list; D14a.
+
 ### 2026-11-04 (Wed)
 - **Verified:** the Wed 4 Nov scheduled pipeline ([run 41836908279](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/41836908279),
   incremental) finished green in 46 min (pipeline step 45 min). The Tier B save and the
@@ -566,12 +591,75 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
     when yields are NaN, so rows with no valuation inputs score "Cheap" (about 300 of about
     330 such stocks in a replication). Divide by the weights present instead, set NaN when
     none are present, and gate value_band, GARP and value_trap on a real score.
-  - ⬜ **Multi-class share counts:** CRWV has A/B/C classes, and companyfacts drops per-class
-    facts. As a result there is no market cap or multiples for 219 securities. Add a
-    `missing_market_cap` quality check. Latest (30 Oct): 1,287 of 1,771 open quality
-    issues are `shares_multiclass_unsummed`; method options are in standup #58.
-    Owner chose B1 on 31 Oct ([comment](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58#issuecomment-6542616700)):
-    sum classes by conversion ratio, sample per-class coverage first, stop if data is missing.
+  - ⬜ **Share counts, done properly (ADR-043; replaces the multi-class item and the B1 / B1a
+    options in #58):** one economic share count per security per date, from facts filed before
+    that date, with numerators that count the same owners. A bad value is quarantined (NaN
+    market cap), never the stock. The census runs first and can re-order the stages; each
+    stage is one PR (eighteen, seventeen for the share fix plus S8d), each stage that changes
+    a computed value bumps `DATA_GATE_VERSION`, and the backtest is re-run after each.
+    - ⬜ **S0 share census:** read-only `engine/sharescensus.py` plus `shares-census.yml`,
+      with store and companyfacts modes. Reconciles the store with the companyfacts simulation,
+      counts the live numerator concepts and sets thresholds T1 to T16. Splits are reported as
+      counts only. The companyfacts mode needs `SEC_USER_AGENT` (CI has it). Lands ADR-043.
+      Code landed; the CI census in both modes is next. Plan: `docs/SHARES_PLAN.md`.
+    - ⬜ **S1 rules-version gate:** adds `DATA_GATE_VERSION` to the stock snapshot and the
+      weekly scoreboard. On a bump, stock and market alerts diff against the previous run
+      re-scored under the new rules; screens with no comparable baseline are re-baselined. A
+      `data_versions` row marks the change and makes recalibration recommend a re-backtest.
+      Also adds `checks_version` to the quality report, and triage skips info checks. No value
+      changes.
+    - ⬜ **S2 missing or non-comparable inputs:** `metrics.py` divides by the weights present
+      and scores NaN with no yield, so about 300 bogus "Cheap" labels go and every row with a
+      missing yield is scored on the yields it has (band transitions reported). A USD market
+      cap is never divided by non-USD fundamentals.
+    - ⬜ **S3 lift the blanket exclusion:** commit 1 backfills splits from 2023
+      (`--splits-only`) and adds an interim guard on the live value (conflict, outlier, after
+      a split executed by the date, non-positive), read by quality without a second scoring.
+      Commit 2 deletes `shares_multiclass_unsummed` in both twins, removes it from
+      `EXCLUDE_CHECKS` and drops `shares_outstanding` from `_CURRENCY_NONNEG`. Gated by G1 to
+      G5; about 690 issuers return to picks. Rollback reverts commit 2.
+    - ⬜ **S4 `share_facts`:** a CIK-keyed Tier B dataset holding every share and proxy fact,
+      parent and consolidated numerators included, with its accession, concept, duration and
+      class member. Filled by a backfill workflow and then by daily ingest; nothing reads it
+      yet. Needs `SEC_USER_AGENT`.
+    - ⬜ **S5 resolver:** `engine/shares.py` selects the newest accession first and checks each
+      count against independent evidence from the same and earlier filings. Powers of 1,000 are
+      fixed on two votes; other bad values are quarantined, as are counts older than twice the
+      age limit. Adds the derived `share_counts` file (built after corporate actions), the
+      companyfacts ADS ratio and the kill switch. Fixes EMN, FMC, MCD, CL, MMM and the rest of
+      the collision set.
+    - ⬜ **S5b parent numerators:** where the stored `net_income` or `total_equity` is a
+      consolidated concept (ProfitLoss, equity including NCI, the IFRS pair), P/E, P/B and
+      earnings growth use the parent's value from the same filing.
+    - ⬜ **S6 weighted-average fallback:** the validated basic weighted average covers missing,
+      stale and class-incomplete counts (META, CRWV, MBLY, HEI, LEVI, SJ); a low count is a
+      partial class only when the ratio persists. Adds the public-float unit check and the
+      `missing_market_cap` warn.
+    - ⬜ **S7a knowledge cut-off:** a fact is visible when `filed_date < asof`; the `tierbsync`
+      look-ahead gate is reworked to test it. Live unchanged; the backtest re-run isolates the
+      effect.
+    - ⬜ **S7b split basis:** split basis per price bar and per fact, computed in memory and
+      also used in backtest returns and momentum. Adds the re-base hook and `verify-basis`.
+      ADR-045.
+    - ⬜ **S8a price tickers:** `price_ticker` (BRK-B to BRK.B) for prices and corporate
+      actions. Ships straight after S0 if T6 fires.
+    - ⬜ **S8b CIK history:** `security_ciks`; verified CIK changes become predecessors,
+      unverified ones are held as candidates with a daily warning. Needs `SEC_USER_AGENT`.
+    - ⬜ **S8c one listing per CIK:** one pick card per CIK and backtest cross-sections deduped
+      by CIK; the screener keeps both listings.
+    - ⬜ **S8d universe hygiene (owner decision):** retire duplicate tickers and mark trusts and
+      notes `not_common`, only if the owner approves the list in #58. Not part of the share fix.
+    - ⬜ **S9a instance and FSDS spike:** captures instance fixtures and tests FSDS segments;
+      picks the backfill source. Needs `SEC_USER_AGENT`.
+    - ⬜ **S9b per-class and ADS facts:** a targeted instance backfill into `share_facts`, then
+      a daily increment. Needs `SEC_USER_AGENT`.
+    - ⬜ **S10 economic conversion:** class sums (BRK A x 1,500 + B; Alphabet A + B + C) and ADS
+      ratios with knowledge dates. Uses a curated `share_classes.json` with same-filing
+      cross-checks in CI (the filing-date check needs `SEC_USER_AGENT`). ADR-046.
+    - ⬜ **S11 consumers and cleanup:** Key reports and the driver model use the resolved count.
+      Both weighted-average share concepts leave `stock_based_compensation` and
+      `eps_basic_diluted`, their rows are purged and re-fed, the legacy resolver is retired,
+      and the backtest is re-run with the comparison in JOURNAL.
   - ⬜ **A lens for recent IPOs and loss-makers:** EV/Sales on TTM, scored on growth plus cash
     runway. Relax `growthhistory._QUARTER_IN_ANNUAL` for confirmed hyper-growth.
   - ⬜ **Balance-sheet / credit-risk score:** debt/equity, net debt/OCF, capex/OCF, interest
@@ -639,4 +727,9 @@ Owner ask (2026-10-17): a fund-house-style CoreWeave report in a new "Key report
 - 🔜 **Daily plan loop (ADR-042):** built (`daily-plan.yml`, `daily-plan-go.yml`,
   `engine/dailyplan.py`). Owner adds the `CLAUDE_CODE_OAUTH_TOKEN` secret; first automatic
   run after the Sun 1 Nov sweep; then verify the plan PR merges itself on green.
+- 🔜 **Catalogue audit, report only** (`engine/catalogaudit.py`, `catalog-audit.yml`, 5 Nov): a
+  verdict per `metric_catalog` row (ok, dead, malformed_tag, low_coverage, non_xbrl_by_design,
+  db_json_drift, unverified) from tag syntax, the tag map, Tier B coverage, Postgres drift and
+  optional SEC frames. JSON alone already finds 11 dead rows. Next: merge, dispatch it with
+  `frames`, and fix the dead and malformed rows by hand (the audit changes nothing itself).
 - 🔁 Keep `JOURNAL.md` / `DECISIONS.md` / `STATUS.md` / this file current each session

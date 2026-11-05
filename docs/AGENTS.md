@@ -20,6 +20,7 @@
 |---|---|---|---|
 | **Valuation / scoring** | Score ~90 indices, surface insights, grade past calls, publish the dashboard snapshot | weekly | `engine.cli refresh` · `refresh.yml` |
 | **Data pipeline** | Sequenced: ① probe sources ② ingest fundamentals (EDGAR) ③ tag securities (SIC) ④ validate + auto-fix the KPI catalog ⑤ data-quality checks ⑥ recalibration check | daily | `engine.datapipeline` · `data-pipeline.yml` |
+| **Catalogue audit** | Report only: for every `metric_catalog` row, the tag syntax, coverage in the Tier B store (`fundamental_metrics` only, never prices), Postgres vs JSON drift, inputs of computed rows and, optionally, SEC frames filer counts; a verdict and a suggested action per row. Unlike step ④ it never changes the catalogue | on demand | `engine.catalogaudit` · `catalog-audit.yml` |
 
 Validation (steps ④⑤⑥) runs **right after ingestion**, in the same job — not as
 separate crons. EDGAR (and any future source) ingestion is part of the data-pipeline

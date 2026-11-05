@@ -36,6 +36,83 @@ learned, what's still open. Keep it to what a future session would want to know.
   non-XBRL need's review date (2027-06-30) is a placeholder, as the brief gave none; after the
   first Wednesday run, check the `rekeyed` and `expired` events in `proposal_events`.
 
+## 2026-11-05: catalogue audit (report only)
+- **Built:** `engine/catalogaudit.py`, a deterministic job that gives every `metric_catalog`
+  row a verdict and a suggested action, written to `data/catalog_audit.json` and `.md`;
+  `.github/workflows/catalog-audit.yml` (dispatch only, `contents: read`, restores Tier B
+  the way `tierb-dump.yml` does, never saves the cache, optional `frames` input); and
+  `tests/test_catalogaudit.py` (in-memory DuckDB, fake Postgres, fake SEC getter).
+  `catalog.xbrl_tag_map()` now takes optional rows so the audit judges a catalogue by the
+  exact map ingestion builds from it.
+- **Learned:**
+  - On the JSON alone, 11 rows are dead before any data is read. Eight are `in_xbrl` rows
+    whose every tag is claimed first by another code (first wins in the tag map): for
+    example `revenue_total` by `total_revenue`, and `free_cash_flow` and `capex` by
+    `capital_expenditures`, `capex_total` and `operating_cash_flow`. Three computed rows
+    (`sga_ratio`, `implied_cap_rate`, `interest_coverage`) name no input the catalogue
+    collects.
+  - Ingestion reads only the us-gaap, dei and ifrs-full namespaces, so a `srt:` tag is
+    well formed but never collected.
+  - A tag such as 'us-gaap_X' gets into the tag map verbatim, but no filed fact is ever
+    named that, so it can never match.
+  - A computed row can name another computed code (`net_debt_to_ebitda` from
+    `ebitda_margin`), which has no stored rows, so the audit counts it as its weakest
+    own input rather than as zero.
+- **Open:** dispatch `catalog-audit.yml` with `frames` after merge, then fix the dead,
+  malformed and drifted rows by hand. Fold the frames fetch into a shared SEC helper once
+  PR #78 (agents v2) lands.
+
+## 2026-11-03: share census S0 (ADR-043)
+- **Built:** `engine/sharescensus.py` (modes `--cache`, `--store`, `--companyfacts`),
+  `engine/shares.py` (pure `fact_rows`, `classify_accessions`, `select`; not imported by the
+  pipeline), `.github/workflows/shares-census.yml` (dispatch only, restore-only Tier B, no
+  `tierb-writer` group), 12 trimmed companyfacts fixtures and a trimmed store dump under
+  `tests/fixtures/shares/`, and `tests/test_shares_census.py`. ADR-043 and
+  `docs/SHARES_PLAN.md` land with it.
+- **Today's row is reproduced with the live code,** not a copy: `edgar._iter_facts` with the
+  tag map and the ingest key, `tierb.metrics_asof`, `_resolve_shares_concept`, the
+  `_nth_per_security` ordering and `growthhistory.annual_series`.
+- **Cache run** (688 cached CIKs as 696 securities, asof 2026-10-31, 46 seconds; biased
+  towards the flagged set, so advisory only):
+  - the old check reproduces exactly: 691 issuers, 1,287 rows;
+  - store vs simulation: the dumped Tier B rows for the 20 golden tickers with share rows
+    match the simulation row for row (1,965 share rows, 2,747 numerator rows for the 11
+    tickers the truncated metrics dump holds in full, today's row for all 20), so T11 is 0;
+  - C: 26 securities move more than 5% under accession-first selection. Ten are the
+    collision set the plan predicts (EMN 1.960, RDWR, INMD, AGNT, PSFE, FMC 1.196, EDU,
+    TEVA, DNA, SF). Thirteen step back to an older accession because S5's
+    count-against-count votes quarantine the newest count: post-period issuance (CLBK, QXO,
+    EDIT, LAES), MBLY's partial class, reverse splits and small caps that S6's band rules
+    are meant to settle. DSY, REPX and GOAI are the rest;
+  - F: p90 of |log(C/W)| 6.3% (T4 over 5%); accepted C/W p1 0.82, p99 1.22; 8 weighted
+    averages rejected as mis-scaled (MCD's in millions among them);
+  - E: 83 out-of-band cases, 10 unexplained (12%, T5 over 10%);
+  - G: 13 counts past the ceiling (SJ, WMG, SOUN, VICR, AOS, GTN, REGN, LEVI, BRK-B and
+    others); 19 of 31 missing, stale or class-incomplete have a valid weighted average;
+  - M: 1,597 fact rows per issuer, about 4.95M projected (T12 under 8M);
+  - D (no splits in cache mode): rule (b) flags 31 live counts. Many are clean counts of
+    treasury-heavy issuers (KR, MPC, VRSN) whose 400-day neighbourhood holds quarter-end
+    issued rows; others follow splits their own EDGAR tags confirm (KLAC, NOW, PIPR, DD),
+    which a `splits` row explains in the store modes.
+- **Learned:**
+  - `_resolve_shares_concept` cannot run on a single issued-only security (pandas will not
+    map through an empty datetime table); the census adds a sentinel security, and the
+    universe-wide call in `score_frame` never hits it.
+  - 20-F covers are dated at year-end and often filed more than 120 days later (Magic
+    Software, 135), so `shares.py` allows 200 days for 20-F and 40-F covers.
+  - CIK 876779 (Magic Software) is RMTHF in the store; the dump's MGIC finds nothing.
+  - Review fixes (2026-11-05): the per-security measures (band, scale, drift, NCI, diluted
+    over basic) read companyfacts filed after asof, so `census_facts` now cuts its fact rows
+    at asof and a test checks every CSV column against fixtures cut at two dates;
+    `--companyfacts` checks `SEC_USER_AGENT` before reading anything, where it used to count
+    every fetch as missing and write an empty census; the live `net_income` row now follows
+    `score_frame` for a security whose two recent years have no net income; and
+    `--cache` with `--store-dump` but no `--securities` reports B as unavailable instead of
+    crashing on T11.
+- **Open:** dispatch `shares-census.yml` in `store` then `companyfacts` mode and record every
+  threshold here and in PLAN; decide whether S5's votes should keep post-period issuance
+  covers before S5 ships alone; rule (b) of the S3 guard should compare like concepts.
+
 ## 2026-10-31 (later): the daily plan loop engine
 - **Built:** `daily-plan.yml` (signals job, planning agent, publish job) and
   `daily-plan-go.yml` (the owner's `go`, a build agent, a PR that never merges itself);

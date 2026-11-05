@@ -30,6 +30,16 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/shares.py"
+      - "engine/sharescensus.py"
+      # the census reproduces today's resolver with these; its goldens guard them
+      - "engine/stockvaluation.py"
+      - "engine/growthhistory.py"
+      - "engine/sources/edgar.py"
+      - "engine/sources/catalog.py"
+      - "engine/sources/metric_catalog.json"
+      - "engine/catalogaudit.py"
+      - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "engine/canonical.py"
@@ -67,6 +77,16 @@ on:
       - "engine/reports.py"
       - "engine/tierb.py"
       - "engine/tierbdump.py"
+      - "engine/shares.py"
+      - "engine/sharescensus.py"
+      # the census reproduces today's resolver with these; its goldens guard them
+      - "engine/stockvaluation.py"
+      - "engine/growthhistory.py"
+      - "engine/sources/edgar.py"
+      - "engine/sources/catalog.py"
+      - "engine/sources/metric_catalog.json"
+      - "engine/catalogaudit.py"
+      - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
       - "engine/canonical.py"
@@ -133,3 +153,11 @@ jobs:
         run: |
           pip install --quiet "duckdb>=1.0,<2"
           python tests/test_tierbdump.py
+      - name: Share census (S0 goldens, store vs simulation, licence guard; in-memory DuckDB)
+        run: |
+          pip install --quiet "duckdb>=1.0,<2" "pandas>=2.2" "numpy>=1.26" requests
+          python tests/test_shares_census.py
+      - name: Catalogue audit (every verdict, no prices view, writes nothing; in-memory DuckDB)
+        run: |
+          pip install --quiet "duckdb>=1.0,<2"
+          python tests/test_catalogaudit.py

@@ -1,0 +1,2780 @@
+{
+"preset": "shares_by_ticker",
+"tickers": [
+"EMN",
+"MCD",
+"BABA",
+"SJ",
+"META",
+"CRWV",
+"BRK-B",
+"TSCO",
+"MBLY",
+"FMC"
+],
+"n_rows": 276,
+"truncated": false,
+"filed_since": "2022-01-01",
+"rows": [
+{
+"ticker": "BABA",
+"period_end": "2021-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 21699031448.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2022-07-26",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 21357323112.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2023-07-21",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 21357323112.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2022-07-26",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2023-03-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 20526017712.0,
+"fiscal_period": "FY",
+"report_type": "20-F/A",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2023-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 20526017712.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2024-05-23",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2023-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 20526017712.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2023-07-21",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2024-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 19469126956.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2024-05-23",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2024-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 19469126956.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2025-06-26",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2025-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 18474235708.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2026-05-20",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2025-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 18474235708.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2025-06-26",
+"unit": "shares"
+},
+{
+"ticker": "BABA",
+"period_end": "2026-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 18580374278.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2026-05-20",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2009-10-29",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 1056884.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2009-11-06",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2010-02-18",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 1103764.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2010-03-01",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2010-04-30",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 0.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2010-05-07",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2010-07-30",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 976414.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2010-08-06",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2010-10-29",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 956153.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2010-11-05",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2011-02-17",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 943242.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2011-02-28",
+"unit": "shares"
+},
+{
+"ticker": "BRK-B",
+"period_end": "2011-04-29",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 941481.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2011-05-06",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 219140523.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 219638646.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-15",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 219638646.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 220641506.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 220641506.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-15",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 220641506.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 221809309.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-10-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 221809309.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 221809309.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 221809309.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-04",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 221809309.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-15",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 221809309.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 221809309.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222271829.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-04",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222316005.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222337739.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-10-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222348557.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222348557.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-15",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222348557.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222348557.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-07-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222348557.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-10-27",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 222348557.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 222348557.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-13",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222703492.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222729135.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-07-28",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222737414.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-10-27",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222762317.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-04-26",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222762317.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222762317.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222762317.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 222762317.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-07-26",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesOutstanding",
+"value": 222762317.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-13",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223068055.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-04-26",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223278963.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-07-26",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223349426.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223588347.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-13",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223588347.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223588347.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-14",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223588347.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-04-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223588347.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-04",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223880113.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-04-25",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223896168.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223910533.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-04",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223938047.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-07-31",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223938047.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223938047.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2026-10-30",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 223938047.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-13",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2026-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 224190693.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-01",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2026-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 224218154.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-07-31",
+"unit": "shares"
+},
+{
+"ticker": "EMN",
+"period_end": "2026-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 224221189.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2026-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-25",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-28",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-02",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-02",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-05-02",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-07",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-28",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-05-02",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-03",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-07",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-07",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-28",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-01",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-07",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-01",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-07-31",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-28",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-01",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-01",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-07-31",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-04-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2026-10-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-27",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-07-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2026-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-04-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2026-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-07-30",
+"unit": "shares"
+},
+{
+"ticker": "FMC",
+"period_end": "2026-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 185983792.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2026-10-30",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-12-07",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-10-01",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 51911905.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-12-07",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-10-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-10-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-13",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 51911905.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-03-09",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2023-04-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100000000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-05-11",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2023-07-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100000000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-10",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 100000000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2023-11-02",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 94647954.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 94652348.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2024-05-02",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 94901460.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-08",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2024-07-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 99548127.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-07",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2024-10-24",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 99548127.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-10-31",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2025-04-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 100496663.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-04-24",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2025-07-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 216005938.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-07-24",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2025-10-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 216005938.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-10-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2026-04-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 244415099.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-04-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2026-07-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 252419583.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-07-23",
+"unit": "shares"
+},
+{
+"ticker": "MBLY",
+"period_end": "2026-10-21",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 252403844.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2026-10-29",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-01-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 743584718.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-05-04",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-22",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-01-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 731496951.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-05-04",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-02",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-22",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-08",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-25",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2023-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-01-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 722051488.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-22",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-08",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-05",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-12",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-25",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-06",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2024-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-01-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 714461139.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-25",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-12",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-06",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-05",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2025-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2026-01-31",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 710398642.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-24",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2026-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "MCD",
+"period_end": "2026-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1660600000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-07",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1437500.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2019-11-14",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1437500.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2020-03-20",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1437500.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2019-08-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2018-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 1437500.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2019-05-15",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2395426.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2019-05-15",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-05-15",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 7457500.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2019-05-15",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2414849.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2019-08-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-08-13",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 7457500.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2019-08-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2429811.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2019-11-14",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-11-14",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 7457500.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2019-11-14",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2461983.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2020-03-20",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2461983.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2020-05-06",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2019-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 19400000.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2021-05-03",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2020-03-06",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 7457500.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2020-03-20",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2020-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 2535690.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2020-05-06",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2020-05-06",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 7457500.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2020-05-06",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 27037302.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2021-05-03",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2020-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 27037302.0,
+"fiscal_period": "Q2",
+"report_type": "6-K",
+"filed_date": "2022-05-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2021-06-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 30844642.0,
+"fiscal_period": "Q2",
+"report_type": "6-K",
+"filed_date": "2022-05-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2021-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 30844642.0,
+"fiscal_period": "Q2",
+"report_type": "6-K",
+"filed_date": "2022-05-13",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 108230.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2022-05-16",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 30844641000.0,
+"fiscal_period": "Q1",
+"report_type": "6-K",
+"filed_date": "2022-06-30",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2021-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 108230.0,
+"fiscal_period": "FY",
+"report_type": "20-F",
+"filed_date": "2023-04-28",
+"unit": "shares"
+},
+{
+"ticker": "SJ",
+"period_end": "2022-03-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 34743152000.0,
+"fiscal_period": "Q1",
+"report_type": "6-K",
+"filed_date": "2022-06-30",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2020-12-26",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 175128000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-17",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-03-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176069000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-05",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-06-26",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176223000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-09-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176290000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-03",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-12-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176371000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-12-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176371000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-05",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-12-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176371000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-17",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-12-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176371000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2021-12-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176371000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-03",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-01-22",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 112772349.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2022-02-17",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-03-26",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176679000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-05",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-03-26",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176679000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-27",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-04-23",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 111881628.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2022-05-05",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-06-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176743000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-10",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-06-25",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176743000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-07-23",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 111000088.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2022-08-04",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-09-24",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176771000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-03",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-09-24",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176771000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-10-22",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 110463245.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2022-11-03",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176876000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176876000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-10",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176876000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-27",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176876000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2022-12-31",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 176876000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-01-28",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 110072658.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2023-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-04-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177151000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-04-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177151000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-27",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-04-24",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 109568348.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2023-04-27",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-07-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177241000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-07-01",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177241000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-10",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-07-29",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 108807868.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2023-08-10",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177288000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-09-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177288000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-10-28",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 108114204.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2023-11-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177332000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 886660000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-20",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177332000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177332000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2023-12-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177332000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-01-27",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 107916530.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2024-02-23",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-03-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177744000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-03-30",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 888719000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-04-27",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 107810395.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2024-05-09",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-06-29",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177810000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-06-29",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889050000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-07-27",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 107868874.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2024-08-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-09-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889225000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-09-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 177845000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-10-26",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 106839001.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2024-11-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-12-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889548000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-12-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889548000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-12-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889548000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-19",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-12-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889548000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-20",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2024-12-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 889548000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-01-25",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 531548314.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2025-02-20",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-03-29",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890324000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-03-29",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890324000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-04-26",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 530202933.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2025-05-08",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-06-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890521000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-06-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890521000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-07-26",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 529951669.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2025-08-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-09-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890843000.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-10-25",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 528403595.0,
+"fiscal_period": "Q3",
+"report_type": "10-Q",
+"filed_date": "2025-11-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-12-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890991000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-12-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890991000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2025-12-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 890991000.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-19",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2026-01-24",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 526351286.0,
+"fiscal_period": "FY",
+"report_type": "10-K",
+"filed_date": "2026-02-19",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2026-03-28",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 891811000.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2026-04-25",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 524449616.0,
+"fiscal_period": "Q1",
+"report_type": "10-Q",
+"filed_date": "2026-05-07",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2026-06-27",
+"raw_tag": "us-gaap:CommonStockSharesIssued",
+"value": 892018000.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-06",
+"unit": "shares"
+},
+{
+"ticker": "TSCO",
+"period_end": "2026-07-25",
+"raw_tag": "dei:EntityCommonStockSharesOutstanding",
+"value": 521040137.0,
+"fiscal_period": "Q2",
+"report_type": "10-Q",
+"filed_date": "2026-08-06",
+"unit": "shares"
+}
+]
+}

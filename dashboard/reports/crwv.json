@@ -88,6 +88,31 @@
  ],
  "sections": [
   {
+   "id": "update-2026-11-05",
+   "title": "Update, 5 Nov 2026: still Neutral into Q3 results",
+   "blocks": [
+    {
+     "type": "callout",
+     "tone": "risk",
+     "title": "What changed since our 17 October initiation",
+     "text": "Nothing reported since 17 October changes the thesis: the debate is still funding, not demand. CoreWeave has filed no new financing since September; its only filings in the period were three routine Form 4s [s218]. Credit has not healed. Five-year CDS was about 1,140bp on 4 November and the 9.75% 2031 notes yielded about 15.9% after the midterm results raised data-centre permitting concerns [s219]. The roughly 1,040bp in our report was a 15 October print; the 16 October level was about 1,100bp [s220]. On demand, Microsoft said some third-party capacity deliveries had slipped, without naming suppliers, while Azure grew 48% [s221]. The shares closed at **US$50.15** on 2 November, a 52-week low [s222]."
+    },
+    {
+     "type": "p",
+     "text": "We move three points of scenario weight toward the downside, to restructuring 16%, bear 42%, base 33% and bull 9% (from 15/40/35/10), which lowers our probability-weighted value to **about US$64** a share (our arithmetic on the unchanged scenario values in Section 8). 58% of the weight now sits in cases worth US$4 or less. We stay **Neutral**, with **Very high** risk."
+    },
+    {
+     "type": "bullets",
+     "items": [
+      "**Q3 results, 10 November after the close [s223].** Interest expense against the US$860–940m guide [s9]; a figure above the range, or a Q4 guide far above it, points to the bear case.",
+      "**Guidance.** Whether FY2026 revenue of US$12.4–13.2bn and capex of US$35–39bn hold [s9], and whether any shortfall is put down to delivery delays.",
+      "**Backlog.** RPO against US$103.7bn at 30 June [s2], and any re-scoping or deferral by the largest customers.",
+      "**Funding the 2027 plan.** Contract-backed, investment-grade facilities or customer prepayments would support the base case; unsecured debt near 15% or heavy use of the 35m-share ATM would support the bear case [s109]."
+     ]
+    }
+   ]
+  },
+  {
    "id": "house-view",
    "title": "House view & investment case",
    "blocks": [
@@ -4507,6 +4532,48 @@
    "publisher": "Bloomberg",
    "date": "2026-07-29",
    "url": "https://www.bloomberg.com/news/articles/2026-07-29/coreweave-boosts-yield-on-2-6-billion-loan-tied-to-anthropic"
+  },
+  {
+   "id": "s218",
+   "title": "CoreWeave, Inc. filing history (submissions index, CIK 1769628), re-fetched 5 Nov 2026",
+   "publisher": "SEC EDGAR",
+   "date": "2026-11-05",
+   "url": "https://data.sec.gov/submissions/CIK0001769628.json"
+  },
+  {
+   "id": "s219",
+   "title": "Stock market today: live updates (CoreWeave credit-default swaps and 2031 notes)",
+   "publisher": "CNBC",
+   "date": "2026-11-04",
+   "url": "https://www.cnbc.com/2026/11/03/stock-market-today-live-updates.html"
+  },
+  {
+   "id": "s220",
+   "title": "CoreWeave and Oracle: AI credit stress (CoreWeave five-year CDS)",
+   "publisher": "CNBC",
+   "date": "2026-10-19",
+   "url": "https://www.cnbc.com/2026/10/19/coreweave-oracle-ai-credit-stress.html"
+  },
+  {
+   "id": "s221",
+   "title": "Microsoft FY2027 first-quarter earnings",
+   "publisher": "Microsoft Investor Relations",
+   "date": "2026-10-28",
+   "url": "https://www.microsoft.com/en-us/investor/events/fy-2027/earnings-fy-2027-q1"
+  },
+  {
+   "id": "s222",
+   "title": "CoreWeave just set a fresh 52-week low at $50.15",
+   "publisher": "24/7 Wall St.",
+   "date": "2026-11-02",
+   "url": "https://247wallst.com/cards/coreweave-just-set-a-fresh-52-week-low-at-50-15-7-53-unde-crwv-price-extreme-01m6fag8y5s53wqss993m9qxbr"
+  },
+  {
+   "id": "s223",
+   "title": "CoreWeave Announces Date of Third Quarter 2026 Financial Results and Conference Call",
+   "publisher": "CoreWeave Investor Relations",
+   "date": "2026-10-27",
+   "url": "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Announces-Date-of-Third-Quarter-2026-Financial-Results-and-Conference-Call/default.aspx"
   }
  ],
  "disclosures": [
