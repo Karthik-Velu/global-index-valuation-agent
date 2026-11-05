@@ -10,7 +10,8 @@ name: Screen DSL tests
 # Safe to run on push to the dev branch. Also validates the Key reports (dashboard/reports/*.json,
 # schema v1) and the report renderer's XSS-safety in a fake DOM, and runs the stress-test model
 # engine's suite (dashboard/model-engine.js: accounting identities, interest, codec) — Node only,
-# no network.
+# no network. And the proposal queue and its three agents (ADR-044): stdlib only, a fake DB,
+# a canned model, no network.
 
 on:
   pull_request:
@@ -41,6 +42,18 @@ on:
       - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
+      - "engine/canonical.py"
+      - "engine/proposals.py"
+      - "engine/quality.py"
+      - "engine/qualitytriage.py"
+      - "engine/datapipeline.py"
+      - "engine/dataagent/agent.py"
+      - "engine/dataagent/discover.py"
+      - "engine/sectoragent/research.py"
+      - "engine/sectoragent/sic_map.py"
+      - "engine/sources/registry.py"
+      - "engine/migrations/0017_needs_register.sql"
+      - "supabase/functions/admin/index.ts"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -76,6 +89,18 @@ on:
       - ".github/workflows/catalog-audit.yml"
       - "engine/sectoragent/tagging.py"
       - "engine/dailyplan.py"
+      - "engine/canonical.py"
+      - "engine/proposals.py"
+      - "engine/quality.py"
+      - "engine/qualitytriage.py"
+      - "engine/datapipeline.py"
+      - "engine/dataagent/agent.py"
+      - "engine/dataagent/discover.py"
+      - "engine/sectoragent/research.py"
+      - "engine/sectoragent/sic_map.py"
+      - "engine/sources/registry.py"
+      - "engine/migrations/0017_needs_register.sql"
+      - "supabase/functions/admin/index.ts"
       - "tests/**"
       - "scripts/test_screens.js"
       - "scripts/test_screen_builder.js"
@@ -120,6 +145,10 @@ jobs:
           python tests/test_tagging.py
       - name: Daily plan loop (day comment, owner-only replies, publish guards; fake GitHub API)
         run: python tests/test_dailyplan.py
+      - name: Proposal queue (canonical keys, needs gating, expiry, no catalogue clobber; fake DB)
+        run: python tests/test_proposals.py
+      - name: Proposal agents (needs seed, licence gate, rotation, XBRL gate; fake DB, no network)
+        run: python tests/test_agents.py
       - name: Tier B dump presets (parameters bound, no prices view; in-memory DuckDB)
         run: |
           pip install --quiet "duckdb>=1.0,<2"

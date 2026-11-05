@@ -35,6 +35,14 @@ _CURRENCY_NONNEG = ("total_assets", "total_deposits", "shares_outstanding")
 # (esp. financials in 2008/2020), so they are NOT used for units-error detection.
 _JUMP_CORE = {"total_revenue", "total_assets"}
 
+# Every check_name the checks below can emit. A proposal about a check that is not
+# here (v1 of check 7, retired under ADR-027, for one) has lost its trigger and
+# expires (proposals.expire_stale, ADR-044). tests/test_proposals.py keeps this in
+# step with the code.
+CHECKS = ("no_fundamentals", "negative_value", "timeseries_jump", "missing_revenue",
+          "missing_net_income", "stale_filings", "source_disagreement",
+          "shares_multiclass_unsummed")
+
 
 def _units() -> dict[str, str]:
     """metric_code -> unit, from the catalog (empty if unavailable)."""

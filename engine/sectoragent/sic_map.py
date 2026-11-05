@@ -70,6 +70,16 @@ _RANGES = [
 ]
 
 
+def sector_of(sub_sector: str | None) -> str | None:
+    """The broad sector this map files a sub-sector under, or None if it never emits
+    that name. Scopes a KPI proposal's identity (engine/canonical.py, ADR-044)."""
+    want = (sub_sector or "").strip().lower()
+    for sector, sub in list(_OVERRIDE.values()) + [v for _, _, v in _RANGES]:
+        if sub.lower() == want:
+            return sector
+    return None
+
+
 def classify(sic_code: str | int | None) -> tuple[str, str]:
     """Return (sector, sub_sector) for a SIC code; ('Unknown','') if unmappable."""
     if sic_code in (None, "", "0000"):

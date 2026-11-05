@@ -8,6 +8,34 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-11-05: Agents v2, the needs register and canonical keys
+- **Built:** the 13 root causes from the 31 Oct queue review, in one PR. A needs register in
+  `data_needs` (migration 0017), seeded insert-only with the genuine needs the review found;
+  canonical dedup keys (`engine/canonical.py`) with a Python backfill that re-keys the legacy
+  rows before the first capture or expiry pass; need gating, distinct-signal evidence and
+  scope merge in `capture()`; expiry with an audit event; discovery with a registry licence
+  gate, a fuller prompt and no registry writes; protected registry upserts and the invented
+  leads marked; sector research rotated by coverage, with catalogue codes in the prompt and
+  an XBRL gate behind `XBRL_VERIFY`; enrich keeping scope and grounding `how_used`; and the
+  no-clobber fix in both apply paths. ADR-044. Tests: `tests/test_proposals.py`,
+  `tests/test_agents.py` (a shared fake DB in `tests/_fakepg.py`).
+- **Learned:**
+  - Ingestion reads `engine/sources/metric_catalog.json`, not the `metric_catalog` table that
+    an approval writes, so an approved KPI is collected by nothing until someone adds it to the
+    file. Every `catalog_kpi` proposal's `how_used` now says so.
+  - Left open, `stock_fundamentals` would have let EDINET proposals bypass the parked Japan
+    need, so it is `answered_by_roadmap` (ADR-031), set once by the migration.
+  - With `XBRL_VERIFY` off, every KPI routes to the parked non-XBRL need, so research would
+    have spent model calls to raise nothing. It now skips the model in that case.
+  - The 0013 status check is an inline constraint, so 0017 drops it through `pg_constraint`
+    whatever it is called before adding the new one with `expired`.
+  - No Postgres or Deno here: the migration's re-runnability is checked statically, and the
+    Edge Function by a static mirror test plus a careful read.
+- **Open:** the owner deploys the Edge Function; run `apply_migrations()` twice on a branch
+  database to confirm 0017 for real; decide on `XBRL_VERIFY=1` for the Wednesday run; the
+  non-XBRL need's review date (2027-06-30) is a placeholder, as the brief gave none; after the
+  first Wednesday run, check the `rekeyed` and `expired` events in `proposal_events`.
+
 ## 2026-11-05: catalogue audit (report only)
 - **Built:** `engine/catalogaudit.py`, a deterministic job that gives every `metric_catalog`
   row a verdict and a suggested action, written to `data/catalog_audit.json` and `.md`;
