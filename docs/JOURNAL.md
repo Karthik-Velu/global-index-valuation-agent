@@ -8,6 +8,32 @@ learned, what's still open. Keep it to what a future session would want to know.
 
 ---
 
+## 2026-11-05: catalogue audit (report only)
+- **Built:** `engine/catalogaudit.py`, a deterministic job that gives every `metric_catalog`
+  row a verdict and a suggested action, written to `data/catalog_audit.json` and `.md`;
+  `.github/workflows/catalog-audit.yml` (dispatch only, `contents: read`, restores Tier B
+  the way `tierb-dump.yml` does, never saves the cache, optional `frames` input); and
+  `tests/test_catalogaudit.py` (in-memory DuckDB, fake Postgres, fake SEC getter).
+  `catalog.xbrl_tag_map()` now takes optional rows so the audit judges a catalogue by the
+  exact map ingestion builds from it.
+- **Learned:**
+  - On the JSON alone, 11 rows are dead before any data is read. Eight are `in_xbrl` rows
+    whose every tag is claimed first by another code (first wins in the tag map): for
+    example `revenue_total` by `total_revenue`, and `free_cash_flow` and `capex` by
+    `capital_expenditures`, `capex_total` and `operating_cash_flow`. Three computed rows
+    (`sga_ratio`, `implied_cap_rate`, `interest_coverage`) name no input the catalogue
+    collects.
+  - Ingestion reads only the us-gaap, dei and ifrs-full namespaces, so a `srt:` tag is
+    well formed but never collected.
+  - A tag such as 'us-gaap_X' gets into the tag map verbatim, but no filed fact is ever
+    named that, so it can never match.
+  - A computed row can name another computed code (`net_debt_to_ebitda` from
+    `ebitda_margin`), which has no stored rows, so the audit counts it as its weakest
+    own input rather than as zero.
+- **Open:** dispatch `catalog-audit.yml` with `frames` after merge, then fix the dead,
+  malformed and drifted rows by hand. Fold the frames fetch into a shared SEC helper once
+  PR #78 (agents v2) lands.
+
 ## 2026-11-03: share census S0 (ADR-043)
 - **Built:** `engine/sharescensus.py` (modes `--cache`, `--store`, `--companyfacts`),
   `engine/shares.py` (pure `fact_rows`, `classify_accessions`, `select`; not imported by the

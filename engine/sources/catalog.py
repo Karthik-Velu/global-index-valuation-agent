@@ -47,14 +47,16 @@ def load() -> list[dict]:
     return json.loads(CATALOG_PATH.read_text())["metrics"]
 
 
-def xbrl_tag_map() -> dict[str, str]:
+def xbrl_tag_map(rows: list[dict] | None = None) -> dict[str, str]:
     """XBRL concept (without namespace prefix) -> metric_code, for in_xbrl metrics.
 
     Canonical core line items are pinned first (and win); the rest of the catalog then
-    claims remaining concepts in file order.
+    claims remaining concepts in file order. `rows` defaults to the committed JSON
+    (what ingestion uses); engine/catalogaudit.py passes its own rows so the audit
+    judges a catalogue by the exact map ingestion would build from it.
     """
     out: dict[str, str] = dict(_CANONICAL)
-    for m in load():
+    for m in (load() if rows is None else rows):
         if m.get("in_xbrl"):
             for tag in m.get("xbrl_tags", []):
                 concept = str(tag).split(":")[-1]
