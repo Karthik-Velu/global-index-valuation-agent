@@ -10,6 +10,7 @@ __pycache__/
 data/*.db
 data/*.json
 data/*.log
+data/shares_census.csv
 data/catalog_audit.md
 data/cache/
 data/snapshots/

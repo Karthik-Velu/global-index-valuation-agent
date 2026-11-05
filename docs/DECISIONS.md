@@ -9,6 +9,178 @@ Don't rewrite history — if a decision is reversed, add a *new* entry that supe
 
 ---
 
+### ADR-043 · Share counts: economic shares from vintaged facts, and a value quarantine instead of the blanket exclusion
+- **Context:** `shares_multiclass_unsummed` flags 691 issuers (1,287 of 1,771 open issues),
+  and `picks.EXCLUDE_CHECKS` keeps every one of them out of picks and the screener's default
+  view. The owner refused a fix that excludes stocks: "let's do a proper fix and not exclude
+  these stocks" (2026-10-31). The investigation found the check mislabelled.
+  - **The check:** 0 of the 691 are unsummed multi-class, because companyfacts carries no
+    per-class facts. Most flags are legitimate split-restatement vintages (621 groups) or old
+    scale and tagging slips that touch no computed number, since prices start 2024-10-04.
+  - **The live defects elsewhere:**
+    - the ingest key (`edgar.py:173-176`) has no concept, so CommonStockSharesIssued beats
+      the dei cover and balance-sheet outstanding counts (EMN 1.96x; MCD, CL and MMM on stale
+      covers), and the same key lets a consolidated ProfitLoss or equity including NCI stand
+      in for the parent's numerator (15 and 41 of 685 cached issuers);
+    - dimensional-only issuers have no count (META, CRWV) or one class only (MBLY 0.31x of
+      its weighted average);
+    - single-vintage scale errors (SJ, 34.7B shares from a 2022 6-K) and very old counts
+      (BRK 2011, REGN 2012, LEVI 2019);
+    - ADS ratios (BABA 8x);
+    - a security master with shared CIKs and CIKs overwritten on re-ingest (XPRO, CLBK).
+- **Choice:**
+  - **Convention.** Market cap = the listing's price x the issuer's economic shares in that
+    listing's units.
+    - Economic shares are the parent's basic-EPS population: every common class at its
+      economic equivalence (Alphabet 1:1, BRK A = 1,500 B), and ADS listings at 1 /
+      ordinaries per ADS.
+    - They exclude treasury shares, dilutive securities, non-economic voting classes and
+      subsidiary exchangeable units.
+    - The P/E and P/B numerators are made to match: where the stored `net_income` or
+      `total_equity` is a consolidated concept, the parent's value from the same filing
+      replaces it at read time (S5b), else consolidated minus the same-context NCI. The
+      stored rows and the catalogue mapping are unchanged. The P/S and P/CF bias for
+      large-NCI issuers is flagged, not corrected.
+  - **Storage.** A CIK-keyed Tier B dataset, `share_facts`, keeps every share and proxy fact
+    (parent and consolidated numerators included) with accession, filing date, namespaced
+    concept, duration and class member, as filed (ADR-005). One dataset serves companyfacts
+    now and filing instances later. A derived, rebuildable `share_counts` file holds
+    per-accession verdicts, EDGAR data only, with no Massive field or value derived from one.
+    `fundamental_metrics` and `FM_KEY` are untouched.
+  - **Resolution** (`engine/shares.py`, deterministic, no LLM).
+    - The newest periodic accession filed before the date wins.
+    - Within it the order is: cover, CSO, issued minus treasury, issued (guarded), then the
+      validated basic weighted average for a missing, stale or class-incomplete count, then
+      (later) the class sum.
+    - Candidates are checked against independent groups from the same filing and earlier
+      ones. Income (NI/EPS and the weighted average) counts as one group.
+    - Only powers of 1,000 are fixed, and only on two agreeing groups. Anything else
+      inconsistent is quarantined.
+    - Counts are flagged after 400 days (550 for 20-F and 40-F filers) and quarantined after
+      twice that; future-dated covers are clamped to the filing date.
+    - A count below two thirds of the weighted average is a partial class only when the low
+      ratio persists or the same filing's period-end count is also low; a new drop with the
+      period-end count in band is a post-period tender and keeps the count; anything else is
+      quarantined until the next filing.
+  - **Value, not stock.** A value the rules cannot stand behind becomes NaN shares, so the
+    screener keeps the row and the picks liquid gate keeps it out of picks.
+    - No `shares_*` check ever enters `EXCLUDE_CHECKS`.
+    - Check 7 is deleted in both twins, in its own commit, so a rollback reverts that commit
+      and brings the check and its exclusion back together.
+    - `shares_outstanding` leaves `_CURRENCY_NONNEG`.
+    - Its replacements run once per security on the value used today, computed by the same
+      functions `score_frame` calls. The quality job, which runs before the screens step,
+      never runs a second scoring.
+  - **Splits and knowledge dates.**
+    - Until the split factor exists, a count is quarantined only for a split executed after
+      it and on or before the date scored, so no backtest cross-section depends on a later
+      split. Backtest dates before an in-window split keep today's mixed basis, counted and
+      carried as a caveat on every backtest run until S7b.
+    - From S7b, market cap = adjusted close x shares x K(bar basis) / K(fact basis), where
+      the bar basis is each bar's fetch date, the fact basis comes from the filing's own
+      evidence, and K is the cumulative split factor, computed in memory and never
+      published. Backtest forward returns and momentum use the same factors.
+    - A fact is visible when `filed_date < asof` (S7a, its own PR), because an after-close
+      filing is not knowable at that day's close. ADR-005 sets the principle and names no
+      operator; the inclusive `<=` lives in `tierb.metrics_asof` (`tierb.py:420-425`) and the
+      migration 0003 comment. S7a tightens that implementation and the `tierbsync` gate that
+      tests it; ADR-005 stands.
+    - ADR-045 (with S7b) records that splits now feed market cap, amending ADR-018
+      (ADR-044 is reserved for the agents work).
+  - **Listings.** `securities.price_ticker` maps class tickers to Massive symbols (BRK-B to
+    BRK.B; S8a). CIK history replaces the silent overwrite at `edgar.py:154`: a verified
+    change becomes a dated predecessor, an unverified one a held candidate with a daily
+    warning (S8b). One pick card per CIK and one listing per CIK in each backtest
+    cross-section; the screener keeps both listings (S8c). Taking non-stocks and duplicate
+    listings out of the universe is a separate owner decision (S8d), not part of this fix.
+  - **Delivery.** Eighteen PR-sized stages: S0 to S11, with S5b, S7a and S7b, S8a to S8d,
+    and S9a and S9b. Seventeen make up the share fix; S8d is the owner-gated universe change.
+    - A read-only census goes first, and its thresholds can re-order the rest.
+    - The exclusion is lifted in S3, behind gates G1 to G5, with an interim quarantine of the
+      live value built from rows the store already holds and a splits backfill from 2023.
+    - Each stage that changes a computed value bumps `DATA_GATE_VERSION`. That session's
+      stock alerts and the next weekly market alerts diff against the previous run
+      re-scored under the new rules; a screen with no comparable baseline is re-baselined
+      silently. A `data_versions` row marks the change for the feedback loop and makes the
+      recalibration orchestrator recommend a re-backtest; the backtest is re-run after every
+      such stage.
+    - `checks_version` marks quality-score steps as definition changes.
+    - `GIVA_SHARES_RESOLVER=legacy` is the kill switch.
+  - **Supersedes:**
+    - the uncited `_resolve_shares_concept` tie-break, mis-cited as ADR-027 at
+      `quality.py:154` and `tierbdump.py:41`;
+    - the shares half of ADR-034's "Fixed alongside (a)" issued-vs-outstanding guard.
+
+    Both remain only as the per-security legacy fallback until S11 removes them.
+- **Why:**
+  - **It fixes the values that are wrong,** not the check's symptom. The fixed values include
+    the undercounts that create false picks (MBLY, Class-A-only counts), which the old check
+    could never see, and numerators that counted other owners.
+  - **It is point in time by construction.** Raw facts are never changed. Verdicts use only
+    the same and earlier accessions and splits already executed, and a truncation-invariance
+    test over facts and splits guards every resolver stage.
+  - **It costs about $0.** The work is deterministic, EDGAR is public domain, and no licensed
+    price or corporate-action value reaches an artifact.
+  - **The owner's goal lands in the fourth PR, not after the whole build.** The re-admitted
+    stocks are no riskier than the ~2,400 never flagged, because the collision and staleness
+    defects hit both groups alike.
+- **Rejected:**
+  - **Excluding the flagged stocks, or any re-scoped subset:** the owner refused it. It hides
+    EMN-type errors instead of fixing them.
+  - **Narrowing or renaming the check:** it would still measure disagreement between
+    vintages, not wrong market caps, and it can never see a dimensional-only issuer.
+  - **Adding `raw_tag` or the accession to `FM_KEY` or the ingest key:** this re-partitions
+    every metric and forces a full rewrite. First-write-wins also means collided rows could
+    not be replaced.
+  - **Per-concept metric codes in `fundamental_metrics`:** they carry no accession, duration
+    or class member, add about 25% to the rows every `metrics_asof` call reads, and a second
+    dataset would still be needed for per-class facts.
+  - **A plain dei-first priority at ingest:** it would adopt BABA's 10x-short 2026 cover and
+    discard the other concepts with no audit trail.
+  - **Remapping ProfitLoss out of `net_income` in the catalogue:** 53 cached issuers have FY
+    facts tagged only as ProfitLoss, most with no NCI, and would lose their earnings.
+  - **Modal or majority vote across vintages:** it marked SHOE's true counts and BSCL's
+    1-for-500 post-split count as errors.
+  - **Correcting values from later filings:** that is look-ahead.
+  - **Quarantining every backtest date before a split whose bar was fetched later:** it makes
+    the cross-section at t depend on a split after t, so future splitters drop out of
+    earlier periods.
+  - **Treating every count below two thirds of the weighted average as a partial class:** after
+    a large post-period tender the weighted average overstates the shares.
+  - **Keeping very old counts until a weighted average arrives:** a 2011 count is not one the
+    rules can stand behind, whatever the stage order.
+  - **Counting EPS-implied shares and the weighted average as two votes:** SHOE's 2012-12-06
+    10-Q tagged both in thousands.
+  - **The diluted weighted average as the count:** it includes dilutive securities (QSR 459M
+    diluted vs 349M basic).
+  - **Summing raw class counts, or listed classes only:** wrong for BRK's 1,500:1, and it
+    understates founder-heavy issuers (MBLY).
+  - **One store-wide price basis date:** bars are re-based only by the monthly sweep or a
+    targeted refresh.
+  - **Anchoring split factors at the count date:** it double-adjusts restated comparatives.
+  - **Storing basis dates or split factors in `share_counts`:** they derive from licensed
+    Massive rows, and that file is safe to publish only while it is EDGAR-only.
+  - **Massive share counts as the source:** licensed, not redistributable and not point in
+    time.
+  - **A Postgres table for per-class facts:** bulk point-in-time facts belong in Tier B
+    (ADR-015).
+  - **Cleaning values at ingest:** the rules could never improve without a rewrite.
+  - **Hand-entered ratios without knowledge dates:** they leak into the backtest.
+  - **Applying an unverified CIK change:** a reassigned ticker would attach another company's
+    facts.
+  - **An LLM to classify flags or read ratios:** it breaks the deterministic, ~$0 hot path.
+  - **Silencing every alert on a rules change:** it hides genuine moves.
+  - **Nulling `last_matches` in a migration:** its timing against the daily run is fragile.
+  - **Running `score_frame` inside the quality job:** a second full scoring with price reads
+    for checks that need, at most, two closes per security.
+  - **Bundling the knowledge cut-off with the split basis, or universe hygiene with the share
+    fix:** independent value-moving changes in one PR make the rank-IC attribution ambiguous,
+    and universe hygiene removes listings, which the owner must approve on its own.
+  - **Waiting for split basis or per-class facts before lifting the exclusion:** it delays
+    the owner's goal while protecting nothing the rest of the universe has.
+- **Plan:** `docs/SHARES_PLAN.md` (stages S0 to S11, thresholds, policies).
+- **Date:** 2026-10-31.
+
 ### ADR-042 · The daily plan loop: a job, an agent and a `go` path, in GitHub Actions
 - **Context:** the owner asked for an update to the plan every day, with feedback (his and
   the system's) flowing back into it and steps proposed for his OK. Until now the plan moved

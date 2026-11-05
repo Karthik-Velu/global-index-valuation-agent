@@ -1,0 +1,71 @@
+name: Share census (S0, read-only)
+
+# Stage S0 of the share-count fix (ADR-043, docs/SHARES_PLAN.md): measures, across the
+# whole stock universe, what every later stage would change, and evaluates the
+# thresholds T1 to T16 that can re-order the plan. A job: deterministic, no LLM.
+#
+#   mode store         Tier B + Postgres, no SEC. What the store holds today: the
+#                      resolved row, the live numerator rows, the S3 guard projection.
+#   mode companyfacts  as store, plus fresh companyfacts for every CIK (SEC_USER_AGENT,
+#                      5 requests a second or fewer): every later stage's rules,
+#                      reconciled against the store. About 20 to 30 minutes.
+#
+# READ-ONLY. It restores Tier B the way backtest.yml does and never saves the cache
+# (saving would re-publish a stale copy as the newest tierb-v1-* entry); it does not
+# join the tierb-writer concurrency group because it never writes the store, Postgres
+# or the repo.
+#
+# Licensing (plan rule 6): the artifact holds EDGAR data and aggregate counts only. Prices
+# are counted, never read as values; Massive splits are counted, never echoed; the
+# census refuses to write a file with a price, market-cap or corporate-action field.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "store (no SEC) or companyfacts (fresh SEC companyfacts)"
+        type: choice
+        default: store
+        options:
+          - store
+          - companyfacts
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SEC_USER_AGENT: ${{ inputs.mode == 'companyfacts' && secrets.SEC_USER_AGENT || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      # Restore only, exactly as backtest.yml: this job reads Tier B and never writes it.
+      - name: Restore Tier B store (Parquet)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/tierb
+          key: tierb-v1-census-${{ github.run_id }}
+          restore-keys: |
+            tierb-v1-
+      - name: Hydrate if the cache missed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m engine.tierbsync pull
+      - name: Share census
+        run: python -m engine.sharescensus --${{ inputs.mode }}
+      # Public artifact (public repo), pinned to the census's own two files.
+      - name: Upload census
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shares-census-${{ inputs.mode }}
+          path: |
+            data/shares_census.json
+            data/shares_census.csv
+          retention-days: 30
+          if-no-files-found: error
