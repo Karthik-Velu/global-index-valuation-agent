@@ -476,10 +476,10 @@ sector-research lessons decayed unused). See ADR-028.
   propose against open needs only; synonyms of a declined idea stay blocked; approving a code
   already in the catalogue never rewrites it. Tests: `tests/test_proposals.py`,
   `tests/test_agents.py`.
-  - ⬜ Owner: deploy the Edge Function (`supabase functions deploy admin`) so the console's
-    approve path gets the no-clobber fix too.
-  - ⬜ Owner: decide whether to set `XBRL_VERIFY=1` for the Wednesday run; until then Sector-KPI
-    Research is skipped, because nothing it finds could be filed.
+  - ✅ Edge Function deployed (v9, 5 Nov 2026), so the console's approve path has the
+    no-clobber fix too. Smoke-tested: 401 with no token, 403 "not an admin" for the anon key.
+  - ✅ `XBRL_VERIFY=1` set in `data-pipeline.yml` (owner's decision, 5 Nov 2026), so Sector-KPI
+    Research runs again on Wednesdays and files only SEC-verified tags.
 
 - ✅ **"Quality on sale" screens + Top picks (ADR-034, 2026-10-06)** — strong-fundamentals
   names ≥10%/20% below their 52-week average (markets + stocks), a rule-based Top picks
