@@ -16,6 +16,31 @@ Newest first. The daily plan loop adds one entry a day: what changed, what the s
 say, and the one step proposed. Discussion happens in the pinned standup, issue [#58](https://github.com/Karthik-Velu/global-index-valuation-agent/issues/58);
 replies there feed back into this file.
 
+### 2026-11-22 (Sun)
+- **Verified:** the Sun 22 Nov scheduled pipeline ([run 45020724667](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/45020724667),
+  incremental) finished green in 17 min (pipeline step 16 min). The Tier B save and the
+  readability gate both succeeded, no steps failed. Tagging: 105 securities, 2 unknown,
+  0 fetch errors, in 110 s. The first-Sunday flag is false.
+- **Owner replies:** none since the last standup (13:58 UTC on 21 Nov), so nothing to fold in.
+- **Signals:** data quality 71/100, 1,801 open issues (unchanged from 21 Nov), of which
+  `shares_multiclass_unsummed` is 1,306 (unchanged). Recalibration: `forward_only`. Latest
+  backtest is still id 4 (25 Jul). No failed CI runs in the last 30 hours (6 runs; the
+  current Daily plan run was still in progress when the signals were gathered). The
+  scheduled Daily plan run of 22 Nov ([run 44966319824](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/44966319824))
+  succeeded; the "Daily plan go" run of 21 Nov ([run 44911638298](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/44911638298))
+  was skipped, as intended (no `go`).
+- **Merged since the last entry:** #97 (the 21 Nov plan update) only.
+- **Console proposals:** 152 declined, 7 parked, 3 actioned, 2 queued for build, 2 pending.
+  None decided in the last 30 hours.
+- **Plan changes:** none ticked; no new evidence for any listed item. The ⬜ follow-up under
+  P0.0 (read the 11 Nov `workflow_run` failure log) is still open, with no repeat failure
+  since.
+- **Proposed today:** P0.0 watchdog plus the Node 24 action upgrades, twenty-second day running
+  (see the standup).
+- **Waiting on owner:** same as 21 Nov: the outcome or review of the B1 build; the restore
+  drill and final confirmation before the first half of D04 runs; the 14 Oct owner actions
+  (a) to (g) in STATUS.md; the full Phase 0 list; D14a.
+
 ### 2026-11-21 (Sat)
 - **Verified:** the Sat 21 Nov scheduled pipeline ([run 44910376536](https://github.com/Karthik-Velu/global-index-valuation-agent/actions/runs/44910376536),
   incremental) finished green in 14 min (pipeline step 13 min). The Tier B save and the
